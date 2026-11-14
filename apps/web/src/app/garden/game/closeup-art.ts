@@ -5,6 +5,7 @@
  * top-left, curved stems, and a selective dark outline. Rendering only.
  */
 import type { PlantStage } from '@garden/shared';
+import { makeCanvas } from './placeholders';
 
 type Ramp = readonly [dark: string, mid: string, light: string, highlight: string];
 
@@ -130,10 +131,7 @@ class Pix {
   }
 
   toDataUrl(): string {
-    const canvas = document.createElement('canvas');
-    canvas.width = this.w;
-    canvas.height = this.h;
-    const ctx = canvas.getContext('2d')!;
+    const [canvas, ctx] = makeCanvas(this.w, this.h);
     this.data.forEach((c, i) => {
       if (!c) return;
       ctx.fillStyle = c;
@@ -237,44 +235,31 @@ function drawMature(p: Pix, itemType: string): void {
   }
 }
 
-const cache = new Map<string, string>();
-
-/** Data URL of the 64x64 close-up art for a plant at a given stage. */
+/** Data URL of the 64x64 close-up art for a plant at a given stage. Cached by the asset registry. */
 export function closeupPlantArt(itemType: string, stage: PlantStage): string {
-  const key = `${itemType}:${stage}`;
-  let url = cache.get(key);
-  if (!url) {
-    const p = new Pix(64, 64);
-    if (stage === 'SEED') drawSeed(p, itemType);
-    else if (stage === 'SPROUT') drawSprout(p, itemType);
-    else drawMature(p, itemType);
-    url = p.outline().toDataUrl();
-    cache.set(key, url);
-  }
-  return url;
+  const p = new Pix(64, 64);
+  if (stage === 'SEED') drawSeed(p, itemType);
+  else if (stage === 'SPROUT') drawSprout(p, itemType);
+  else drawMature(p, itemType);
+  return p.outline().toDataUrl();
 }
 
-/** Data URL of the 80x24 soil mound the plant stands in. */
+/** Data URL of the 80x24 soil mound the plant stands in. Cached by the asset registry. */
 export function closeupSoilArt(): string {
-  let url = cache.get('soil');
-  if (!url) {
-    const p = new Pix(80, 24);
-    p.ellipse(40, 15, 34, 8, 0, RAMPS.soil);
-    p.disc(22, 13, 1.6, RAMPS.stone);
-    p.disc(57, 16, 1.3, RAMPS.stone);
-    p.disc(47, 11, 1, RAMPS.stone);
-    for (const [x, a] of [
-      [9, -0.3],
-      [12, 0.2],
-      [70, 0.3],
-      [67, -0.2],
-    ] as const) {
-      p.ellipse(x, 10, 1.4, 5, a, RAMPS.leaf);
-    }
-    url = p.outline().toDataUrl();
-    cache.set('soil', url);
+  const p = new Pix(80, 24);
+  p.ellipse(40, 15, 34, 8, 0, RAMPS.soil);
+  p.disc(22, 13, 1.6, RAMPS.stone);
+  p.disc(57, 16, 1.3, RAMPS.stone);
+  p.disc(47, 11, 1, RAMPS.stone);
+  for (const [x, a] of [
+    [9, -0.3],
+    [12, 0.2],
+    [70, 0.3],
+    [67, -0.2],
+  ] as const) {
+    p.ellipse(x, 10, 1.4, 5, a, RAMPS.leaf);
   }
-  return url;
+  return p.outline().toDataUrl();
 }
 
 /** Art geometry, so the view can line plant and soil up at an integer scale. */

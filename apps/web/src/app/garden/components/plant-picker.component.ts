@@ -1,8 +1,18 @@
 import { Component, computed, inject, input, output } from '@angular/core';
-import { GRID_SIZE } from '@garden/shared';
+import { HABITAT_COLS, PlacementError, footprintOf } from '@garden/shared';
+import { colPct, rowPct } from '../../habitat/tile-percent';
 import { GardenStore } from '../garden.store';
-import { spriteIcon } from '../game/plant-sprites';
+import { AssetService } from '../../shared/assets.service';
+import { previewTextureKey } from '../game/asset-registry';
 import type { TileCoord } from '../game/tile-manager';
+
+/** Why an option is disabled, phrased from the item's own footprint. */
+function reason(error: PlacementError, itemType: string): string {
+  if (error === 'INSUFFICIENT_FUNDS') return 'Not enough seeds';
+  if (error === 'UNKNOWN_ITEM') return 'Unavailable';
+  const f = footprintOf(itemType);
+  return f.w * f.h > 1 ? `Needs ${f.w}×${f.h} free soil` : 'No room here';
+}
 
 /** Small popover anchored to an empty plot: the plot itself is the "shop". */
 @Component({
@@ -17,18 +27,19 @@ import type { TileCoord } from '../game/tile-manager';
       role="menu"
       aria-label="Plant something here"
     >
-      @for (item of store.catalog; track item.id) {
+      @for (opt of options(); track opt.item.id) {
         <button
           type="button"
           role="menuitem"
-          class="flex w-16 flex-col items-center rounded-md px-1 py-1 enabled:hover:bg-sun/60 focus-visible:outline-2 focus-visible:outline-sun disabled:opacity-40"
-          [disabled]="!store.canAfford(item.id)"
-          [attr.aria-label]="item.name + ', ' + item.price + ' seeds'"
-          [title]="item.name"
-          (click)="picked.emit(item.id)"
+          class="flex w-20 flex-col items-center rounded-md px-1 py-1 enabled:hover:bg-sun/60 focus-visible:outline-2 focus-visible:outline-sun disabled:opacity-45"
+          [disabled]="!!opt.reason"
+          [attr.aria-label]="opt.item.name + ', ' + opt.item.price + ' seeds' + (opt.reason ? ', ' + opt.reason : '')"
+          [title]="opt.reason ?? opt.item.name"
+          (click)="picked.emit(opt.item.id)"
         >
-          <img [src]="icon(item.id)" alt="" class="pixelated size-10" />
-          <span class="text-xs font-extrabold">🌱 {{ item.price }}</span>
+          <img [src]="assets.url(preview(opt.item.id))" alt="" class="pixelated size-16" />
+          <span class="text-xs font-extrabold">🌱 {{ opt.item.price }}</span>
+          @if (opt.reason) { <span class="text-[10px] leading-tight">{{ opt.reason }}</span> }
         </button>
       }
     </div>
@@ -40,20 +51,28 @@ import type { TileCoord } from '../game/tile-manager';
 })
 export class PlantPickerComponent {
   protected readonly store = inject(GardenStore);
+  protected readonly assets = inject(AssetService);
   readonly tile = input.required<TileCoord>();
   readonly picked = output<string>();
   readonly closed = output<void>();
-  protected icon = (id: string) => spriteIcon(id, 3);
+  protected preview = (id: string) => previewTextureKey(id, 'MATURE');
+
+  /** Each plant, and why it can't go here (if it can't). Re-evaluated as balance changes. */
+  protected readonly options = computed(() =>
+    this.store.catalog.map((item) => {
+      const spot = this.store.placementFor(item.id, this.tile());
+      return { item, reason: spot.ok ? null : reason(spot.error, item.id) };
+    }),
+  );
 
   /** Sit above the tile (below it near the top edge), nudged inward near the sides. */
   protected readonly pos = computed(() => {
     const { x, y } = this.tile();
-    const cell = 100 / GRID_SIZE;
-    const above = y >= 3;
-    const tx = x <= 2 ? '-20%' : x >= GRID_SIZE - 3 ? '-80%' : '-50%';
+    const above = y >= 5;
+    const tx = x <= 3 ? '-15%' : x >= HABITAT_COLS - 4 ? '-85%' : '-50%';
     return {
-      left: (x + 0.5) * cell,
-      top: above ? y * cell : (y + 1) * cell,
+      left: colPct(x + 0.5),
+      top: rowPct(above ? y : y + 1),
       transform: `translate(${tx}, ${above ? 'calc(-100% - 4px)' : '4px'})`,
     };
   });

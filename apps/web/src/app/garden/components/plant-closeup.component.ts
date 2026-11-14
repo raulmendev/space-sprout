@@ -1,9 +1,12 @@
-import { Component, ElementRef, computed, effect, input, output, untracked, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, input, output, untracked, viewChild } from '@angular/core';
 import type { PlantStage } from '@garden/shared';
 import type { CloseupInfo } from '../garden.store';
-import { CLOSEUP_GEOMETRY as G, closeupPlantArt, closeupSoilArt } from '../game/closeup-art';
+import { CLOSEUP_GEOMETRY as G } from '../game/closeup-art';
+import { PREVIEW_SOIL, previewTextureKey } from '../game/asset-registry';
+import { AssetService } from '../../shared/assets.service';
 
-const SCALE = 4; // integer scale keeps pixels crisp
+const SCALE = 3; // integer scale keeps pixels crisp
+const SOIL_OVERFLOW = 12;
 const STAGES: { id: PlantStage; label: string }[] = [
   { id: 'SEED', label: 'Seed' },
   { id: 'SPROUT', label: 'Sprout' },
@@ -24,7 +27,7 @@ const STAGES: { id: PlantStage; label: string }[] = [
         (click)="$event.stopPropagation()"
       >
         <div class="scene relative overflow-hidden" [style.height.px]="sceneH">
-          <img [src]="soil" alt="" class="pixelated absolute left-1/2 -translate-x-1/2" [style.width.px]="soilW" [style.bottom.px]="-16" />
+          <img [src]="soil" alt="" class="pixelated absolute left-1/2 -translate-x-1/2" [style.width.px]="soilW" [style.bottom.px]="-soilOverflow" />
           <img
               #plantImg
               [src]="plant()"
@@ -53,7 +56,7 @@ const STAGES: { id: PlantStage; label: string }[] = [
                 [class]="reached(s.id) ? 'bg-leaf text-cream' : 'bg-parchment text-bark/60'"
                 [attr.aria-current]="info().stage === s.id ? 'step' : null"
               >
-                {{ s.label }}
+                {{ stageLabel(s) }}
               </li>
               @if (!last) { <li aria-hidden="true" class="text-bark/40">›</li> }
             }
@@ -117,11 +120,13 @@ export class PlantCloseupComponent {
   readonly closed = output<void>();
 
   protected readonly stages = STAGES;
-  protected readonly soil = closeupSoilArt();
+  private readonly assets = inject(AssetService);
+  protected readonly soil = this.assets.url(PREVIEW_SOIL);
+  protected readonly soilOverflow = SOIL_OVERFLOW;
   protected readonly soilW = G.soilW * SCALE;
   protected readonly plantW = G.plantPx * SCALE;
-  /** Soil overflows the bottom by 16px; plant base sits `plantBaseInSoil` px into the mound. */
-  protected readonly plantBottom = -16 + (G.soilH - G.plantBaseInSoil) * SCALE;
+  /** Soil overflows the bottom; plant base sits `plantBaseInSoil` px into the mound. */
+  protected readonly plantBottom = -SOIL_OVERFLOW + (G.soilH - G.plantBaseInSoil) * SCALE;
   protected readonly sceneH = this.plantBottom + this.plantW + 12;
   protected readonly sparkles = [
     { x: 28, y: 18, d: 0 },
@@ -131,7 +136,7 @@ export class PlantCloseupComponent {
     { x: 30, y: 46, d: 2300 },
   ];
 
-  protected readonly plant = computed(() => closeupPlantArt(this.info().object.itemType, this.info().stage));
+  protected readonly plant = computed(() => this.assets.url(previewTextureKey(this.info().object.itemType, this.info().stage)));
   private readonly plantImg = viewChild.required<ElementRef<HTMLImageElement>>('plantImg');
 
   constructor() {
@@ -144,6 +149,10 @@ export class PlantCloseupComponent {
         easing: 'cubic-bezier(.2,1.5,.4,1)',
       });
     });
+  }
+
+  protected stageLabel(s: { id: PlantStage; label: string }): string {
+    return this.info().item.stageLabels?.[s.id] ?? s.label;
   }
 
   protected reached(stage: PlantStage): boolean {

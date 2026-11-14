@@ -1,4 +1,4 @@
-import type { GardenObjectType } from '../types/domain';
+import type { Footprint, GardenObjectType, PlantStage } from '../types/domain';
 
 export interface CatalogItem {
   id: string;
@@ -6,6 +6,10 @@ export interface CatalogItem {
   name: string;
   description: string;
   price: number;
+  /** Display names per growth stage, where they differ from Seed/Sprout/Grown. */
+  stageLabels?: Partial<Record<PlantStage, string>>;
+  /** Tiles occupied, from the top-left placement tile. Defaults to 1x1. */
+  footprint?: Footprint;
   /** Plants only: ms after planting at which each stage begins. */
   growth?: { sproutAfterMs: number; matureAfterMs: number };
 }
@@ -21,7 +25,7 @@ export const CATALOG: readonly CatalogItem[] = [
   {
     id: 'flower',
     type: 'PLANT',
-    name: 'Flower',
+    name: 'Wildflower',
     description: 'A cheerful pink bloom. Grows quickly.',
     price: 5,
     growth: { sproutAfterMs: 20 * SEC, matureAfterMs: 1 * MIN },
@@ -40,9 +44,15 @@ export const CATALOG: readonly CatalogItem[] = [
     name: 'Small tree',
     description: 'Takes its time, then gives shade and apples.',
     price: 15,
+    footprint: { w: 2, h: 2 },
+    stageLabels: { SPROUT: 'Sapling' },
     growth: { sproutAfterMs: 1 * MIN, matureAfterMs: 4 * MIN },
   },
 ];
+
+export function footprintOf(itemType: string): Footprint {
+  return getCatalogItem(itemType)?.footprint ?? { w: 1, h: 1 };
+}
 
 export function getCatalogItem(id: string): CatalogItem | undefined {
   return CATALOG.find((item) => item.id === id);

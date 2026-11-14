@@ -79,3 +79,50 @@ export interface Dialogue {
   text: string;
   actions?: DialogueAction[];
 }
+
+// ---------------------------------------------------------------- habitat
+
+export type HabitatZone = 'GARDEN' | 'MEDICAL' | 'SOCIAL';
+
+/**
+ * Interactions emitted by the renderer. The first six are the agreed contract
+ * (handoff v3.0 §8); the last three are additions for tiles, decorations and the NPC.
+ */
+export type HabitatInteraction =
+  | { type: 'PLANT_SELECTED'; plantId: string }
+  | { type: 'PLOT_SELECTED'; x: number; y: number }
+  | { type: 'MEDICAL_TERMINAL_SELECTED' }
+  | { type: 'HEALTH_INSIGHTS_SELECTED' }
+  | { type: 'MESSAGE_BOARD_SELECTED' }
+  | { type: 'EMOTE_AREA_SELECTED' }
+  | { type: 'TILE_SELECTED'; x: number; y: number }
+  | { type: 'PROP_SELECTED'; propId: string }
+  | { type: 'NPC_SELECTED' };
+
+export type PropInteraction = Extract<
+  HabitatInteraction,
+  { type: 'MEDICAL_TERMINAL_SELECTED' | 'HEALTH_INSIGHTS_SELECTED' | 'MESSAGE_BOARD_SELECTED' | 'EMOTE_AREA_SELECTED' }
+>['type'];
+
+export type MedicalTerminalState = 'idle' | 'syncing' | 'complete' | 'attention';
+export type InsightsDisplayState = 'idle' | 'new_data' | 'active';
+export type MessageBoardState = 'idle' | 'unread';
+
+export interface Footprint {
+  w: number;
+  h: number;
+}
+
+export interface SocialNote {
+  id: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface SocialEmote {
+  id: string;
+  authorId: string;
+  emote: string;
+  createdAt: string;
+}

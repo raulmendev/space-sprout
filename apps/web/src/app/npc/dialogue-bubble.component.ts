@@ -1,13 +1,14 @@
 import { Component, inject, output } from '@angular/core';
 import { NpcStore } from './npc.store';
-import { spriteIcon } from '../garden/game/plant-sprites';
+import { AssetService } from '../shared/assets.service';
+import { NPC_TEXTURE } from '../garden/game/asset-registry';
 
 @Component({
   selector: 'app-dialogue-bubble',
   template: `
     @if (npc.current(); as line) {
       <div class="panel bubble flex gap-3 p-3 pr-4" role="dialog" aria-live="polite" aria-label="Sprout says">
-        <img [src]="portrait" alt="" class="pixelated size-14 shrink-0 rounded-md bg-parchment p-1" />
+        <img [src]="portrait" alt="" class="pixelated size-16 shrink-0 rounded-md bg-parchment object-cover object-bottom" />
         <div class="min-w-0 flex-1">
           <div class="font-pixel text-sm text-leaf-dark">Sprout</div>
           <p class="mt-0.5 text-[15px] leading-snug">{{ line.text }}</p>
@@ -36,6 +37,6 @@ import { spriteIcon } from '../garden/game/plant-sprites';
 })
 export class DialogueBubbleComponent {
   protected readonly npc = inject(NpcStore);
-  protected readonly portrait = spriteIcon('npc', 4);
+  protected readonly portrait = inject(AssetService).url(NPC_TEXTURE);
   readonly action = output<string>();
 }
