@@ -15,7 +15,7 @@ const DEAD_ZONE = 0.25;
   template: `
     <div
       #pad
-      class="pad relative size-32 touch-none rounded-full border-2 border-cream/50 bg-night/40 transition-opacity"
+      class="pad relative size-32 touch-none rounded-full [@media(max-height:420px)]:size-28 border-2 border-cream/50 bg-night/40 transition-opacity"
       [class.opacity-35]="!active()"
       [class.opacity-80]="active()"
       role="group"

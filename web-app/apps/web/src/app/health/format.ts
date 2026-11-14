@@ -18,6 +18,13 @@ export const SOURCE_LABEL: Record<MeasurementSource, string> = {
   DEVICE: '⌚ Device',
 };
 
+/** Compact form for tight spots (full label goes in a tooltip). */
+export const SOURCE_SHORT: Record<MeasurementSource, string> = {
+  SIMULATED: '⚙ sim',
+  MANUAL: '✎ you',
+  DEVICE: '⌚ device',
+};
+
 /** Mood faces for the 1–5 scale, shared by the picker and every place a mood is shown. */
 export const MOODS = [
   { value: 1, face: '😞', label: 'Low' },

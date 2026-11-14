@@ -15,13 +15,13 @@ import { HabitatStore } from './habitat.store';
   host: { class: 'flex flex-col items-center gap-1.5 select-none' },
   template: `
     <span
-      class="whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-bold"
+      class="max-w-[8.5rem] rounded-md px-2 py-0.5 text-center text-xs font-bold leading-tight [@media(max-height:420px)]:max-w-[7rem] [@media(max-height:420px)]:text-[10px]"
       [class]="target() ? 'bg-night/80 text-cream' : 'bg-night/50 text-cream/70'"
       aria-hidden="true"
     >{{ target()?.label ?? 'Walk up to something' }}</span>
     <button
       type="button"
-      class="grid size-16 touch-none place-items-center rounded-full border-2 font-pixel text-2xl text-cream transition-opacity focus-visible:outline-2 focus-visible:outline-sun"
+      class="grid size-16 touch-none place-items-center [@media(max-height:420px)]:size-14 rounded-full border-2 font-pixel text-2xl text-cream transition-opacity focus-visible:outline-2 focus-visible:outline-sun"
       [class]="target() ? 'border-cream/80 bg-leaf-dark/60 opacity-95' : 'border-cream/40 bg-night/40 opacity-35'"
       [attr.aria-disabled]="!target()"
       [attr.aria-label]="target()?.label ?? 'Nothing to use nearby'"

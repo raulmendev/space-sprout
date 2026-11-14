@@ -5,8 +5,8 @@ import { HabitatStore } from './habitat.store';
 import { HabitatRenderer, createHabitatRenderer } from '../garden/game/habitat-renderer';
 import { WORLD_H, WORLD_W, TileCoord } from '../garden/game/tile-manager';
 
-/** Integer zoom when it fills at least this share of the space; otherwise fractional. */
-const MIN_INTEGER_FILL = 0.8;
+/** Integer zoom when it fills at least this share of the screen; otherwise fractional (still nearest-neighbour). */
+const MIN_INTEGER_FILL = 0.85;
 
 /**
  * Hosts the Phaser habitat. State flows Angular → renderer; interactions flow back out.
@@ -67,10 +67,7 @@ export class HabitatCanvasComponent {
   }
 
   private fit(slot: HTMLElement): void {
-    const top = slot.getBoundingClientRect().top;
-    const availW = slot.clientWidth - 24; // frame border + padding
-    const availH = window.innerHeight - top - 40;
-    const scale = Math.max(0.5, Math.min(availW / WORLD_W, availH / WORLD_H));
+    const scale = Math.max(0.25, Math.min(slot.clientWidth / WORLD_W, slot.clientHeight / WORLD_H));
     const n = Math.floor(scale);
     this.zoom.set(n >= 1 && n >= scale * MIN_INTEGER_FILL ? n : scale);
   }
