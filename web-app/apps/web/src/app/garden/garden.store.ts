@@ -84,6 +84,11 @@ export class GardenStore {
     return { ok: true, object: result.object };
   }
 
+  /** Credit seeds earned elsewhere (health check-ins). */
+  async credit(amount: number): Promise<void> {
+    if (amount > 0) this.balance.set(await this.service.credit(amount));
+  }
+
   async resetDemo(): Promise<void> {
     this.service.reset();
     this.pickerTile.set(null);

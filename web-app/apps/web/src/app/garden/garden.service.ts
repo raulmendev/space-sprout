@@ -52,6 +52,14 @@ export class GardenService {
     return { ok: true, object, balance: snap.balance };
   }
 
+  /** Add seeds to the balance (health check-in rewards). Returns the new balance. */
+  async credit(amount: number): Promise<number> {
+    const snap = await this.load();
+    snap.balance += Math.max(0, Math.floor(amount));
+    this.save(snap);
+    return snap.balance;
+  }
+
   /** Demo helper: wipe local garden back to the seeded state. */
   reset(): void {
     try {

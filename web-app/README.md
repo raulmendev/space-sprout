@@ -45,6 +45,14 @@ The thing you tap is the thing you act on. No modes, and no instructions to read
 - Positions are continuous `{ room, x, y }` points in Angular state, stepped by one shared animation-frame ticker; Phaser only draws them (characters go through a separate per-frame "actors" channel, so the room isn't rebuilt every frame). A second, remote player later is just another position, shown when it's in your room.
 - Empty plot: a picker with prices. Disabled options say why ("Not enough seeds", "Needs 2×2 free soil").
 
+## Health check-ins (astronaut)
+
+- **Medical Terminal:** sync the (simulated) wearable or enter readings manually: heart rate, sleep, exercise minutes and mood (1–5). Any subset is fine. Simulated data is always labelled as such; the wearable sits behind a `MeasurementProvider` interface so a real device can replace it.
+- **Rewards:** each check-in earns seeds, 3 per metric, once per metric per day, 12 a day at most. Rules live in `packages/shared/src/contracts/health.ts` (`decideReward`), keyed by measurement id so nothing is rewarded twice; the API will run the same function server-side. Going over the cap is never a penalty: the reading is still saved.
+- **Health Insights:** latest value, unit, time, source and an SVG trend of the last 7 readings per metric, with a neutral explanation. No thresholds, no diagnosis.
+- **Station states:** the terminal shows syncing/complete; the insights display shows "new data" until you look.
+- For now readings are stored in this browser only (seeded with a week of labelled simulated history for the demo). Private to the astronaut; family access comes with the backend.
+
 ## Delivering final art (design team)
 
 All art is **placeholder** at the agreed native sizes. To replace an asset:
@@ -73,7 +81,8 @@ No code changes are needed. Keys, folders, sizes and anchors are defined in `app
 - [x] One player with free movement: on-screen pad + action button + keyboard, or tap objects to walk up and use them
 - [x] Habitat split into three single-screen rooms joined by doors
 - [ ] Layout checkpoint sign-off with the design team
-- [ ] NestJS API + Postgres, simulated wearable + measurement entry, insights chart
+- [x] Astronaut health loop: simulated wearable + manual entry, seed rewards, insights trends
+- [ ] NestJS API + Postgres (server-side rewards and health privacy)
 - [ ] Notes, emotes, family role, Socket.IO sync, second player
 
 ## Demo notes

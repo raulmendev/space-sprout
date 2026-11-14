@@ -31,7 +31,8 @@ export interface GardenObject {
 
 export type PlantStage = 'SEED' | 'SPROUT' | 'MATURE';
 
-export type HealthMetric = 'HEART_RATE' | 'WEIGHT' | 'WELLBEING';
+/** POC metrics (handoff v3.0 §5). Demonstration metrics, not a mission medical protocol. */
+export type HealthMetric = 'HEART_RATE' | 'SLEEP' | 'ACTIVITY' | 'MOOD';
 export type MeasurementSource = 'MANUAL' | 'SIMULATED' | 'DEVICE';
 
 export interface HealthMeasurement {
@@ -53,10 +54,14 @@ export interface FamilyMessage {
   createdAt: string;
 }
 
+/** Seeds granted for a health check-in. At most one per measurement (unique measurementId). */
 export interface RewardTransaction {
   id: string;
   gardenId: string;
   measurementId: string;
+  metric: HealthMetric;
+  /** UTC calendar day of the measurement (YYYY-MM-DD), for per-day limits. */
+  day: string;
   amount: number;
   createdAt: string;
 }

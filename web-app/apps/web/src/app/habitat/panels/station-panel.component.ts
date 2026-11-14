@@ -1,6 +1,8 @@
-import { Component, ElementRef, computed, effect, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, effect, input, output, viewChild } from '@angular/core';
 import { ALL_PROPS, ROOMS } from '@garden/shared';
 import type { HabitatPanel } from '../habitat.store';
+import { MedicalTerminalPanelComponent } from '../../health/medical-terminal-panel.component';
+import { HealthInsightsPanelComponent } from '../../health/health-insights-panel.component';
 
 const EMOTES = [
   { glyph: '❤️', label: 'Love' },
@@ -12,11 +14,12 @@ const EMOTES = [
 ];
 
 /**
- * Panel shells opened from habitat objects. Structure only for the layout
- * checkpoint: data, persistence and sync arrive in the next build step.
+ * Panels opened from habitat objects. Medical panels are live; the social ones
+ * are still shells until notes and emotes are built.
  */
 @Component({
   selector: 'app-station-panel',
+  imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent],
   host: { '(document:keydown.escape)': 'closed.emit()' },
   template: `
     <section class="panel flex flex-col gap-3 p-4" role="region" [attr.aria-labelledby]="'panel-title'">
@@ -30,21 +33,11 @@ const EMOTES = [
 
       @switch (panel()) {
         @case ('MEDICAL_TERMINAL_SELECTED') {
-          <div role="tablist" aria-label="Measurement source" class="flex gap-1 rounded-lg bg-parchment p-1 text-sm font-bold">
-            @for (t of tabs; track t.id) {
-              <button type="button" role="tab" class="flex-1 rounded-md px-2 py-1" [class.bg-cream]="tab() === t.id" [attr.aria-selected]="tab() === t.id" (click)="tab.set(t.id)">{{ t.label }}</button>
-            }
-          </div>
-          @if (tab() === 'sync') {
-            <p class="text-sm">Wearable: <b>Simulated device</b> · not synced yet</p>
-          } @else {
-            <p class="text-sm">Manual entry for heart rate, sleep, activity and mood.</p>
-          }
+          <app-medical-terminal-panel />
           <p class="rounded-md bg-parchment/70 p-2 text-xs">🔒 Private to you. Family members never see health data.</p>
         }
         @case ('HEALTH_INSIGHTS_SELECTED') {
-          <div class="grid h-28 place-items-center rounded-md border-2 border-dashed border-bark/30 text-sm text-bark/70">Trend chart</div>
-          <p class="text-xs">Shows latest value, unit, time, source and trend. No diagnoses.</p>
+          <app-health-insights-panel />
           <p class="rounded-md bg-parchment/70 p-2 text-xs">🔒 Private to you.</p>
         }
         @case ('MESSAGE_BOARD_SELECTED') {
@@ -59,7 +52,9 @@ const EMOTES = [
           </ul>
         }
       }
-      <p class="text-xs italic text-bark/60">Panel shell: working data arrives in the next build step.</p>
+      @if (panel() === 'MESSAGE_BOARD_SELECTED' || panel() === 'EMOTE_AREA_SELECTED') {
+        <p class="text-xs italic text-bark/60">Panel shell: notes and emotes arrive in a later step.</p>
+      }
     </section>
   `,
 })
@@ -67,11 +62,6 @@ export class StationPanelComponent {
   readonly panel = input.required<HabitatPanel>();
   readonly closed = output<void>();
   protected readonly emotes = EMOTES;
-  protected readonly tabs = [
-    { id: 'sync', label: 'Wearable sync' },
-    { id: 'manual', label: 'Enter manually' },
-  ] as const;
-  protected readonly tab = signal<'sync' | 'manual'>('sync');
   private readonly heading = viewChild.required<ElementRef<HTMLElement>>('heading');
 
   /** Title and zone come from the habitat data for the prop that opens this panel. */

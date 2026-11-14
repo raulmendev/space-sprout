@@ -6,7 +6,8 @@ import { PlantCloseupComponent } from './garden/components/plant-closeup.compone
 import { TileInfoComponent } from './garden/components/tile-info.component';
 import { DialogueBubbleComponent } from './npc/dialogue-bubble.component';
 import { NpcStore } from './npc/npc.store';
-import { HabitatStore } from './habitat/habitat.store';
+import { HealthStore } from './health/health.store';
+import { HabitatPanel, HabitatStore } from './habitat/habitat.store';
 import { PlayerStore } from './habitat/player.store';
 import { NpcActorStore } from './npc/npc-actor.store';
 import { HabitatCanvasComponent } from './habitat/habitat-canvas.component';
@@ -15,6 +16,7 @@ import { DoorLabelsComponent } from './habitat/door-labels.component';
 import { TouchPadComponent } from './habitat/touch-pad.component';
 import { ActionButtonComponent } from './habitat/action-button.component';
 import { StationPanelComponent } from './habitat/panels/station-panel.component';
+import { StationDialogComponent } from './habitat/panels/station-dialog.component';
 import type { TileCoord } from './garden/game/tile-manager';
 
 const GENTLE_ERRORS: Record<PlacementError, string> = {
@@ -47,6 +49,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     PlantCloseupComponent,
     TileInfoComponent,
     StationPanelComponent,
+    StationDialogComponent,
     DialogueBubbleComponent,
   ],
   template: `
@@ -80,7 +83,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 
       <main class="flex flex-1 flex-col gap-4 lg:flex-row lg:items-start">
         <div class="relative min-w-0 flex-1" data-habitat-slot>
-          <div class="mx-auto w-fit rounded-xl border-4 border-bark-dark bg-bark p-1.5 shadow-[0_8px_0_rgb(0_0_0/0.3)]">
+          <div #roomView class="mx-auto w-fit rounded-xl border-4 border-bark-dark bg-bark p-1.5 shadow-[0_8px_0_rgb(0_0_0/0.3)]">
             <div class="relative">
               <app-habitat-canvas (interaction)="onInteraction($event)" />
               <app-door-labels />
@@ -107,7 +110,12 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 
         <aside class="flex w-full flex-col gap-4 lg:w-[340px] lg:shrink-0">
           @if (habitat.openPanel(); as p) {
-            <app-station-panel [panel]="p" (closed)="habitat.openPanel.set(null)" />
+            @if (isPopup(p)) {
+              <app-station-dialog [panel]="p" [anchor]="roomView" (closed)="habitat.openPanel.set(null)" />
+              <app-tile-info />
+            } @else {
+              <app-station-panel [panel]="p" (closed)="habitat.openPanel.set(null)" />
+            }
           } @else {
             <app-tile-info />
           }
@@ -122,6 +130,7 @@ export class App {
   protected readonly npc = inject(NpcStore);
   protected readonly player = inject(PlayerStore);
   private readonly npcActor = inject(NpcActorStore);
+  private readonly health = inject(HealthStore);
   protected readonly notice = signal<string | null>(null);
   /** Rooms west → east, as connected by their doors. */
   protected readonly roomOrder: RoomId[] = ['GARDEN', 'SOCIAL', 'MEDICAL'];
@@ -142,6 +151,7 @@ export class App {
         this.npc.dismiss();
       });
     });
+    this.health.init();
     this.garden.init().then(() => setTimeout(() => this.npc.say('GREETING'), 600));
   }
 
@@ -210,19 +220,24 @@ export class App {
     this.npc.maybeSay('PLANT_CREATED');
   }
 
+  /** Health panels open as a modal popup; the social shells stay in the side panel for now. */
+  protected isPopup(p: HabitatPanel): boolean {
+    return p === 'MEDICAL_TERMINAL_SELECTED' || p === 'HEALTH_INSIGHTS_SELECTED';
+  }
+
   /** Hold arrow keys / WASD to walk. Ignored while typing in a field. */
   onKey(e: KeyboardEvent, down: boolean): void {
     const el = e.target as HTMLElement | null;
     if ((e.key === 'e' || e.key === 'E' || e.key === ' ') && down && !e.repeat) {
       // Let focused buttons and fields keep their own Space behaviour.
-      if (el?.closest('input, textarea, select, button, [contenteditable], [role="menu"]')) return;
+      if (el?.closest('input, textarea, select, button, [contenteditable], [role="menu"], dialog')) return;
       e.preventDefault();
       this.onAction();
       return;
     }
     const dir = MOVE_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
     if (!dir) return;
-    if (down && el?.closest('input, textarea, select, [contenteditable], [role="tablist"], [role="menu"]')) return;
+    if (down && el?.closest('input, textarea, select, [contenteditable], [role="tablist"], [role="menu"], dialog')) return;
     e.preventDefault();
     if (down) {
       this.garden.pickerTile.set(null);
@@ -238,6 +253,7 @@ export class App {
 
   async reset(): Promise<void> {
     await this.garden.resetDemo();
+    await this.health.reset();
     this.player.reset();
     this.habitat.selection.set(null);
     this.habitat.openPanel.set(null);
