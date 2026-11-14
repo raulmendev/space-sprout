@@ -29,7 +29,9 @@ Phaser renders and reports interactions (`HabitatInteraction`); it holds no auth
 ## The habitat
 
 - **Three rooms, one per zone, each a full 24×16-tile screen (768×512).** Only the room you're in is rendered. Rooms connect through labelled doors in their side walls: **Garden ← Social Space → Medical Station**. Players start in the Social Space hub.
-- One Phaser scene; changing rooms rebuilds it behind a short fade. Integer zoom when it fills ≥80% of the space, otherwise fractional; always nearest-neighbour.
+- One Phaser scene; changing rooms rebuilds it behind a short fade.
+- **Full-screen layout:** the room fills the screen at its 3:2 shape (integer zoom when it fills ≥85%, otherwise fractional; always nearest-neighbour). Leftover space becomes margins, where the touch pad and A button sit on landscape phones. A slim HUD overlays the top (rooms, seeds, fullscreen, ⋯ menu with Show layout / Reset demo); every station opens as a popup centred over the room.
+- **Phones:** safe-area insets, `100dvh`, and a web app manifest (`display: fullscreen`, landscape), so "Add to Home Screen" runs without browser bars, including on iPhone, where the fullscreen button isn't available.
 - The Garden has two large walkable soil fields (180 plots) around a centre path; plants block their own footprint. Tick **Show layout** to see the active room's object footprints and doors.
 - Rooms (layout, props, doors) are data in `packages/shared/src/contracts/habitat.ts`. A position anywhere in the habitat is `{ room, x, y }`.
 

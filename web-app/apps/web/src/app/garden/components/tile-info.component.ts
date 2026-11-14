@@ -24,16 +24,14 @@ const KIND_LABEL: Record<string, [string, string]> = {
 @Component({
   selector: 'app-tile-info',
   template: `
-    <section class="panel p-4" aria-live="polite">
-      <h2 class="font-pixel text-lg">Look closer</h2>
-      @if (info(); as i) {
-        <p class="font-bold">{{ i.title ?? label(i.kind)[0] }}</p>
-        <p class="text-xs font-bold uppercase tracking-wide text-bark/70">{{ i.roomName }}</p>
-        @if (!i.title && label(i.kind)[1]) { <p class="text-sm text-bark">{{ label(i.kind)[1] }}</p> }
-      } @else {
-        <p class="text-sm text-bark">Garden, medical station and social space, all under one roof. Doors lead between them.</p>
-      }
-    </section>
+    @if (info(); as i) {
+      <section class="panel px-3 py-2" aria-live="polite" aria-label="Look closer">
+        <p class="text-sm font-bold leading-tight">{{ i.title ?? label(i.kind)[0] }}
+          <span class="ml-1 text-[11px] font-bold uppercase tracking-wide text-bark/60">{{ i.roomName }}</span>
+        </p>
+        @if (!i.title && label(i.kind)[1]) { <p class="text-xs text-bark">{{ label(i.kind)[1] }}</p> }
+      </section>
+    }
   `,
 })
 export class TileInfoComponent {

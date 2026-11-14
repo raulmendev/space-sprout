@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { CareAction, CareError, HabitatInteraction, PlacementError, ROOMS, RoomId } from '@garden/shared';
+import { CareAction, CareError, HabitatInteraction, PlacementError } from '@garden/shared';
 import { GardenStore } from './garden/garden.store';
 import { PlantPickerComponent } from './garden/components/plant-picker.component';
 import { PlantCloseupComponent } from './garden/components/plant-closeup.component';
@@ -7,15 +7,15 @@ import { TileInfoComponent } from './garden/components/tile-info.component';
 import { DialogueBubbleComponent } from './npc/dialogue-bubble.component';
 import { NpcStore } from './npc/npc.store';
 import { HealthStore } from './health/health.store';
-import { HabitatPanel, HabitatStore } from './habitat/habitat.store';
+import { HabitatStore } from './habitat/habitat.store';
 import { PlayerStore } from './habitat/player.store';
 import { NpcActorStore } from './npc/npc-actor.store';
 import { HabitatCanvasComponent } from './habitat/habitat-canvas.component';
 import { LayoutOverlayComponent } from './habitat/layout-overlay.component';
 import { DoorLabelsComponent } from './habitat/door-labels.component';
+import { HudComponent } from './habitat/hud.component';
 import { TouchPadComponent } from './habitat/touch-pad.component';
 import { ActionButtonComponent } from './habitat/action-button.component';
-import { StationPanelComponent } from './habitat/panels/station-panel.component';
 import { StationDialogComponent } from './habitat/panels/station-dialog.component';
 import type { TileCoord } from './garden/game/tile-manager';
 
@@ -49,85 +49,60 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     HabitatCanvasComponent,
     LayoutOverlayComponent,
     DoorLabelsComponent,
+    HudComponent,
     TouchPadComponent,
     ActionButtonComponent,
     PlantPickerComponent,
     PlantCloseupComponent,
     TileInfoComponent,
-    StationPanelComponent,
     StationDialogComponent,
     DialogueBubbleComponent,
   ],
   template: `
-    <div class="mx-auto flex min-h-full max-w-[1400px] flex-col gap-3 p-4">
-      <header class="flex flex-wrap items-center justify-between gap-3 text-cream">
-        <div>
-          <h1 class="font-pixel text-3xl leading-none">Jardín Comunal</h1>
-          <p class="text-sm text-cream/70">A home in orbit: garden, health and connection.</p>
-        </div>
-        <nav aria-label="Rooms" class="order-last w-full lg:order-none lg:w-auto">
-          <ol class="flex items-center gap-1 text-sm">
-            @for (r of roomOrder; track r; let last = $last) {
-              <li
-                class="rounded-full px-3 py-1 font-bold"
-                [class]="habitat.activeRoom() === r ? 'bg-cream text-bark-dark' : 'text-cream/60'"
-                [attr.aria-current]="habitat.activeRoom() === r ? 'location' : null"
-              >{{ rooms[r].name }}</li>
-              @if (!last) { <li aria-hidden="true" class="text-cream/40">↔</li> }
-            }
-          </ol>
-        </nav>
-        <div class="flex items-center gap-3">
-          <label class="flex items-center gap-1.5 text-xs text-cream/80">
-            <input type="checkbox" class="accent-sun" [checked]="habitat.showLayout()" (change)="habitat.showLayout.set(!habitat.showLayout())" />
-            Show layout
-          </label>
-          <span class="panel px-3 py-1 text-lg font-extrabold text-bark-dark" aria-label="Seeds balance">🌱 {{ garden.balance() }}</span>
-          <button type="button" class="rounded-md px-2 py-1 text-xs text-cream/60 hover:text-cream" (click)="reset()">reset demo</button>
-        </div>
-      </header>
-
-      <main class="flex flex-1 flex-col gap-4 lg:flex-row lg:items-start">
-        <div class="relative min-w-0 flex-1" data-habitat-slot>
-          <div #roomView class="mx-auto w-fit rounded-xl border-4 border-bark-dark bg-bark p-1.5 shadow-[0_8px_0_rgb(0_0_0/0.3)]">
-            <div class="relative">
-              <app-habitat-canvas (interaction)="onInteraction($event)" />
-              <app-door-labels />
-              <app-action-button class="absolute bottom-6 left-4 z-10" (act)="onAction()" />
-              <app-touch-pad class="absolute bottom-3 right-3 z-10" />
-              @if (habitat.showLayout()) { <app-layout-overlay /> }
-              @if (garden.pickerTile(); as t) {
-                <app-plant-picker [tile]="t" (picked)="plantAt(t, $event)" (closed)="garden.pickerTile.set(null)" />
-              }
-              @if (garden.closeup(); as c) {
-                <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" />
-              }
-              @if (!garden.closeup()) {
-                <div class="pointer-events-none absolute bottom-3 left-1/2 z-20 w-[min(30rem,calc(100%-17rem))] -translate-x-1/2 [&>*]:pointer-events-auto">
-                  <app-dialogue-bubble (action)="onDialogueAction($event)" />
-                </div>
-              }
-              @if (notice(); as n) {
-                <div class="panel absolute left-1/2 top-3 -translate-x-1/2 px-3 py-1 text-sm font-bold" role="status">{{ n }}</div>
-              }
-            </div>
-          </div>
-        </div>
-
-        <aside class="flex w-full flex-col gap-4 lg:w-[340px] lg:shrink-0">
-          @if (habitat.openPanel(); as p) {
-            @if (isPopup(p)) {
-              <app-station-dialog [panel]="p" [anchor]="roomView" (closed)="habitat.openPanel.set(null)" />
-              <app-tile-info />
-            } @else {
-              <app-station-panel [panel]="p" (closed)="habitat.openPanel.set(null)" />
-            }
-          } @else {
-            <app-tile-info />
+    <div class="fixed inset-0 overflow-hidden" [style.padding]="safeArea">
+      <!-- The room: as large as the screen allows, centred; leftover space becomes margins. -->
+      <div class="grid size-full place-items-center" data-habitat-slot>
+        <div #roomView class="relative">
+          <app-habitat-canvas (interaction)="onInteraction($event)" />
+          <app-door-labels />
+          @if (habitat.showLayout()) { <app-layout-overlay /> }
+          @if (garden.pickerTile(); as t) {
+            <app-plant-picker [tile]="t" (picked)="plantAt(t, $event)" (closed)="garden.pickerTile.set(null)" />
           }
-        </aside>
-      </main>
+          @if (garden.closeup(); as c) {
+            <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" />
+          }
+        </div>
+      </div>
+
+      <!-- Overlays pinned to the screen edges (in the margins when there are any). -->
+      <app-hud class="absolute inset-x-2 top-2 z-30" (reset)="reset()" />
+      <app-tile-info class="absolute left-2 top-14 z-20 max-w-[min(18rem,calc(100%-1rem))]" />
+      @if (notice(); as n) {
+        <div class="panel absolute left-1/2 top-14 z-30 -translate-x-1/2 px-3 py-1 text-sm font-bold" role="status">{{ n }}</div>
+      }
+      <app-action-button class="absolute bottom-4 left-4 z-20 [@media(max-height:420px)]:left-2" (act)="onAction()" />
+      <app-touch-pad class="absolute bottom-3 right-3 z-20" />
+      @if (!garden.closeup()) {
+        <div class="bubble-slot pointer-events-none absolute z-20 [&>*]:pointer-events-auto">
+          <app-dialogue-bubble (action)="onDialogueAction($event)" />
+        </div>
+      }
+
+      @if (habitat.openPanel(); as p) {
+        <app-station-dialog [panel]="p" [anchor]="roomView" (closed)="habitat.openPanel.set(null)" />
+      }
     </div>
+  `,
+  styles: `
+    /* Sprout's bubble: between the corner controls when there's room, above them when there isn't. */
+    .bubble-slot { left: 0.5rem; right: 0.5rem; bottom: 10.5rem; }
+    @media (min-width: 640px) {
+      .bubble-slot { left: 50%; right: auto; bottom: 0.75rem; width: min(30rem, 100% - 21rem); translate: -50% 0; }
+    }
+    @media (max-height: 420px) and (min-width: 640px) {
+      .bubble-slot { width: min(26rem, 100% - 19rem); }
+    }
   `,
 })
 export class App {
@@ -138,9 +113,9 @@ export class App {
   private readonly npcActor = inject(NpcActorStore);
   private readonly health = inject(HealthStore);
   protected readonly notice = signal<string | null>(null);
-  /** Rooms west → east, as connected by their doors. */
-  protected readonly roomOrder: RoomId[] = ['GARDEN', 'SOCIAL', 'MEDICAL'];
-  protected readonly rooms = ROOMS;
+  /** Keep clear of notches and home indicators on phones. */
+  protected readonly safeArea =
+    'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
   private readonly canvas = viewChild.required(HabitatCanvasComponent);
   private noticeTimer?: ReturnType<typeof setTimeout>;
 
@@ -224,11 +199,6 @@ export class App {
     }
     this.habitat.selection.set({ type: 'PLANT_SELECTED', plantId: result.object.id });
     this.npc.maybeSay('PLANT_CREATED');
-  }
-
-  /** Health panels open as a modal popup; the social shells stay in the side panel for now. */
-  protected isPopup(p: HabitatPanel): boolean {
-    return p === 'MEDICAL_TERMINAL_SELECTED' || p === 'HEALTH_INSIGHTS_SELECTED';
   }
 
   /** Hold arrow keys / WASD to walk. Ignored while typing in a field. */

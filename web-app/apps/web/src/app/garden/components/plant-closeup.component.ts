@@ -30,7 +30,7 @@ const STAGE_LABELS: Record<PlantStage, string> = { SEED: 'Seed', SPROUT: 'Sprout
   template: `
     <div class="absolute inset-0 z-20 flex items-center justify-center bg-night/45 p-3" (click)="closed.emit()">
       <div
-        class="panel card relative w-[360px] max-w-full overflow-hidden"
+        class="panel card relative max-h-full w-[360px] max-w-full overflow-y-auto overflow-x-hidden"
         role="dialog"
         aria-modal="true"
         [attr.aria-label]="info().item.name + ' close-up'"
