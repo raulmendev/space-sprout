@@ -1,18 +1,25 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
+  CARE_RULES,
   CATALOG,
+  CareAction,
   GARDEN_ROOM,
   GardenObject,
   PlacementError,
   findPlacement,
   getCatalogItem,
+  checkCare,
   getPlantStage,
+  isThriving,
+  matureAfterMs,
   getTileKind,
+  growthAgeMs,
+  isThirsty,
   msUntilMature,
   objectAtTile,
   propAtTile,
 } from '@garden/shared';
-import { GardenService } from './garden.service';
+import { CareResult, GardenService, LOCAL_PLAYER, earnedToday } from './garden.service';
 import type { TileCoord } from './game/tile-manager';
 
 export type CloseupInfo = NonNullable<ReturnType<GardenStore['closeup']>>;
@@ -39,17 +46,27 @@ export class GardenStore {
     const item = obj && getCatalogItem(obj.itemType);
     if (!obj || !item) return null;
     const now = this.now();
-    const ageMs = now - Date.parse(obj.createdAt);
-    const total = item.growth?.matureAfterMs ?? 0;
+    const total = matureAfterMs(item);
+    const ctx = { balance: this.balance(), earnedToday: this.earnedToday() };
+    const check = (a: CareAction) => checkCare(obj, a, now, ctx);
     return {
       object: obj,
       item,
       stage: getPlantStage(obj, now),
-      progress: total ? Math.min(1, ageMs / total) : 1,
+      progress: total ? Math.min(1, growthAgeMs(obj, now) / total) : 1,
       msToMature: msUntilMature(obj, now),
-      ageMs,
+      ageMs: now - Date.parse(obj.createdAt),
+      thirsty: isThirsty(obj, now),
+      thriving: isThriving(obj, now),
+      actions: { WATER: check('WATER'), FERTILIZE: check('FERTILIZE'), PRUNE: check('PRUNE'), HARVEST: check('HARVEST') },
+      log: obj.care?.log ?? [],
+      me: LOCAL_PLAYER.id,
+      capReached: ctx.earnedToday >= CARE_RULES.dailyGardenCoinCap,
     };
   });
+
+  /** Garden coins the local player has earned today (capped daily). */
+  readonly earnedToday = signal(0);
 
   constructor() {
     setInterval(() => this.now.set(Date.now()), 1000);
@@ -59,6 +76,21 @@ export class GardenStore {
     const snap = await this.service.load();
     this.objects.set(snap.objects);
     this.balance.set(snap.balance);
+    this.earnedToday.set(earnedToday(snap.earnings, LOCAL_PLAYER.id, Date.now()));
+  }
+
+  async care(plantId: string, action: CareAction): Promise<CareResult> {
+    const result = await this.service.care(plantId, action);
+    if (!result.ok) return result;
+    const updated = result.object;
+    this.objects.update((list) =>
+      updated ? list.map((o) => (o.id === plantId ? updated : o)) : list.filter((o) => o.id !== plantId),
+    );
+    this.balance.set(result.balance);
+    this.earnedToday.set(result.earnedToday);
+    this.now.set(Date.now());
+    if (!updated) this.closeupId.set(null);
+    return result;
   }
 
   plantAt(tile: TileCoord): GardenObject | undefined {

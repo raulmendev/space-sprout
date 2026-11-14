@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
-import { WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
+import { TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
 import { missingTexture } from './placeholders';
 import { TileCoord, TileManager, TileRect } from './tile-manager';
 
@@ -13,6 +13,10 @@ export interface RenderSprite extends TileRect {
   sway?: boolean;
   /** Gentle repeating bounce, e.g. unread notes. */
   pulse?: boolean;
+  /** Small icon floating above the sprite (e.g. the thirst bubble). Clicking it acts like clicking the sprite. */
+  badge?: string;
+  /** Soft twinkles around the sprite (a plant with every need met). */
+  shine?: boolean;
 }
 
 /** A moving character. Position is a continuous point (tile units) at its feet. */
@@ -51,6 +55,9 @@ interface SpriteEntry {
   img: Phaser.GameObjects.Image;
   data: RenderSprite;
   tweens: Phaser.Tweens.Tween[];
+  badge?: Phaser.GameObjects.Image;
+  badgeBob?: Phaser.Tweens.Tween;
+  shine?: { stars: Phaser.GameObjects.Image[]; glow: Phaser.GameObjects.Ellipse; tweens: Phaser.Tweens.Tween[] };
 }
 
 /** Render layers (spec §9). World objects are additionally y-sorted by footprint bottom. */
@@ -170,6 +177,8 @@ export class HabitatScene extends Phaser.Scene {
     this.wet.clear();
     for (const entry of this.sprites.values()) {
       entry.tweens.forEach((t) => t.remove());
+      this.removeBadge(entry, false);
+      this.removeShine(entry);
       entry.img.destroy();
     }
     this.sprites.clear();
@@ -203,6 +212,8 @@ export class HabitatScene extends Phaser.Scene {
     for (const [id, entry] of this.sprites) {
       if (seen.has(id)) continue;
       entry.tweens.forEach((t) => t.remove());
+      this.removeBadge(entry, false);
+      this.removeShine(entry);
       entry.img.destroy();
       this.sprites.delete(id);
     }
@@ -234,6 +245,8 @@ export class HabitatScene extends Phaser.Scene {
     img.setData('interaction', data.interaction);
     if (data.interaction && !img.input) img.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
     if (!data.interaction && img.input) img.disableInteractive();
+    this.applyBadge(entry, data, prev);
+    this.applyShine(entry, data, prev);
 
     const motionChanged = !prev || prev.sway !== data.sway || prev.pulse !== data.pulse;
     if (!motionChanged || this.reducedMotion) return;
@@ -276,6 +289,109 @@ export class HabitatScene extends Phaser.Scene {
         this.actors.delete(id);
       }
     }
+  }
+
+  /** Keep the floating badge in sync: appear with a soft pop, bob gently, fade out when gone. */
+  private applyBadge(entry: SpriteEntry, data: RenderSprite, prev: RenderSprite | null): void {
+    if (!data.badge) {
+      if (entry.badge) this.removeBadge(entry, true);
+      return;
+    }
+    const { img } = entry;
+    const x = img.x;
+    const y = img.y - img.displayHeight + 6;
+    if (entry.badge && prev?.badge === data.badge) {
+      // Same badge; the sprite may have grown taller, so re-seat it on top.
+      if (prev.texture === data.texture && prev.x === data.x && prev.y === data.y) return;
+      entry.badgeBob?.remove();
+      entry.badge.setPosition(x, y);
+      this.bobBadge(entry, y);
+      return;
+    }
+    this.removeBadge(entry, false);
+    const badge = this.add.image(x, y, data.badge).setOrigin(0.5, 1).setDepth(DEPTH.INDICATOR - 1);
+    badge.setData('interaction', data.interaction);
+    if (data.interaction) badge.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
+    entry.badge = badge;
+    if (!this.reducedMotion && !this.building) { // no pop for bubbles already there when entering a room
+      badge.setScale(0.3);
+      this.tweens.add({ targets: badge, scale: 1, duration: 280, ease: 'Back.out' });
+    }
+    this.bobBadge(entry, y);
+  }
+
+  private bobBadge(entry: SpriteEntry, y: number): void {
+    if (this.reducedMotion || !entry.badge) return;
+    entry.badgeBob = this.tweens.add({ targets: entry.badge, y: y - 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: Math.random() * 600 });
+  }
+
+  private removeBadge(entry: SpriteEntry, fade: boolean): void {
+    const badge = entry.badge;
+    entry.badgeBob?.remove();
+    entry.badge = entry.badgeBob = undefined;
+    if (!badge) return;
+    badge.disableInteractive();
+    if (!fade || this.reducedMotion) {
+      badge.destroy();
+      return;
+    }
+    this.tweens.add({ targets: badge, alpha: 0, y: badge.y - 8, duration: 300, ease: 'Quad.out', onComplete: () => badge.destroy() });
+  }
+
+  /** A few twinkles that fade in and out at random spots on the sprite; none when the plant isn't thriving. */
+  private applyShine(entry: SpriteEntry, data: RenderSprite, prev: RenderSprite | null): void {
+    const unchanged = prev?.shine && prev.texture === data.texture && prev.x === data.x && prev.y === data.y;
+    if (data.shine && entry.shine && unchanged) return;
+    this.removeShine(entry);
+    if (!data.shine) return;
+
+    const { img } = entry;
+    const spot = (star: Phaser.GameObjects.Image) => {
+      const w = img.displayWidth, h = img.displayHeight;
+      star.setPosition(img.x + (Math.random() - 0.5) * (w - 8), img.y - 6 - Math.random() * (h - 12));
+    };
+    // Warm light pooled on the soil under the plant.
+    const glow = this.add
+      .ellipse(img.x, img.y - 3, img.displayWidth * 0.9, 12, 0xfff3a0, 0.45)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setDepth(DEPTH.GROUND_OVERLAY + 1);
+    const shine: NonNullable<SpriteEntry['shine']> = { stars: [], glow, tweens: [] };
+    if (!this.reducedMotion) {
+      shine.tweens.push(this.tweens.add({ targets: glow, alpha: 0.2, duration: 1400, yoyo: true, repeat: -1, ease: 'Sine.inOut' }));
+    }
+    const count = img.displayWidth > 32 ? 4 : 3;
+    for (let i = 0; i < count; i++) {
+      const star = this.add.image(0, 0, TWINKLE_TEXTURE).setDepth(DEPTH.INDICATOR - 2);
+      spot(star);
+      shine.stars.push(star);
+      if (this.reducedMotion) {
+        star.setAlpha(0.85).setScale(0.6);
+        continue;
+      }
+      star.setAlpha(0).setScale(0.3);
+      shine.tweens.push(
+        this.tweens.add({
+          targets: star,
+          alpha: 1,
+          scale: { from: 0.3, to: 0.75 },
+          duration: 600,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.inOut',
+          delay: i * 700 + Math.random() * 500,
+          repeatDelay: 900 + Math.random() * 900,
+          onRepeat: () => spot(star),
+        }),
+      );
+    }
+    entry.shine = shine;
+  }
+
+  private removeShine(entry: SpriteEntry): void {
+    entry.shine?.tweens.forEach((t) => t.remove());
+    entry.shine?.stars.forEach((s) => s.destroy());
+    entry.shine?.glow.destroy();
+    entry.shine = undefined;
   }
 
   setHover(rect: TileRect | null): void {
@@ -348,6 +464,6 @@ function sameSprite(a: RenderSprite, b: RenderSprite): boolean {
   return (
     sameInteraction &&
     a.texture === b.texture && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h &&
-    a.sway === b.sway && a.pulse === b.pulse
+    a.sway === b.sway && a.pulse === b.pulse && a.badge === b.badge && a.shine === b.shine
   );
 }
