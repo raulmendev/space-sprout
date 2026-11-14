@@ -11,6 +11,7 @@ import {
   checkCare,
   getPlantStage,
   isThriving,
+  matureAfterMs,
   getTileKind,
   growthAgeMs,
   isThirsty,
@@ -45,7 +46,7 @@ export class GardenStore {
     const item = obj && getCatalogItem(obj.itemType);
     if (!obj || !item) return null;
     const now = this.now();
-    const total = item.growth?.matureAfterMs ?? 0;
+    const total = matureAfterMs(item);
     const ctx = { balance: this.balance(), earnedToday: this.earnedToday() };
     const check = (a: CareAction) => checkCare(obj, a, now, ctx);
     return {

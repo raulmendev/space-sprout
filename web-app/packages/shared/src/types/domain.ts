@@ -32,7 +32,9 @@ export interface GardenObject {
   care?: PlantCare;
 }
 
-export type PlantStage = 'SEED' | 'SPROUT' | 'MATURE';
+/** Every stage a plant can have, in growth order. Each species uses a subset (see CatalogItem.growth). */
+export const PLANT_STAGE_ORDER = ['SEED', 'SPROUT', 'GROWING', 'BUD', 'MATURE'] as const;
+export type PlantStage = (typeof PLANT_STAGE_ORDER)[number];
 
 export type CareAction = 'WATER' | 'FERTILIZE' | 'PRUNE' | 'HARVEST';
 

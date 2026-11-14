@@ -5,7 +5,7 @@
  * To deliver final art: drop `public/assets/game/<folder>/<key>.png` and add
  * `<key>` to `public/assets/game/manifest.json` → `delivered`. No code changes.
  */
-import { ALL_PROPS, PlantStage, TileKind } from '@garden/shared';
+import { ALL_PROPS, PlantStage, TileKind, getCatalogItem, plantStages } from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
 import {
   ASTRONAUT,
@@ -115,13 +115,24 @@ register(WET_SOIL_TEXTURE, 'garden/plots', [32, 32], TERRAIN, () => wetSoilTile(
 
 // ---------------------------------------------------------------- plants
 
+interface PlantVisual {
+  /** Native size of the mature map sprite. */
+  mature: [number, number];
+  /** Native size of the earlier map sprites. Default 32x32. */
+  growing?: [number, number];
+  matureArt: () => HTMLCanvasElement;
+  sway: boolean;
+  /** The delivered close-up art includes its own soil mound, so the close-up skips the shared one. */
+  closeupHasSoil?: boolean;
+}
+
 /** Per-species visual traits. Adding a plant = one row here (plus a catalog entry). */
-const PLANT_VISUALS: Record<string, { mature: [number, number]; matureArt: () => HTMLCanvasElement; sway: boolean }> = {
+const PLANT_VISUALS: Record<string, PlantVisual> = {
   flower: { mature: [32, 32], matureArt: () => gridInCanvas(MATURE_GRIDS['flower'], 2, 32, 32), sway: true },
   sunflower: { mature: [64, 64], matureArt: () => gridInCanvas(MATURE_GRIDS['sunflower'], 4, 64, 64), sway: true },
   tree: { mature: [64, 96], matureArt: tallTree, sway: false },
+  mustard: { mature: [64, 64], growing: [64, 64], matureArt: () => gridInCanvas(MATURE_GRIDS['flower'], 2, 64, 64), sway: true, closeupHasSoil: true },
 };
-const STAGES: PlantStage[] = ['SEED', 'SPROUT', 'MATURE'];
 
 export function plantTextureKey(itemType: string, stage: PlantStage): string {
   return `plant-${itemType}-${stage.toLowerCase()}`;
@@ -132,14 +143,22 @@ export function previewTextureKey(itemType: string, stage: PlantStage): string {
 export function plantSways(itemType: string): boolean {
   return PLANT_VISUALS[itemType]?.sway ?? false;
 }
+/** Close-up shown while the plant has every need met. Falls back to the normal close-up until delivered. */
+export function glowPreviewTextureKey(itemType: string, stage: PlantStage): string {
+  return `${previewTextureKey(itemType, stage)}-glow`;
+}
+export function closeupHasSoil(itemType: string): boolean {
+  return PLANT_VISUALS[itemType]?.closeupHasSoil ?? false;
+}
 export const PREVIEW_SOIL = 'preview-soil';
 
 for (const [id, v] of Object.entries(PLANT_VISUALS)) {
-  register(plantTextureKey(id, 'SEED'), 'garden/plants', [32, 32], BOTTOM_CENTER, () => gridToCanvas(SEED));
-  register(plantTextureKey(id, 'SPROUT'), 'garden/plants', [32, 32], BOTTOM_CENTER, () => gridToCanvas(SPROUT));
-  register(plantTextureKey(id, 'MATURE'), 'garden/plants', v.mature, BOTTOM_CENTER, v.matureArt);
-  for (const stage of STAGES) {
+  for (const stage of plantStages(getCatalogItem(id))) {
+    const size = stage === 'MATURE' ? v.mature : (v.growing ?? [32, 32]);
+    const art = stage === 'MATURE' ? v.matureArt : () => gridInCanvas(stage === 'SEED' ? SEED : SPROUT, 2, size[0], size[1]);
+    register(plantTextureKey(id, stage), 'garden/plants', size, BOTTOM_CENTER, art);
     register(previewTextureKey(id, stage), 'previews', [64, 64], BOTTOM_CENTER, () => closeupPlantArt(id, stage), true);
+    register(glowPreviewTextureKey(id, stage), 'previews', [64, 64], BOTTOM_CENTER, () => closeupPlantArt(id, stage), true);
   }
 }
 register(PREVIEW_SOIL, 'previews', [80, 24], BOTTOM_CENTER, closeupSoilArt, true);

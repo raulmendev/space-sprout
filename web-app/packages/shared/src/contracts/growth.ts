@@ -1,5 +1,5 @@
 import type { GardenObject, PlantStage } from '../types/domain';
-import { getCatalogItem } from './catalog';
+import { getCatalogItem, matureAfterMs } from './catalog';
 
 type Growable = Pick<GardenObject, 'itemType' | 'createdAt' | 'care'>;
 
@@ -10,17 +10,16 @@ export function growthAgeMs(obj: Growable, now: number): number {
 
 /** Deterministic, timestamp-based growth. No background jobs, no decay; care only moves it forward. */
 export function getPlantStage(obj: Growable, now: number): PlantStage {
-  const growth = getCatalogItem(obj.itemType)?.growth;
-  if (!growth) return 'MATURE';
+  const stages = getCatalogItem(obj.itemType)?.growth?.stages;
+  if (!stages?.length) return 'MATURE';
   const age = growthAgeMs(obj, now);
-  if (age >= growth.matureAfterMs) return 'MATURE';
-  if (age >= growth.sproutAfterMs) return 'SPROUT';
-  return 'SEED';
+  let stage = stages[0][0];
+  for (const [s, startsAt] of stages) if (age >= startsAt) stage = s;
+  return stage;
 }
 
 /** Ms until the plant reaches maturity (0 if already mature). */
 export function msUntilMature(obj: Growable, now: number): number {
-  const growth = getCatalogItem(obj.itemType)?.growth;
-  if (!growth) return 0;
-  return Math.max(0, growth.matureAfterMs - growthAgeMs(obj, now));
+  const total = matureAfterMs(getCatalogItem(obj.itemType));
+  return total ? Math.max(0, total - growthAgeMs(obj, now)) : 0;
 }

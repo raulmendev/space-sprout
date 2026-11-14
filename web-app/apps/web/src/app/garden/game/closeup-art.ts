@@ -239,7 +239,7 @@ function drawMature(p: Pix, itemType: string): void {
 export function closeupPlantArt(itemType: string, stage: PlantStage): string {
   const p = new Pix(64, 64);
   if (stage === 'SEED') drawSeed(p, itemType);
-  else if (stage === 'SPROUT') drawSprout(p, itemType);
+  else if (stage !== 'MATURE') drawSprout(p, itemType);
   else drawMature(p, itemType);
   return p.outline().toDataUrl();
 }

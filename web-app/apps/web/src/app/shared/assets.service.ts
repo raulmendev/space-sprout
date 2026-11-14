@@ -16,6 +16,11 @@ export class AssetService {
     return [...this.delivered()];
   }
 
+  /** Whether the design team's PNG for this key has been delivered. */
+  has(key: string): boolean {
+    return this.delivered().has(key);
+  }
+
   url(key: string): string {
     const asset = getAsset(key);
     return asset && this.delivered().has(key) ? asset.path : placeholderUrl(key);

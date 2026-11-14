@@ -1,5 +1,5 @@
 import type { Actor, CareAction, CareEvent, GardenObject, PlantCare } from '../types/domain';
-import { getCatalogItem } from './catalog';
+import { getCatalogItem, matureAfterMs } from './catalog';
 import { getPlantStage } from './growth';
 
 const HOUR = 3600_000;
@@ -108,7 +108,7 @@ export function checkCare(obj: Plant, action: CareAction, now: number, ctx: Care
  * Call `checkCare` first. Growth boosts apply only while the plant is still growing.
  */
 export function applyCare(obj: GardenObject, action: Exclude<CareAction, 'HARVEST'>, now: number, actor: Actor): GardenObject {
-  const total = getCatalogItem(obj.itemType)?.growth?.matureAfterMs ?? 0;
+  const total = matureAfterMs(getCatalogItem(obj.itemType));
   const growing = getPlantStage(obj, now) !== 'MATURE';
   const prev: PlantCare = obj.care ?? { boostMs: 0, log: [] };
   const at = new Date(now).toISOString();
