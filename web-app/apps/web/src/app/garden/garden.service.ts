@@ -18,7 +18,7 @@ export type PlaceResult =
  */
 @Injectable({ providedIn: 'root' })
 export class GardenService {
-  private static readonly KEY = 'jardin-comunal:garden:v3';
+  private static readonly KEY = 'jardin-comunal:garden:v4';
 
   async load(): Promise<GardenSnapshot> {
     try {
@@ -85,6 +85,6 @@ function seedGarden(): GardenSnapshot {
   return {
     gardenId,
     balance: 20,
-    objects: [mk('tree', 2, 3), mk('flower', 5, 5), mk('sunflower', 11, 4), mk('flower', 19, 11)],
+    objects: [mk('tree', 3, 3), mk('flower', 7, 5), mk('sunflower', 15, 4), mk('flower', 19, 11)],
   };
 }

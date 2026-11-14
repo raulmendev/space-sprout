@@ -9,6 +9,7 @@ export interface HabitatRenderer {
   setActors(actors: readonly RenderActor[]): void;
   setHover(rect: TileRect | null): void;
   setSelection(rect: TileRect | null): void;
+  setFocus(rect: TileRect | null): void;
   setGhost(ghost: (TileCoord & { texture: string }) | null): void;
   flashTile(tile: TileCoord): void;
   setZoom(zoom: number): void;
@@ -56,6 +57,7 @@ export function createHabitatRenderer(parent: HTMLElement, deliveredKeys: readon
     setActors: (a) => runLatest('actors', (s) => s.setActors(a)),
     setHover: (r) => runLatest('hover', (s) => s.setHover(r)),
     setSelection: (r) => runLatest('selection', (s) => s.setSelection(r)),
+    setFocus: (r) => runLatest('focus', (s) => s.setFocus(r)),
     setGhost: (g) => runLatest('ghost', (s) => s.setGhost(g)),
     flashTile: (t) => scene?.flashTile(t), // a pre-boot error flash isn't worth replaying
     setZoom: (z) => game.scale.setZoom(z),

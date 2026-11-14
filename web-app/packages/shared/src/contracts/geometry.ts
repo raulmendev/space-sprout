@@ -24,3 +24,10 @@ export function chebyshev(t: TileCoord, r: TileRect): number {
   const dy = Math.max(r.y - t.y, 0, t.y - (r.y + r.h - 1));
   return Math.max(dx, dy);
 }
+
+/** Distance from a continuous point (tile units) to the nearest edge of a rect; 0 inside it. */
+export function distanceToRect(p: { x: number; y: number }, r: TileRect): number {
+  const dx = Math.max(r.x - p.x, 0, p.x - (r.x + r.w));
+  const dy = Math.max(r.y - p.y, 0, p.y - (r.y + r.h));
+  return Math.hypot(dx, dy);
+}

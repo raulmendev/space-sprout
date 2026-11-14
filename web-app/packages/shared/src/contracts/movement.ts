@@ -3,8 +3,9 @@ import type { Point } from '../types/domain';
 import { TileCoord, TileRect, chebyshev } from './geometry';
 import { Placed, isBlocked } from './rules';
 
-/** Floors you can stand on. Soil is excluded so nobody tramples the beds. */
+/** Floors you can stand on. Soil is walkable; plants (placed objects) still block their footprint. */
 const WALKABLE: ReadonlySet<TileKind> = new Set<TileKind>([
+  'SOIL',
   'GRASS',
   'GRASS_FLOWERS',
   'PATH_STONE',
@@ -70,7 +71,7 @@ export function findPath(room: RoomId, from: TileCoord, to: TileCoord, objects: 
 
 /**
  * Shortest path to a tile within reach of a footprint (touching it, else one tile
- * further, e.g. the middle of a soil bed). Never ends on a door, so walking up to
+ * further if it's boxed in). Never ends on a door, so walking up to
  * something can't accidentally change rooms. Null if it can't be reached.
  */
 export function pathToReach(room: RoomId, from: TileCoord, rect: TileRect, objects: readonly Placed[]): TileCoord[] | null {

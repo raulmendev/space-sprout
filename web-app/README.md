@@ -30,7 +30,7 @@ Phaser renders and reports interactions (`HabitatInteraction`); it holds no auth
 
 - **Three rooms, one per zone, each a full 24×16-tile screen (768×512).** Only the room you're in is rendered. Rooms connect through labelled doors in their side walls: **Garden ← Social Space → Medical Station**. Players start in the Social Space hub.
 - One Phaser scene; changing rooms rebuilds it behind a short fade. Integer zoom when it fills ≥80% of the space, otherwise fractional; always nearest-neighbour.
-- The Garden has 6 beds (72 plots). Tick **Show layout** to see the active room's object footprints and doors.
+- The Garden has two large walkable soil fields (180 plots) around a centre path; plants block their own footprint. Tick **Show layout** to see the active room's object footprints and doors.
 - Rooms (layout, props, doors) are data in `packages/shared/src/contracts/habitat.ts`. A position anywhere in the habitat is `{ room, x, y }`.
 
 ## Interaction
@@ -38,7 +38,8 @@ Phaser renders and reports interactions (`HabitatInteraction`); it holds no auth
 The thing you tap is the thing you act on. No modes, and no instructions to read.
 
 - **Move with the on-screen pad or WASD / arrow keys.** The pad sits bottom-right at low opacity: press and drag in any direction (built for phones; works with a mouse). Movement is free, not tile-by-tile, at the same speed in every direction (diagonals are normalised). Characters slide along walls, and corner assist eases you into doorways and gaps you're slightly off from.
-- **Tap an object to use it:** the player walks up to it on a smoothed route, then it opens (station panel, plant picker or plant close-up). Tapping plain floor only shows what it is.
+- **Use what's in reach with the action button (A), E or Space.** The nearest usable thing within ~1.5 tiles (station, plant, free plot, Sprout) gets a soft green outline, and the label above the button says what it'll do ("Open Medical Terminal", "Plant here", "Talk to Sprout").
+- **Or tap an object directly:** the player walks up to it on a smoothed route, then it opens (station panel, plant picker or plant close-up). Tapping plain floor only shows what it is.
 - **Walk onto a door** to go to the next room. Leaving a room closes its panels, picker and close-up.
 - **Sprout** strolls around near its spot in the Garden, and stops when you come to talk.
 - Positions are continuous `{ room, x, y }` points in Angular state, stepped by one shared animation-frame ticker; Phaser only draws them (characters go through a separate per-frame "actors" channel, so the room isn't rebuilt every frame). A second, remote player later is just another position, shown when it's in your room.
@@ -69,7 +70,7 @@ No code changes are needed. Keys, folders, sizes and anchors are defined in `app
 - [x] Single habitat scene with three zones, placeholder props, footprints and a central asset registry/manifest
 - [x] Phaser → Angular interaction events; panel shells for Medical Terminal, Health Insights, Message Board, Emotes
 - [x] Garden: plant/grow 3 species (2×2 tree), close-up view, saved to localStorage
-- [x] One player with free movement: on-screen pad + keyboard, tap objects to walk up and use them
+- [x] One player with free movement: on-screen pad + action button + keyboard, or tap objects to walk up and use them
 - [x] Habitat split into three single-screen rooms joined by doors
 - [ ] Layout checkpoint sign-off with the design team
 - [ ] NestJS API + Postgres, simulated wearable + measurement entry, insights chart

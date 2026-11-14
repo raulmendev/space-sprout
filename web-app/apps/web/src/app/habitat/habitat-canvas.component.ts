@@ -57,6 +57,7 @@ export class HabitatCanvasComponent {
     effect(() => this.renderer()?.setActors(this.habitat.actors()));
     effect(() => this.renderer()?.setHover(this.habitat.hoverRect()));
     effect(() => this.renderer()?.setSelection(this.habitat.selectionRect()));
+    effect(() => this.renderer()?.setFocus(this.habitat.reachable()?.rect ?? null));
     effect(() => this.renderer()?.setGhost(this.habitat.ghost()));
     effect(() => this.renderer()?.setZoom(this.zoom()));
   }

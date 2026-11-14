@@ -69,6 +69,7 @@ export class HabitatScene extends Phaser.Scene {
   private building = false;
   private hover!: Phaser.GameObjects.Rectangle;
   private selection!: Phaser.GameObjects.Rectangle;
+  private focus!: Phaser.GameObjects.Rectangle;
   private ghost!: Phaser.GameObjects.Image;
   private lastHover = '';
   private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -101,10 +102,12 @@ export class HabitatScene extends Phaser.Scene {
 
     this.hover = this.add.rectangle(0, 0, 0, 0).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.6).setDepth(DEPTH.INDICATOR).setVisible(false);
     this.selection = this.add.rectangle(0, 0, 0, 0).setOrigin(0).setStrokeStyle(2, 0xfff3a0, 1).setDepth(DEPTH.INDICATOR + 1).setVisible(false);
+    this.focus = this.add.rectangle(0, 0, 0, 0).setOrigin(0).setStrokeStyle(2, 0x9cf29c, 0.95).setDepth(DEPTH.INDICATOR - 1).setVisible(false);
     this.ghost = this.add.image(0, 0, '__DEFAULT').setOrigin(0.5, 1).setAlpha(0.6).setDepth(DEPTH.INDICATOR + 2).setVisible(false);
     if (!this.reducedMotion) {
       this.tweens.add({ targets: this.selection, alpha: 0.45, duration: 600, yoyo: true, repeat: -1 });
       this.tweens.add({ targets: this.ghost, alpha: 0.3, duration: 700, yoyo: true, repeat: -1 });
+      this.tweens.add({ targets: this.focus, alpha: 0.5, duration: 500, yoyo: true, repeat: -1 });
     }
 
     // `over` is Phaser's own (pixel-perfect) hit test for this event; reuse it.
@@ -277,6 +280,11 @@ export class HabitatScene extends Phaser.Scene {
 
   setHover(rect: TileRect | null): void {
     this.placeRect(this.hover, rect);
+  }
+
+  /** What the action button would use right now (soft green outline). */
+  setFocus(rect: TileRect | null): void {
+    this.placeRect(this.focus, rect);
   }
 
   setSelection(rect: TileRect | null): void {

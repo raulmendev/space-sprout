@@ -4,7 +4,7 @@ import { GardenStore } from '../garden/garden.store';
 import { Ticker } from './ticker.service';
 
 /** Walking speed, in tiles per second. */
-const SPEED = 4.2;
+const SPEED = 6;
 
 /**
  * The local player's avatar. Position (room + continuous point) is app state,

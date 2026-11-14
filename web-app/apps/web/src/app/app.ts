@@ -13,6 +13,7 @@ import { HabitatCanvasComponent } from './habitat/habitat-canvas.component';
 import { LayoutOverlayComponent } from './habitat/layout-overlay.component';
 import { DoorLabelsComponent } from './habitat/door-labels.component';
 import { TouchPadComponent } from './habitat/touch-pad.component';
+import { ActionButtonComponent } from './habitat/action-button.component';
 import { StationPanelComponent } from './habitat/panels/station-panel.component';
 import type { TileCoord } from './garden/game/tile-manager';
 
@@ -41,6 +42,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     LayoutOverlayComponent,
     DoorLabelsComponent,
     TouchPadComponent,
+    ActionButtonComponent,
     PlantPickerComponent,
     PlantCloseupComponent,
     TileInfoComponent,
@@ -82,6 +84,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
             <div class="relative">
               <app-habitat-canvas (interaction)="onInteraction($event)" />
               <app-door-labels />
+              <app-action-button class="absolute bottom-6 left-4 z-10" (act)="onAction()" />
               <app-touch-pad class="absolute bottom-3 right-3 z-10" />
               @if (habitat.showLayout()) { <app-layout-overlay /> }
               @if (garden.pickerTile(); as t) {
@@ -91,7 +94,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
                 <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" />
               }
               @if (!garden.closeup()) {
-                <div class="pointer-events-none absolute bottom-3 left-3 w-[min(30rem,calc(100%-1.5rem))] [&>*]:pointer-events-auto">
+                <div class="pointer-events-none absolute bottom-3 left-1/2 z-20 w-[min(30rem,calc(100%-17rem))] -translate-x-1/2 [&>*]:pointer-events-auto">
                   <app-dialogue-bubble (action)="onDialogueAction($event)" />
                 </div>
               }
@@ -143,11 +146,20 @@ export class App {
   }
 
   /**
-   * Every click in the habitat lands here. Floor → walk there. Anything else →
-   * walk up to it, then act on it. The thing clicked is the thing acted on.
+   * Every tap in the habitat lands here. Floor → just inspect. Anything else →
+   * walk up to it, then act on it. The thing tapped is the thing acted on.
    */
   onInteraction(raw: HabitatInteraction): void {
-    const i = this.habitat.resolve(raw);
+    this.use(this.habitat.resolve(raw), true);
+  }
+
+  /** Action button / E / Space: use whatever is in reach, right where you stand. */
+  onAction(): void {
+    const target = this.habitat.reachable();
+    if (target) this.use(target.interaction, false);
+  }
+
+  private use(i: HabitatInteraction, walkThere: boolean): void {
     const plot = this.garden.pickerTile();
     this.garden.pickerTile.set(null);
     this.garden.closeupId.set(null);
@@ -155,7 +167,7 @@ export class App {
 
     if (i.type === 'TILE_SELECTED') return; // floor taps only inspect; move with the pad or keys
     if (i.type === 'NPC_SELECTED') this.npcActor.hold(); // stop wandering so you can catch up
-    const rect = this.habitat.targetRect(i);
+    const rect = walkThere ? this.habitat.targetRect(i) : null;
     if (rect) this.player.approach(rect, () => this.act(i, plot));
     else this.act(i, plot);
   }
@@ -200,9 +212,16 @@ export class App {
 
   /** Hold arrow keys / WASD to walk. Ignored while typing in a field. */
   onKey(e: KeyboardEvent, down: boolean): void {
+    const el = e.target as HTMLElement | null;
+    if ((e.key === 'e' || e.key === 'E' || e.key === ' ') && down && !e.repeat) {
+      // Let focused buttons and fields keep their own Space behaviour.
+      if (el?.closest('input, textarea, select, button, [contenteditable], [role="menu"]')) return;
+      e.preventDefault();
+      this.onAction();
+      return;
+    }
     const dir = MOVE_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
     if (!dir) return;
-    const el = e.target as HTMLElement | null;
     if (down && el?.closest('input, textarea, select, [contenteditable], [role="tablist"], [role="menu"]')) return;
     e.preventDefault();
     if (down) {

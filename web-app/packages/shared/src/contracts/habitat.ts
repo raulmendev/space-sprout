@@ -90,28 +90,29 @@ export const ROOMS: Record<RoomId, Room> = {
   GARDEN: {
     id: 'GARDEN',
     name: 'Garden',
+    // Two large walkable soil fields either side of a centre path, split by the boardwalk.
     layout: [
       'XXXXXXXXXXXXXXXXXXXXXXXX', // 0
       'XVVOOVVVVEeVVVVOOVVVOVVX', // 1
-      'X,GGGGGPPGGG,GGPPGGGGGGX', // 2
-      'XGSSSSGPPGSSSSGPPGSSSSGX', // 3
-      'XGSSSSGPPGSSSSGPPGSSSSGX', // 4
-      'XGSSSSGPPGSSSSGPPGSSSSGX', // 5
-      'XGGGG,GPPGGGGGGPPGG,GGGX', // 6
+      'XGGG,GGG,GGPPGG,GGG,GGGX', // 2
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 3
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 4
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 5
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 6
       'XDDDDDDDDDDDDDDDDDDDDDDK', // 7
       'XDDDDDDDDDDDDDDDDDDDDDDK', // 8
-      'XGGGGGGPPGG,GGGPPGGGGGGX', // 9
-      'XGSSSSGPPGSSSSGPPGSSSSGX', // 10
-      'XGSSSSGPPGSSSSGPPGSSSSGX', // 11
-      'XGSSSSGPPGSSSSGPPGSSSSGX', // 12
-      'XGGGGGGPPGGGG,GPPGGGGGGX', // 13
-      'XGGG,GGPPGGGGGGPPGGG,GGX', // 14
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 9
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 10
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 11
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 12
+      'XSSSSSSSSSSPPSSSSSSSSSSX', // 13
+      'XGGGGG,GGGGPPGGGG,GGG,GX', // 14
       'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
     ],
     props: [
-      { id: 'garden-lamp', kind: 'LAMP', name: 'Garden lamp', x: 6, y: 2, w: 1, h: 1 },
-      { id: 'garden-planter', kind: 'PLANTER', name: 'Planter', x: 14, y: 9, w: 1, h: 1 },
-      { id: 'watering-can', kind: 'WATERING_CAN', name: 'Watering can', x: 17, y: 13, w: 1, h: 1 },
+      { id: 'garden-lamp', kind: 'LAMP', name: 'Garden lamp', x: 2, y: 2, w: 1, h: 1 },
+      { id: 'watering-can', kind: 'WATERING_CAN', name: 'Watering can', x: 21, y: 2, w: 1, h: 1 },
+      { id: 'garden-planter', kind: 'PLANTER', name: 'Planter', x: 2, y: 14, w: 1, h: 1 },
     ],
     doors: sideDoor('E', 'SOCIAL'),
   },
@@ -202,4 +203,4 @@ export function propInteraction(p: HabitatProp): HabitatInteraction {
 }
 
 /** Where the NPC lives and wanders around (centre of a tile, in tile units). */
-export const NPC_HOME = { room: 'GARDEN' as RoomId, x: 9.5, y: 6.5 };
+export const NPC_HOME = { room: 'GARDEN' as RoomId, x: 12, y: 5 };

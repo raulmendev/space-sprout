@@ -40,6 +40,8 @@ const CORNER_ASSIST = 0.6;
 export function slide(room: RoomId, p: Point, dx: number, dy: number, objects: readonly Placed[]): Point {
   let { x, y } = p;
   const free = (q: Point) => canStand(room, q, objects);
+  // Already inside something solid (e.g. a plant appeared underfoot): move freely until out.
+  if (!free(p)) return { x: x + dx, y: y + dy };
   if (dx && free({ x: x + dx, y })) x += dx;
   if (dy && free({ x, y: y + dy })) y += dy;
   if (x !== p.x || y !== p.y || (dx && dy)) return { x, y };

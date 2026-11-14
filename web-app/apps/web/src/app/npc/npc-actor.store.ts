@@ -5,7 +5,7 @@ import { PlayerStore } from '../habitat/player.store';
 import { Ticker } from '../habitat/ticker.service';
 import { NpcStore } from './npc.store';
 
-const SPEED = 1.4; // tiles per second: an amble
+const SPEED = 2; // tiles per second: an amble
 const WANDER_RADIUS = 2.5;
 
 /**

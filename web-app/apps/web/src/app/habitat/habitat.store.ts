@@ -9,7 +9,9 @@ import {
   ROOMS,
   TileCoord,
   TileRect,
+  distanceToRect,
   footprintTiles,
+  getCatalogItem,
   getPlantStage,
   getTileKind,
   objectRect,
@@ -33,6 +35,17 @@ import type { HabitatRenderState, RenderActor, RenderSprite } from '../garden/ga
 
 /** A panel is identified by the station interaction that opens it. */
 export type HabitatPanel = PropInteraction;
+
+/** Something the player can use from where they stand. */
+export interface Reachable {
+  interaction: HabitatInteraction;
+  rect: TileRect;
+  /** What the action button will do, e.g. "Open Medical Terminal". */
+  label: string;
+}
+
+/** How far from the player's feet something can be and still be usable (tiles, to its nearest edge). */
+const REACH = 1.5;
 
 /**
  * Habitat UI state: what is hovered/selected, which panel is open, prop visual
@@ -121,11 +134,53 @@ export class HabitatStore {
     return s?.type === 'NPC_SELECTED' ? null : this.targetRect(s);
   });
 
-  /** "+" over an empty plot under the pointer, so plantable spots are self-evident. */
+  /** Soil tiles of the garden room, for finding the nearest free plot. Static. */
+  private readonly soilTiles: TileCoord[] = (() => {
+    const tiles: TileCoord[] = [];
+    ROOMS[GARDEN_ROOM].layout.forEach((row, y) => [...row].forEach((_, x) => getTileKind(GARDEN_ROOM, x, y) === 'SOIL' && tiles.push({ x, y })));
+    return tiles;
+  })();
+
+  /** The nearest usable thing within reach of the player (stations, plants, free plots, Sprout). */
+  readonly reachable = computed<Reachable | null>(() => {
+    const room = this.activeRoom();
+    const feet = this.player.position();
+    let best: Reachable | null = null;
+    let bestDist = REACH;
+    const consider = (rect: TileRect, interaction: HabitatInteraction, label: string) => {
+      const d = distanceToRect(feet, rect);
+      if (d <= bestDist) {
+        bestDist = d;
+        best = { rect, interaction, label };
+      }
+    };
+
+    for (const p of this.roomProps()) {
+      if (p.interaction) consider(p, { type: p.interaction }, `Open ${p.name}`);
+    }
+    if (room === GARDEN_ROOM) {
+      for (const o of this.garden.objects()) {
+        consider(objectRect(o), { type: 'PLANT_SELECTED', plantId: o.id }, `Look at ${getCatalogItem(o.itemType)?.name ?? 'plant'}`);
+      }
+      const underfoot = tileOf(feet);
+      for (const t of this.soilTiles) {
+        if (t.x === underfoot.x && t.y === underfoot.y) continue; // plant in front of you, not on your toes
+        if (this.garden.isEmptyPlot(t)) consider({ ...t, w: 1, h: 1 }, { type: 'PLOT_SELECTED', ...t }, 'Plant here');
+      }
+    }
+    if (room === this.npc.room) {
+      consider({ ...tileOf(this.npc.position()), w: 1, h: 1 }, { type: 'NPC_SELECTED' }, 'Talk to Sprout');
+    }
+    return best;
+  });
+
+  /** "+" over an empty plot under the pointer (or the one in reach), so plantable spots are self-evident. */
   readonly ghost = computed(() => {
+    if (this.garden.pickerTile() || this.garden.closeupId()) return null;
     const h = this.hover();
-    if (h?.type !== 'PLOT_SELECTED' || this.garden.pickerTile() || this.garden.closeupId()) return null;
-    return this.garden.isEmptyPlot(h) ? { x: h.x, y: h.y, texture: HINT_TEXTURE } : null;
+    const plot = h?.type === 'PLOT_SELECTED' ? h : this.reachable()?.interaction;
+    if (plot?.type !== 'PLOT_SELECTED') return null;
+    return this.garden.isEmptyPlot(plot) ? { x: plot.x, y: plot.y, texture: HINT_TEXTURE } : null;
   });
 
   /** Info for the "Look closer" panel when a plain tile or decoration is selected. */
