@@ -1,22 +1,21 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
-  HABITAT_PROPS,
+  GARDEN_ROOM,
   HabitatInteraction,
   InsightsDisplayState,
   MedicalTerminalState,
   MessageBoardState,
-  NPC_RECT,
   PropInteraction,
+  ROOMS,
   TileCoord,
   TileRect,
   footprintTiles,
   getPlantStage,
   getTileKind,
-  isNpcTile,
   objectRect,
   propAtTile,
   propInteraction,
-  zoneAt,
+  tileOf,
 } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import {
@@ -28,14 +27,12 @@ import {
   propPulses,
   propTextureKey,
 } from '../garden/game/asset-registry';
-import { PlayerStore, STEP_MS } from './player.store';
-import type { HabitatRenderState, RenderSprite } from '../garden/game/habitat.scene';
+import { PlayerStore } from './player.store';
+import { NpcActorStore } from '../npc/npc-actor.store';
+import type { HabitatRenderState, RenderActor, RenderSprite } from '../garden/game/habitat.scene';
 
 /** A panel is identified by the station interaction that opens it. */
 export type HabitatPanel = PropInteraction;
-
-/** Characters draw in front of plants/props that share their ground row. */
-const CHARACTER_DEPTH_BIAS = 0.5;
 
 /**
  * Habitat UI state: what is hovered/selected, which panel is open, prop visual
@@ -45,6 +42,11 @@ const CHARACTER_DEPTH_BIAS = 0.5;
 export class HabitatStore {
   private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
+  private readonly npc = inject(NpcActorStore);
+
+  /** The room on screen: wherever the local player is. */
+  readonly activeRoom = computed(() => this.player.room());
+  private readonly roomProps = computed(() => ROOMS[this.activeRoom()].props);
 
   readonly hover = signal<HabitatInteraction | null>(null);
   readonly selection = signal<HabitatInteraction | null>(null);
@@ -60,10 +62,11 @@ export class HabitatStore {
   } as const;
 
   readonly renderState = computed<HabitatRenderState>(() => {
+    const room = this.activeRoom();
     const now = this.garden.now();
     const sprites: RenderSprite[] = [];
 
-    for (const p of HABITAT_PROPS) {
+    for (const p of this.roomProps()) {
       const state = this.propStates[p.kind as keyof typeof this.propStates]?.();
       sprites.push({
         id: `prop:${p.id}`,
@@ -78,7 +81,7 @@ export class HabitatStore {
     }
 
     const wetTiles: TileCoord[] = [];
-    for (const o of this.garden.objects()) {
+    for (const o of room === GARDEN_ROOM ? this.garden.objects() : []) {
       const rect = objectRect(o);
       const stage = getPlantStage(o, now);
       sprites.push({
@@ -91,19 +94,25 @@ export class HabitatStore {
       wetTiles.push(...footprintTiles(rect));
     }
 
-    sprites.push({ id: 'npc', texture: NPC_TEXTURE, ...NPC_RECT, interaction: { type: 'NPC_SELECTED' }, depthBias: CHARACTER_DEPTH_BIAS });
-    sprites.push({
-      id: 'player',
-      texture: PLAYER_TEXTURE,
-      ...this.player.tile(),
-      w: 1,
-      h: 1,
-      interaction: null,
-      moveMs: STEP_MS,
-      flipX: this.player.facingLeft(),
-      depthBias: CHARACTER_DEPTH_BIAS,
-    });
-    return { sprites, wetTiles };
+    return { room, sprites, wetTiles };
+  });
+
+  /** Moving characters in the active room. Updates every frame, separately from the room. */
+  readonly actors = computed<RenderActor[]>(() => {
+    const actors: RenderActor[] = [];
+    if (this.activeRoom() === this.npc.room) {
+      actors.push({
+        id: 'npc',
+        texture: NPC_TEXTURE,
+        ...this.npc.position(),
+        flipX: this.npc.facingLeft(),
+        moving: this.npc.moving(),
+        interaction: { type: 'NPC_SELECTED' },
+      });
+    }
+    const { x, y } = this.player.position();
+    actors.push({ id: 'player', texture: PLAYER_TEXTURE, x, y, flipX: this.player.facingLeft(), moving: this.player.moving(), interaction: null });
+    return actors;
   });
 
   readonly hoverRect = computed(() => this.targetRect(this.hover()));
@@ -123,12 +132,13 @@ export class HabitatStore {
   readonly selectedInfo = computed(() => {
     const s = this.selection();
     if (!s) return null;
+    const room = ROOMS[this.activeRoom()];
     if (s.type === 'PROP_SELECTED') {
-      const prop = HABITAT_PROPS.find((p) => p.id === s.propId);
-      return prop ? { title: prop.name, zone: prop.zone, kind: null } : null;
+      const prop = room.props.find((p) => p.id === s.propId);
+      return prop ? { title: prop.name, roomName: room.name, kind: null } : null;
     }
     if (s.type === 'TILE_SELECTED' || s.type === 'PLOT_SELECTED') {
-      return { title: null, zone: zoneAt(s.x, s.y), kind: getTileKind(s.x, s.y) ?? null };
+      return { title: null, roomName: room.name, kind: getTileKind(room.id, s.x, s.y) ?? null };
     }
     return null;
   });
@@ -145,11 +155,11 @@ export class HabitatStore {
       case 'TILE_SELECTED':
         return { x: i.x, y: i.y, w: 1, h: 1 };
       case 'NPC_SELECTED':
-        return NPC_RECT;
+        return { ...tileOf(this.npc.position()), w: 1, h: 1 };
       case 'PROP_SELECTED':
-        return HABITAT_PROPS.find((p) => p.id === i.propId) ?? null;
+        return this.roomProps().find((p) => p.id === i.propId) ?? null;
       default:
-        return HABITAT_PROPS.find((p) => p.interaction === i.type) ?? null;
+        return this.roomProps().find((p) => p.interaction === i.type) ?? null;
     }
   }
 
@@ -159,11 +169,11 @@ export class HabitatStore {
    */
   resolve(i: HabitatInteraction): HabitatInteraction {
     if (i.type !== 'TILE_SELECTED' && i.type !== 'PLOT_SELECTED') return i;
-    const plant = this.garden.plantAt(i);
+    const room = this.activeRoom();
+    const plant = room === GARDEN_ROOM ? this.garden.plantAt(i) : undefined;
     if (plant) return { type: 'PLANT_SELECTED', plantId: plant.id };
-    const prop = propAtTile(i.x, i.y);
+    const prop = propAtTile(room, i.x, i.y);
     if (prop) return propInteraction(prop);
-    if (isNpcTile(i.x, i.y)) return { type: 'NPC_SELECTED' };
     return i;
   }
 }

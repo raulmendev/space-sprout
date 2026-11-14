@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import type { HabitatInteraction } from '@garden/shared';
-import { HabitatRenderState, HabitatScene } from './habitat.scene';
+import { HabitatRenderState, HabitatScene, RenderActor } from './habitat.scene';
 import { TileCoord, TileRect, WORLD_H, WORLD_W } from './tile-manager';
 
 /** The small surface Angular talks to. State flows in; interactions flow out. */
 export interface HabitatRenderer {
   setState(state: HabitatRenderState): void;
+  setActors(actors: readonly RenderActor[]): void;
   setHover(rect: TileRect | null): void;
   setSelection(rect: TileRect | null): void;
   setGhost(ghost: (TileCoord & { texture: string }) | null): void;
@@ -52,6 +53,7 @@ export function createHabitatRenderer(parent: HTMLElement, deliveredKeys: readon
 
   return {
     setState: (st) => runLatest('state', (s) => s.setState(st)),
+    setActors: (a) => runLatest('actors', (s) => s.setActors(a)),
     setHover: (r) => runLatest('hover', (s) => s.setHover(r)),
     setSelection: (r) => runLatest('selection', (s) => s.setSelection(r)),
     setGhost: (g) => runLatest('ghost', (s) => s.setGhost(g)),

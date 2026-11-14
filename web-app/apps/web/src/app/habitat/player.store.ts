@@ -1,89 +1,148 @@
-import { Injectable, inject, signal } from '@angular/core';
-import { PLAYER_START, TileCoord, TileRect, findPath, isWalkable, pathToReach } from '@garden/shared';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { HabitatPosition, PLAYER_START, Point, TileRect, doorAt, planReach, slide, tileCenter, tileOf } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
+import { Ticker } from './ticker.service';
 
-/** Time per tile step. The renderer animates the same duration. */
-export const STEP_MS = 140;
+/** Walking speed, in tiles per second. */
+const SPEED = 4.2;
 
 /**
- * The local player's avatar. Position is app state (Angular), stepped along a
- * grid path; Phaser only animates between tiles. Ready for a second, remote
- * player later: that one would just be another position fed from the server.
+ * The local player's avatar. Position (room + continuous point) is app state,
+ * moved every frame by held keys / the on-screen pad, or along a smoothed route
+ * when walking up to something that was tapped. Phaser only draws it.
+ * Walking onto a door moves the player to the connected room. A second, remote
+ * player later is just another position fed from the server.
  */
 @Injectable({ providedIn: 'root' })
 export class PlayerStore {
   private readonly garden = inject(GardenStore);
+  private readonly ticker = inject(Ticker);
 
-  readonly tile = signal<TileCoord>(PLAYER_START);
+  readonly position = signal<HabitatPosition>(PLAYER_START);
+  readonly room = computed(() => this.position().room);
   readonly facingLeft = signal(false);
+  readonly moving = signal(false);
 
-  private path: TileCoord[] = [];
+  private route: Point[] = [];
   private onArrive: (() => void) | null = null;
-  private timer?: ReturnType<typeof setInterval>;
+  private readonly keys = { x: 0, y: 0 };
+  private readonly held = new Set<string>();
+  /** On-screen pad direction, unit length or zero. */
+  private readonly pad = { x: 0, y: 0 };
 
-  /** Walk to a floor tile. Returns false if it can't be reached. */
-  walkTo(dest: TileCoord): boolean {
-    const path = findPath(this.tile(), dest, this.garden.objects());
-    if (!path) return false;
-    this.follow(path, null);
-    return true;
-  }
-
-  /** Walk up to something, then do `action`. Unreachable targets act immediately. */
+  /** Walk up to something in the current room, then do `action`. Unreachable targets act immediately. */
   approach(rect: TileRect, action: () => void): void {
-    const path = pathToReach(this.tile(), rect, this.garden.objects());
-    if (!path) {
-      this.stop();
+    const route = planReach(this.room(), this.position(), rect, this.garden.objects());
+    if (!route) {
+      this.stopRoute();
       action();
       return;
     }
-    this.follow(path, action);
+    this.follow(route, action);
   }
 
-  /** One tile in a direction (keyboard). Cancels any walk in progress. */
-  step(dx: number, dy: number): void {
-    if (this.timer && this.path.length) return; // let the current walk finish
-    this.path = [];
-    this.onArrive = null;
-    const cur = this.tile();
-    if (dx) this.facingLeft.set(dx < 0);
-    if (!isWalkable(cur.x + dx, cur.y + dy, this.garden.objects())) return;
-    this.follow([{ x: cur.x + dx, y: cur.y + dy }], null);
+  /** Held direction keys (e.g. 'up'), for smooth keyboard movement. */
+  setKey(dir: 'up' | 'down' | 'left' | 'right', down: boolean): void {
+    if (down) this.held.add(dir);
+    else this.held.delete(dir);
+    this.keys.x = (this.held.has('right') ? 1 : 0) - (this.held.has('left') ? 1 : 0);
+    this.keys.y = (this.held.has('down') ? 1 : 0) - (this.held.has('up') ? 1 : 0);
+    this.steer();
   }
 
-  reset(): void {
-    this.stop();
-    this.tile.set(PLAYER_START);
+  /** Direction from the on-screen pad, any length (normalised here); (0, 0) releases it. */
+  setPad(x: number, y: number): void {
+    const len = Math.hypot(x, y);
+    this.pad.x = len ? x / len : 0;
+    this.pad.y = len ? y / len : 0;
+    this.steer();
   }
 
-  private follow(path: TileCoord[], action: (() => void) | null): void {
-    this.path = path;
-    this.onArrive = action;
-    if (!path.length) return this.arrive();
-    if (!this.timer) {
-      this.advance();
-      this.timer = setInterval(() => this.advance(), STEP_MS);
+  releaseKeys(): void {
+    this.held.clear();
+    this.keys.x = this.keys.y = 0;
+    this.pad.x = this.pad.y = 0;
+  }
+
+  /** Manual steering (keys or pad) takes over from any walk-up route. */
+  private steer(): void {
+    if (this.keys.x || this.keys.y || this.pad.x || this.pad.y) {
+      this.stopRoute();
+      this.ticker.add(this.tick);
     }
   }
 
-  private advance(): void {
-    const next = this.path.shift();
-    if (!next) return this.arrive();
-    const cur = this.tile();
-    if (next.x !== cur.x) this.facingLeft.set(next.x < cur.x);
-    this.tile.set(next);
+  reset(): void {
+    this.stopRoute();
+    this.releaseKeys();
+    this.position.set(PLAYER_START);
   }
+
+  private follow(route: Point[], action: (() => void) | null): void {
+    this.route = route;
+    this.onArrive = action;
+    if (!route.length) return this.arrive();
+    this.ticker.add(this.tick);
+  }
+
+  private readonly tick = (dt: number): void => {
+    const pos = this.position();
+    let dx = 0;
+    let dy = 0;
+
+    const manual = this.keys.x || this.keys.y ? this.keys : this.pad;
+    if (manual.x || manual.y) {
+      const len = Math.hypot(manual.x, manual.y);
+      dx = (manual.x / len) * SPEED * dt;
+      dy = (manual.y / len) * SPEED * dt;
+    } else if (this.route.length) {
+      const target = this.route[0];
+      const dist = Math.hypot(target.x - pos.x, target.y - pos.y);
+      const stepLen = SPEED * dt;
+      if (dist <= stepLen) {
+        dx = target.x - pos.x;
+        dy = target.y - pos.y;
+        this.route.shift();
+      } else {
+        dx = ((target.x - pos.x) / dist) * stepLen;
+        dy = ((target.y - pos.y) / dist) * stepLen;
+      }
+    }
+
+    if (!dx && !dy) {
+      this.moving.set(false);
+      if (!this.route.length && this.onArrive) this.arrive();
+      if (!this.route.length) this.ticker.remove(this.tick);
+      return;
+    }
+
+    const next = slide(pos.room, pos, dx, dy, this.garden.objects());
+    if (next.x === pos.x && next.y === pos.y) {
+      // Blocked (shouldn't happen on a planned route): give up rather than push against a wall.
+      this.route = [];
+    }
+    if (Math.abs(dx) > 1e-4) this.facingLeft.set(dx < 0);
+    this.moving.set(true);
+
+    const t = tileOf(next);
+    const door = doorAt(pos.room, t.x, t.y);
+    if (door) {
+      // Through the door: appear just inside the next room. A click-walk ends here.
+      this.stopRoute();
+      this.position.set({ room: door.to, ...tileCenter(door.arrive) });
+      return;
+    }
+    this.position.set({ room: pos.room, ...next });
+  };
 
   private arrive(): void {
     const action = this.onArrive;
-    this.stop();
+    this.stopRoute();
     action?.();
   }
 
-  private stop(): void {
-    clearInterval(this.timer);
-    this.timer = undefined;
-    this.path = [];
+  private stopRoute(): void {
+    this.route = [];
     this.onArrive = null;
   }
 }

@@ -28,16 +28,20 @@ Phaser renders and reports interactions (`HabitatInteraction`); it holds no auth
 
 ## The habitat
 
-- One Phaser scene, **24×16 tiles of 32 px (768×512)**. Integer zoom when it fills ≥80% of the space, otherwise fractional; always nearest-neighbour.
-- Zones: Garden (11×7, top-left), Medical Station (10×7, top-right), Social Space (22×5, bottom). Tick **Show layout** to see zone boundaries and object footprints.
-- Layout, zones and props are data in `packages/shared/src/contracts/habitat.ts`.
+- **Three rooms, one per zone, each a full 24×16-tile screen (768×512).** Only the room you're in is rendered. Rooms connect through labelled doors in their side walls: **Garden ← Social Space → Medical Station**. Players start in the Social Space hub.
+- One Phaser scene; changing rooms rebuilds it behind a short fade. Integer zoom when it fills ≥80% of the space, otherwise fractional; always nearest-neighbour.
+- The Garden has 6 beds (72 plots). Tick **Show layout** to see the active room's object footprints and doors.
+- Rooms (layout, props, doors) are data in `packages/shared/src/contracts/habitat.ts`. A position anywhere in the habitat is `{ room, x, y }`.
 
 ## Interaction
 
-The thing you click is the thing you act on. No modes, and no instructions to read.
+The thing you tap is the thing you act on. No modes, and no instructions to read.
 
-- **One player (the astronaut) walks the habitat.** Click the floor to walk there. Click an object and the player walks up to it, then it opens (station panel, plant picker or plant close-up). Arrow keys / WASD also move.
-- Movement is grid-based (BFS) around walls, soil beds, plants and props. Position is Angular state, and Phaser only animates the steps, so a second (remote) player can be added later as another position.
+- **Move with the on-screen pad or WASD / arrow keys.** The pad sits bottom-right at low opacity: press and drag in any direction (built for phones; works with a mouse). Movement is free, not tile-by-tile, at the same speed in every direction (diagonals are normalised). Characters slide along walls, and corner assist eases you into doorways and gaps you're slightly off from.
+- **Tap an object to use it:** the player walks up to it on a smoothed route, then it opens (station panel, plant picker or plant close-up). Tapping plain floor only shows what it is.
+- **Walk onto a door** to go to the next room. Leaving a room closes its panels, picker and close-up.
+- **Sprout** strolls around near its spot in the Garden, and stops when you come to talk.
+- Positions are continuous `{ room, x, y }` points in Angular state, stepped by one shared animation-frame ticker; Phaser only draws them (characters go through a separate per-frame "actors" channel, so the room isn't rebuilt every frame). A second, remote player later is just another position, shown when it's in your room.
 - Empty plot: a picker with prices. Disabled options say why ("Not enough seeds", "Needs 2×2 free soil").
 
 ## Delivering final art (design team)
@@ -65,7 +69,8 @@ No code changes are needed. Keys, folders, sizes and anchors are defined in `app
 - [x] Single habitat scene with three zones, placeholder props, footprints and a central asset registry/manifest
 - [x] Phaser → Angular interaction events; panel shells for Medical Terminal, Health Insights, Message Board, Emotes
 - [x] Garden: plant/grow 3 species (2×2 tree), close-up view, saved to localStorage
-- [x] One walking player with click-to-walk and keyboard
+- [x] One player with free movement: on-screen pad + keyboard, tap objects to walk up and use them
+- [x] Habitat split into three single-screen rooms joined by doors
 - [ ] Layout checkpoint sign-off with the design team
 - [ ] NestJS API + Postgres, simulated wearable + measurement entry, insights chart
 - [ ] Notes, emotes, family role, Socket.IO sync, second player

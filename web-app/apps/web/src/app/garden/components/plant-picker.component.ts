@@ -1,5 +1,5 @@
 import { Component, computed, inject, input, output } from '@angular/core';
-import { HABITAT_COLS, PlacementError, footprintOf } from '@garden/shared';
+import { PlacementError, ROOM_COLS, footprintOf } from '@garden/shared';
 import { colPct, rowPct } from '../../habitat/tile-percent';
 import { GardenStore } from '../garden.store';
 import { AssetService } from '../../shared/assets.service';
@@ -69,7 +69,7 @@ export class PlantPickerComponent {
   protected readonly pos = computed(() => {
     const { x, y } = this.tile();
     const above = y >= 5;
-    const tx = x <= 3 ? '-15%' : x >= HABITAT_COLS - 4 ? '-85%' : '-50%';
+    const tx = x <= 3 ? '-15%' : x >= ROOM_COLS - 4 ? '-85%' : '-50%';
     return {
       left: colPct(x + 0.5),
       top: rowPct(above ? y : y + 1),

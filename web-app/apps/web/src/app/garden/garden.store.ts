@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   CATALOG,
+  GARDEN_ROOM,
   GardenObject,
   PlacementError,
   findPlacement,
@@ -65,7 +66,7 @@ export class GardenStore {
   }
 
   isEmptyPlot(tile: TileCoord): boolean {
-    return getTileKind(tile.x, tile.y) === 'SOIL' && !this.plantAt(tile) && !propAtTile(tile.x, tile.y);
+    return getTileKind(GARDEN_ROOM, tile.x, tile.y) === 'SOIL' && !this.plantAt(tile) && !propAtTile(GARDEN_ROOM, tile.x, tile.y);
   }
 
   /** Where `itemType` would go if planted around `tile`, or why it can't. */

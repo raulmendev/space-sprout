@@ -82,6 +82,12 @@ export interface Dialogue {
 
 // ---------------------------------------------------------------- habitat
 
+/** A continuous point in tile units (e.g. 3.5, 7.25 = middle-left of tile 3,7). */
+export interface Point {
+  x: number;
+  y: number;
+}
+
 export type HabitatZone = 'GARDEN' | 'MEDICAL' | 'SOCIAL';
 
 /**

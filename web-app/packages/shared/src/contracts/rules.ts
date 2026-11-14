@@ -1,7 +1,7 @@
 import type { GardenObject } from '../types/domain';
 import { footprintOf, getCatalogItem } from './catalog';
 import { TileRect, footprintTiles, rectContains } from './geometry';
-import { getTileKind, isNpcTile, propAtTile } from './habitat';
+import { GARDEN_ROOM, RoomId, getTileKind, propAtTile } from './habitat';
 
 export type PlacementError =
   | 'UNKNOWN_ITEM'
@@ -22,26 +22,27 @@ export function objectAtTile<T extends Placed>(objects: readonly T[], x: number,
   return objects.find((o) => rectContains(objectRect(o), x, y));
 }
 
-/** Something already stands here: a prop, the NPC, or a placed object. */
-export function isBlocked(x: number, y: number, objects: readonly Placed[]): boolean {
-  return !!propAtTile(x, y) || isNpcTile(x, y) || !!objectAtTile(objects, x, y);
+/** Something already stands here: a prop or a placed object (garden objects live in the garden room). Characters never block. */
+export function isBlocked(room: RoomId, x: number, y: number, objects: readonly Placed[]): boolean {
+  if (propAtTile(room, x, y)) return true;
+  return room === GARDEN_ROOM && !!objectAtTile(objects, x, y);
 }
 
 function spatialError(itemType: string, x: number, y: number, objects: readonly Placed[]): PlacementError | null {
   const item = getCatalogItem(itemType);
   if (!item) return 'UNKNOWN_ITEM';
   for (const t of footprintTiles({ x, y, ...footprintOf(itemType) })) {
-    const kind = getTileKind(t.x, t.y);
+    const kind = getTileKind(GARDEN_ROOM, t.x, t.y);
     if (!kind) return 'OUT_OF_BOUNDS';
     if (item.type === 'PLANT' && kind !== 'SOIL') return 'NOT_PLANTABLE';
     if (item.type === 'DECORATION' && kind !== 'GRASS' && kind !== 'GRASS_FLOWERS') return 'NOT_PLANTABLE';
-    if (isBlocked(t.x, t.y, objects)) return 'TILE_OCCUPIED';
+    if (isBlocked(GARDEN_ROOM, t.x, t.y, objects)) return 'TILE_OCCUPIED';
   }
   return null;
 }
 
 /**
- * Pure placement rule, with (x, y) as the footprint's top-left tile. Used for
+ * Pure placement rule for the garden room, with (x, y) as the footprint's top-left tile. Used for
  * client feedback now and for authoritative server validation later.
  */
 export function validatePlacement(

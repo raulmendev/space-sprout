@@ -5,7 +5,7 @@
  * To deliver final art: drop `public/assets/game/<folder>/<key>.png` and add
  * `<key>` to `public/assets/game/manifest.json` → `delivered`. No code changes.
  */
-import { HABITAT_PROPS, PlantStage, TileKind } from '@garden/shared';
+import { ALL_PROPS, PlantStage, TileKind } from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
 import {
   ASTRONAUT,
@@ -199,7 +199,7 @@ export function propPulses(kind: string, state?: string): boolean {
 }
 
 for (const [kind, v] of Object.entries(PROP_VISUALS)) {
-  const label = HABITAT_PROPS.find((p) => p.kind === kind)?.name ?? kind;
+  const label = ALL_PROPS.find((p) => p.kind === kind)?.name ?? kind;
   const states = v.states ? Object.keys(v.states) : [undefined];
   for (const state of states) {
     const badge = state ? v.states![state].badge : '';

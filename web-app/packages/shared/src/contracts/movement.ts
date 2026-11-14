@@ -1,4 +1,5 @@
-import { HABITAT_COLS, HABITAT_ROWS, TileKind, getTileKind } from './habitat';
+import { ROOM_COLS, ROOM_ROWS, RoomId, TileKind, doorAt, getTileKind } from './habitat';
+import type { Point } from '../types/domain';
 import { TileCoord, TileRect, chebyshev } from './geometry';
 import { Placed, isBlocked } from './rules';
 
@@ -14,12 +15,17 @@ const WALKABLE: ReadonlySet<TileKind> = new Set<TileKind>([
   'RUG',
 ]);
 
-/** Where a new player appears: the middle of the social-space rug. */
-export const PLAYER_START: TileCoord = { x: 12, y: 13 };
+/** A character's feet anywhere in the habitat: room + continuous point in tile units. */
+export interface HabitatPosition extends Point {
+  room: RoomId;
+}
 
-export function isWalkable(x: number, y: number, objects: readonly Placed[]): boolean {
-  const kind = getTileKind(x, y);
-  return !!kind && WALKABLE.has(kind) && !isBlocked(x, y, objects);
+/** Where a new player appears: the middle of the social-space rug. */
+export const PLAYER_START: HabitatPosition = { room: 'SOCIAL', x: 12.5, y: 11.5 };
+
+export function isWalkable(room: RoomId, x: number, y: number, objects: readonly Placed[]): boolean {
+  const kind = getTileKind(room, x, y);
+  return !!kind && WALKABLE.has(kind) && !isBlocked(room, x, y, objects);
 }
 
 const DIRS = [
@@ -29,14 +35,14 @@ const DIRS = [
   [0, -1],
 ] as const;
 
-const index = (t: TileCoord) => t.y * HABITAT_COLS + t.x;
+const index = (t: TileCoord) => t.y * ROOM_COLS + t.x;
 
-/** Breadth-first search over the tile grid. Returns the steps after `from`, or null. */
-function search(from: TileCoord, isGoal: (t: TileCoord) => boolean, objects: readonly Placed[]): TileCoord[] | null {
+/** Breadth-first search within one room. Returns the steps after `from`, or null. */
+function search(room: RoomId, from: TileCoord, isGoal: (t: TileCoord) => boolean, objects: readonly Placed[]): TileCoord[] | null {
   if (isGoal(from)) return [];
   // Walkability computed once per search instead of once per neighbour visit.
-  const walkable = new Uint8Array(HABITAT_COLS * HABITAT_ROWS);
-  for (let y = 0; y < HABITAT_ROWS; y++) for (let x = 0; x < HABITAT_COLS; x++) walkable[y * HABITAT_COLS + x] = +isWalkable(x, y, objects);
+  const walkable = new Uint8Array(ROOM_COLS * ROOM_ROWS);
+  for (let y = 0; y < ROOM_ROWS; y++) for (let x = 0; x < ROOM_COLS; x++) walkable[y * ROOM_COLS + x] = +isWalkable(room, x, y, objects);
 
   const prev = new Map<number, TileCoord | null>([[index(from), null]]);
   const queue: TileCoord[] = [from];
@@ -44,7 +50,7 @@ function search(from: TileCoord, isGoal: (t: TileCoord) => boolean, objects: rea
     const cur = queue[head];
     for (const [dx, dy] of DIRS) {
       const next = { x: cur.x + dx, y: cur.y + dy };
-      if (next.x < 0 || next.y < 0 || next.x >= HABITAT_COLS || next.y >= HABITAT_ROWS) continue;
+      if (next.x < 0 || next.y < 0 || next.x >= ROOM_COLS || next.y >= ROOM_ROWS) continue;
       if (prev.has(index(next)) || !walkable[index(next)]) continue;
       prev.set(index(next), cur);
       if (isGoal(next)) {
@@ -58,19 +64,20 @@ function search(from: TileCoord, isGoal: (t: TileCoord) => boolean, objects: rea
   return null;
 }
 
-export function findPath(from: TileCoord, to: TileCoord, objects: readonly Placed[]): TileCoord[] | null {
-  return search(from, (t) => t.x === to.x && t.y === to.y, objects);
+export function findPath(room: RoomId, from: TileCoord, to: TileCoord, objects: readonly Placed[]): TileCoord[] | null {
+  return search(room, from, (t) => t.x === to.x && t.y === to.y, objects);
 }
 
 /**
  * Shortest path to a tile within reach of a footprint (touching it, else one tile
- * further, e.g. the middle of a soil bed). Null if it can't be reached at all.
+ * further, e.g. the middle of a soil bed). Never ends on a door, so walking up to
+ * something can't accidentally change rooms. Null if it can't be reached.
  */
-export function pathToReach(from: TileCoord, rect: TileRect, objects: readonly Placed[]): TileCoord[] | null {
+export function pathToReach(room: RoomId, from: TileCoord, rect: TileRect, objects: readonly Placed[]): TileCoord[] | null {
   for (const reach of [1, 2]) {
-    const path = search(from, (t) => {
+    const path = search(room, from, (t) => {
       const d = chebyshev(t, rect);
-      return d > 0 && d <= reach;
+      return d > 0 && d <= reach && !doorAt(room, t.x, t.y);
     }, objects);
     if (path) return path;
   }

@@ -1,5 +1,5 @@
-import { Component, inject, signal, viewChild } from '@angular/core';
-import { HabitatInteraction, PlacementError, isWalkable } from '@garden/shared';
+import { Component, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { HabitatInteraction, PlacementError, ROOMS, RoomId } from '@garden/shared';
 import { GardenStore } from './garden/garden.store';
 import { PlantPickerComponent } from './garden/components/plant-picker.component';
 import { PlantCloseupComponent } from './garden/components/plant-closeup.component';
@@ -8,8 +8,11 @@ import { DialogueBubbleComponent } from './npc/dialogue-bubble.component';
 import { NpcStore } from './npc/npc.store';
 import { HabitatStore } from './habitat/habitat.store';
 import { PlayerStore } from './habitat/player.store';
+import { NpcActorStore } from './npc/npc-actor.store';
 import { HabitatCanvasComponent } from './habitat/habitat-canvas.component';
 import { LayoutOverlayComponent } from './habitat/layout-overlay.component';
+import { DoorLabelsComponent } from './habitat/door-labels.component';
+import { TouchPadComponent } from './habitat/touch-pad.component';
 import { StationPanelComponent } from './habitat/panels/station-panel.component';
 import type { TileCoord } from './garden/game/tile-manager';
 
@@ -21,17 +24,23 @@ const GENTLE_ERRORS: Record<PlacementError, string> = {
   UNKNOWN_ITEM: "Hmm, I don't recognise that seed.",
 };
 
-const MOVE_KEYS: Record<string, [number, number]> = {
-  ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1],
-  ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0],
+const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
+  ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down',
+  ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right',
 };
 
 @Component({
   selector: 'app-root',
-  host: { '(document:keydown)': 'onKey($event)' },
+  host: {
+    '(document:keydown)': 'onKey($event, true)',
+    '(document:keyup)': 'onKey($event, false)',
+    '(window:blur)': 'player.releaseKeys()',
+  },
   imports: [
     HabitatCanvasComponent,
     LayoutOverlayComponent,
+    DoorLabelsComponent,
+    TouchPadComponent,
     PlantPickerComponent,
     PlantCloseupComponent,
     TileInfoComponent,
@@ -45,6 +54,18 @@ const MOVE_KEYS: Record<string, [number, number]> = {
           <h1 class="font-pixel text-3xl leading-none">Jardín Comunal</h1>
           <p class="text-sm text-cream/70">A home in orbit: garden, health and connection.</p>
         </div>
+        <nav aria-label="Rooms" class="order-last w-full lg:order-none lg:w-auto">
+          <ol class="flex items-center gap-1 text-sm">
+            @for (r of roomOrder; track r; let last = $last) {
+              <li
+                class="rounded-full px-3 py-1 font-bold"
+                [class]="habitat.activeRoom() === r ? 'bg-cream text-bark-dark' : 'text-cream/60'"
+                [attr.aria-current]="habitat.activeRoom() === r ? 'location' : null"
+              >{{ rooms[r].name }}</li>
+              @if (!last) { <li aria-hidden="true" class="text-cream/40">↔</li> }
+            }
+          </ol>
+        </nav>
         <div class="flex items-center gap-3">
           <label class="flex items-center gap-1.5 text-xs text-cream/80">
             <input type="checkbox" class="accent-sun" [checked]="habitat.showLayout()" (change)="habitat.showLayout.set(!habitat.showLayout())" />
@@ -60,6 +81,8 @@ const MOVE_KEYS: Record<string, [number, number]> = {
           <div class="mx-auto w-fit rounded-xl border-4 border-bark-dark bg-bark p-1.5 shadow-[0_8px_0_rgb(0_0_0/0.3)]">
             <div class="relative">
               <app-habitat-canvas (interaction)="onInteraction($event)" />
+              <app-door-labels />
+              <app-touch-pad class="absolute bottom-3 right-3 z-10" />
               @if (habitat.showLayout()) { <app-layout-overlay /> }
               @if (garden.pickerTile(); as t) {
                 <app-plant-picker [tile]="t" (picked)="plantAt(t, $event)" (closed)="garden.pickerTile.set(null)" />
@@ -94,12 +117,28 @@ export class App {
   protected readonly garden = inject(GardenStore);
   protected readonly habitat = inject(HabitatStore);
   protected readonly npc = inject(NpcStore);
-  private readonly player = inject(PlayerStore);
+  protected readonly player = inject(PlayerStore);
+  private readonly npcActor = inject(NpcActorStore);
   protected readonly notice = signal<string | null>(null);
+  /** Rooms west → east, as connected by their doors. */
+  protected readonly roomOrder: RoomId[] = ['GARDEN', 'SOCIAL', 'MEDICAL'];
+  protected readonly rooms = ROOMS;
   private readonly canvas = viewChild.required(HabitatCanvasComponent);
   private noticeTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
+    // Leaving a room closes whatever belonged to it.
+    effect(() => {
+      this.habitat.activeRoom();
+      untracked(() => {
+        this.habitat.selection.set(null);
+        this.habitat.hover.set(null);
+        this.habitat.openPanel.set(null);
+        this.garden.pickerTile.set(null);
+        this.garden.closeupId.set(null);
+        this.npc.dismiss();
+      });
+    });
     this.garden.init().then(() => setTimeout(() => this.npc.say('GREETING'), 600));
   }
 
@@ -114,10 +153,8 @@ export class App {
     this.garden.closeupId.set(null);
     this.habitat.selection.set(i.type === 'NPC_SELECTED' ? this.habitat.selection() : i);
 
-    if (i.type === 'TILE_SELECTED' && isWalkable(i.x, i.y, this.garden.objects())) {
-      this.player.walkTo(i);
-      return;
-    }
+    if (i.type === 'TILE_SELECTED') return; // floor taps only inspect; move with the pad or keys
+    if (i.type === 'NPC_SELECTED') this.npcActor.hold(); // stop wandering so you can catch up
     const rect = this.habitat.targetRect(i);
     if (rect) this.player.approach(rect, () => this.act(i, plot));
     else this.act(i, plot);
@@ -161,16 +198,18 @@ export class App {
     this.npc.maybeSay('PLANT_CREATED');
   }
 
-  /** Arrow keys / WASD move one tile. Ignored while typing in a field. */
-  onKey(e: KeyboardEvent): void {
+  /** Hold arrow keys / WASD to walk. Ignored while typing in a field. */
+  onKey(e: KeyboardEvent, down: boolean): void {
+    const dir = MOVE_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
+    if (!dir) return;
     const el = e.target as HTMLElement | null;
-    if (el?.closest('input, textarea, select, [contenteditable], [role="tablist"], [role="menu"]')) return;
-    const d = MOVE_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key];
-    if (!d) return;
+    if (down && el?.closest('input, textarea, select, [contenteditable], [role="tablist"], [role="menu"]')) return;
     e.preventDefault();
-    this.garden.pickerTile.set(null);
-    this.garden.closeupId.set(null);
-    this.player.step(d[0], d[1]);
+    if (down) {
+      this.garden.pickerTile.set(null);
+      this.garden.closeupId.set(null);
+    }
+    this.player.setKey(dir, down);
   }
 
   onDialogueAction(action: string): void {

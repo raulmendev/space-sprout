@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { HabitatInteraction, TILE_SIZE, getTileKind } from '@garden/shared';
+import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
 import { WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
 import { missingTexture } from './placeholders';
 import { TileCoord, TileManager, TileRect } from './tile-manager';
@@ -13,14 +13,27 @@ export interface RenderSprite extends TileRect {
   sway?: boolean;
   /** Gentle repeating bounce, e.g. unread notes. */
   pulse?: boolean;
-  /** Animate position changes over this many ms (walking) instead of jumping. */
-  moveMs?: number;
-  flipX?: boolean;
-  /** Tie-break within the same ground row (e.g. characters in front of plants). */
-  depthBias?: number;
 }
 
+/** A moving character. Position is a continuous point (tile units) at its feet. */
+export interface RenderActor {
+  id: string;
+  texture: string;
+  x: number;
+  y: number;
+  flipX: boolean;
+  moving: boolean;
+  interaction: HabitatInteraction | null;
+}
+
+/** Feet sit a little below the foot point so characters look planted on the floor. */
+const FOOT_OFFSET_PX = 6;
+/** Characters draw in front of props/plants whose base is on the same line. */
+const ACTOR_DEPTH_BIAS = 0.5;
+
 export interface HabitatRenderState {
+  /** The room to show. Changing it rebuilds the scene behind a short fade. */
+  room: RoomId;
   sprites: readonly RenderSprite[];
   /** Soil tiles to render as wet (under plants). */
   wetTiles: readonly TileCoord[];
@@ -38,7 +51,6 @@ interface SpriteEntry {
   img: Phaser.GameObjects.Image;
   data: RenderSprite;
   tweens: Phaser.Tweens.Tween[];
-  move?: Phaser.Tweens.Tween;
 }
 
 /** Render layers (spec §9). World objects are additionally y-sorted by footprint bottom. */
@@ -48,7 +60,13 @@ export class HabitatScene extends Phaser.Scene {
   private tiles!: TileManager;
   private readonly sprites = new Map<string, SpriteEntry>();
   private readonly wet = new Map<string, Phaser.GameObjects.Image>();
+  private readonly actors = new Map<string, Phaser.GameObjects.Image>();
   private readonly failed = new Set<string>();
+  private room: RoomId | null = null;
+  private ground: Phaser.GameObjects.Image[] = [];
+  /** While fading between rooms, the latest state waits here. */
+  private queued: HabitatRenderState | null = null;
+  private building = false;
   private hover!: Phaser.GameObjects.Rectangle;
   private selection!: Phaser.GameObjects.Rectangle;
   private ghost!: Phaser.GameObjects.Image;
@@ -80,7 +98,6 @@ export class HabitatScene extends Phaser.Scene {
     }
 
     this.tiles = new TileManager(this);
-    this.tiles.drawGround(DEPTH.GROUND);
 
     this.hover = this.add.rectangle(0, 0, 0, 0).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.6).setDepth(DEPTH.INDICATOR).setVisible(false);
     this.selection = this.add.rectangle(0, 0, 0, 0).setOrigin(0).setStrokeStyle(2, 0xfff3a0, 1).setDepth(DEPTH.INDICATOR + 1).setVisible(false);
@@ -120,12 +137,49 @@ export class HabitatScene extends Phaser.Scene {
     if (top) return top.getData('interaction') as HabitatInteraction;
     const t = this.tiles.toTile(p.worldX, p.worldY);
     if (!t) return null;
-    return getTileKind(t.x, t.y) === 'SOIL' ? { type: 'PLOT_SELECTED', ...t } : { type: 'TILE_SELECTED', ...t };
+    return this.room && getTileKind(this.room, t.x, t.y) === 'SOIL' ? { type: 'PLOT_SELECTED', ...t } : { type: 'TILE_SELECTED', ...t };
   }
 
   // ------------------------------------------------------------ renderer API
 
   setState(state: HabitatRenderState): void {
+    if (this.queued) {
+      this.queued = state; // mid-fade: apply once the new room is up
+      return;
+    }
+    if (state.room === this.room) return this.applyState(state);
+    if (this.room === null || this.reducedMotion) return this.enterRoom(state);
+    this.queued = state;
+    const cam = this.cameras.main;
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      const next = this.queued!;
+      this.queued = null;
+      this.enterRoom(next);
+      cam.fadeIn(180);
+    });
+    cam.fadeOut(140, 29, 27, 58);
+  }
+
+  /** Tear down the current room and draw the new one (no pop effects for what was already there). */
+  private enterRoom(state: HabitatRenderState): void {
+    this.ground.forEach((g) => g.destroy());
+    this.wet.forEach((w) => w.destroy());
+    this.wet.clear();
+    for (const entry of this.sprites.values()) {
+      entry.tweens.forEach((t) => t.remove());
+      entry.img.destroy();
+    }
+    this.sprites.clear();
+    this.actors.forEach((a) => a.destroy());
+    this.actors.clear();
+    this.room = state.room;
+    this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
+    this.building = true;
+    this.applyState(state);
+    this.building = false;
+  }
+
+  private applyState(state: HabitatRenderState): void {
     const seen = new Set<string>();
     for (const data of state.sprites) {
       seen.add(data.id);
@@ -172,15 +226,8 @@ export class HabitatScene extends Phaser.Scene {
     if (!prev || prev.texture !== data.texture) img.setTexture(data.texture);
     img
       .setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1)
-      .setFlipX(!!data.flipX)
-      .setDepth(DEPTH.WORLD + py + (data.depthBias ?? 0));
-    const moved = prev && (prev.x !== data.x || prev.y !== data.y);
-    if (moved && data.moveMs && !this.reducedMotion) {
-      entry.move?.remove();
-      entry.move = this.tweens.add({ targets: img, x: px, y: py, duration: data.moveMs, ease: 'Linear' });
-    } else if (!moved || !entry.move?.isPlaying()) {
-      img.setPosition(px, py);
-    }
+      .setPosition(px, py)
+      .setDepth(DEPTH.WORLD + py);
     img.setData('interaction', data.interaction);
     if (data.interaction && !img.input) img.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
     if (!data.interaction && img.input) img.disableInteractive();
@@ -195,6 +242,36 @@ export class HabitatScene extends Phaser.Scene {
     }
     if (data.pulse) {
       entry.tweens.push(this.tweens.add({ targets: img, scaleY: 1.06, scaleX: 0.96, duration: 380, yoyo: true, repeat: -1, repeatDelay: 1200, ease: 'Quad.out' }));
+    }
+  }
+
+  /** Place characters for this frame. Cheap: no tweens, just positions. */
+  setActors(actors: readonly RenderActor[]): void {
+    if (this.queued || !this.room) return; // mid room change: the next frame catches up
+    const seen = new Set<string>();
+    const bob = this.reducedMotion ? 0 : Math.abs(Math.sin(this.time.now / 90)) * 2;
+    for (const a of actors) {
+      seen.add(a.id);
+      let img = this.actors.get(a.id);
+      if (!img) {
+        const asset = getAsset(a.texture);
+        img = this.add.image(0, 0, a.texture).setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1);
+        if (a.interaction) img.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
+        this.actors.set(a.id, img);
+      }
+      const px = a.x * TILE_SIZE;
+      const py = a.y * TILE_SIZE + FOOT_OFFSET_PX;
+      img
+        .setPosition(px, py - (a.moving ? bob : 0))
+        .setFlipX(a.flipX)
+        .setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS)
+        .setData('interaction', a.interaction);
+    }
+    for (const [id, img] of this.actors) {
+      if (!seen.has(id)) {
+        img.destroy();
+        this.actors.delete(id);
+      }
     }
   }
 
@@ -228,8 +305,7 @@ export class HabitatScene extends Phaser.Scene {
   // ------------------------------------------------------------ decorative effects (never affect state)
 
   private pop(img: Phaser.GameObjects.Image): void {
-    if (this.reducedMotion || !this.sys.isActive()) return;
-    if (this.time.now < 500) return; // no pop for the initial load
+    if (this.reducedMotion || this.building) return; // no pop for things already in a room we enter
     const s = img.scale;
     img.setScale(s * 0.2);
     this.tweens.add({ targets: img, scale: s, duration: 320, ease: 'Back.out' });
@@ -264,6 +340,6 @@ function sameSprite(a: RenderSprite, b: RenderSprite): boolean {
   return (
     sameInteraction &&
     a.texture === b.texture && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h &&
-    a.sway === b.sway && a.pulse === b.pulse && a.flipX === b.flipX && a.depthBias === b.depthBias && a.moveMs === b.moveMs
+    a.sway === b.sway && a.pulse === b.pulse
   );
 }

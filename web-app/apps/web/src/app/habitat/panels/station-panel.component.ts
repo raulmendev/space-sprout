@@ -1,5 +1,5 @@
 import { Component, ElementRef, computed, effect, input, output, signal, viewChild } from '@angular/core';
-import { HABITAT_PROPS, ZONES } from '@garden/shared';
+import { ALL_PROPS, ROOMS } from '@garden/shared';
 import type { HabitatPanel } from '../habitat.store';
 
 const EMOTES = [
@@ -76,8 +76,8 @@ export class StationPanelComponent {
 
   /** Title and zone come from the habitat data for the prop that opens this panel. */
   protected readonly meta = computed(() => {
-    const prop = HABITAT_PROPS.find((p) => p.interaction === this.panel())!;
-    return { title: prop.name, zone: ZONES[prop.zone].label };
+    const prop = ALL_PROPS.find((p) => p.interaction === this.panel())!;
+    return { title: prop.name, zone: ROOMS[prop.room].name };
   });
 
   constructor() {

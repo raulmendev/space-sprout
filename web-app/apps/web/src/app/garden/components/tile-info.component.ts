@@ -1,5 +1,4 @@
 import { Component, inject } from '@angular/core';
-import { ZONES } from '@garden/shared';
 import { HabitatStore } from '../../habitat/habitat.store';
 
 const KIND_LABEL: Record<string, [string, string]> = {
@@ -29,16 +28,15 @@ const KIND_LABEL: Record<string, [string, string]> = {
       <h2 class="font-pixel text-lg">Look closer</h2>
       @if (info(); as i) {
         <p class="font-bold">{{ i.title ?? label(i.kind)[0] }}</p>
-        @if (i.zone) { <p class="text-xs font-bold uppercase tracking-wide text-bark/70">{{ zones[i.zone].label }}</p> }
+        <p class="text-xs font-bold uppercase tracking-wide text-bark/70">{{ i.roomName }}</p>
         @if (!i.title && label(i.kind)[1]) { <p class="text-sm text-bark">{{ label(i.kind)[1] }}</p> }
       } @else {
-        <p class="text-sm text-bark">Garden, medical station and social space, all under one roof.</p>
+        <p class="text-sm text-bark">Garden, medical station and social space, all under one roof. Doors lead between them.</p>
       }
     </section>
   `,
 })
 export class TileInfoComponent {
   protected readonly info = inject(HabitatStore).selectedInfo;
-  protected readonly zones = ZONES;
   protected label = (kind: string | null) => KIND_LABEL[kind ?? ''] ?? ['Somewhere', ''];
 }

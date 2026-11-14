@@ -1,8 +1,10 @@
 import type { HabitatInteraction, HabitatZone, PropInteraction } from '../types/domain';
-import { TileRect, rectContains } from './geometry';
+import { TileCoord, TileRect, rectContains } from './geometry';
 
 /**
- * Single 24x16 habitat (768x512 px at 32 px/tile).
+ * The habitat is a set of single-screen rooms (24x16 tiles = 768x512 px at
+ * 32 px/tile). Only the room the local player is in is rendered; rooms connect
+ * through doors in their side walls. Each room is one functional zone.
  *
  *  X wall cap      V wall face     O window        E/e Earth window (left/right)
  *  Y glass partition               K doorway       L low wall      H hedge
@@ -10,27 +12,11 @@ import { TileRect, rectContains } from './geometry';
  *  M medical floor C social floor  R rug
  */
 export const TILE_SIZE = 32;
-export const HABITAT_COLS = 24;
-export const HABITAT_ROWS = 16;
+export const ROOM_COLS = 24;
+export const ROOM_ROWS = 16;
 
-export const HABITAT_LAYOUT: readonly string[] = [
-  'XXXXXXXXXXXXXXXXXXXXXXXX', // 0
-  'XVOOVVEeVOOVVVVVOVVVOVVX', // 1
-  'XG,GGPPGG,GGYMMMMMMMMMMX', // 2
-  'XGSSSPPSSSGGYMMMMMMMMMMX', // 3
-  'XGSSSPPSSSG,YMMMMMMMMMMX', // 4
-  'XGSSSPPSSSGGYMMMMMMMMMMX', // 5
-  'XGDDDDDDDDDDKMMMMMMMMMMX', // 6
-  'XGSSSPPSSSGGYMMMMMMMMMMX', // 7
-  'XGSSSPPSSSGGYMMMMMMMMMMX', // 8
-  'XHHHHKKHHHHHLLLLLKKLLLLX', // 9
-  'XCCCCCCCCCCCCCCCCCCCCCCX', // 10
-  'XCCCCCCCCRRRRRRCCCCCCCCX', // 11
-  'XCCCCCCCCRRRRRRCCCCCCCCX', // 12
-  'XCCCCCCCCRRRRRRCCCCCCCCX', // 13
-  'XCCCCCCCCCCCCCCCCCCCCCCX', // 14
-  'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
-];
+/** Rooms and zones are one-to-one. */
+export type RoomId = HabitatZone;
 
 export type TileKind =
   | 'WALL'
@@ -71,58 +57,149 @@ const KIND_BY_CHAR: Record<string, TileKind> = {
   R: 'RUG',
 };
 
-export function getTileKind(x: number, y: number): TileKind | undefined {
-  const ch = HABITAT_LAYOUT[y]?.[x];
-  return ch === undefined ? undefined : KIND_BY_CHAR[ch];
-}
-
-export const ZONES: Record<HabitatZone, TileRect & { label: string }> = {
-  GARDEN: { x: 1, y: 2, w: 11, h: 7, label: 'Garden' },
-  MEDICAL: { x: 13, y: 2, w: 10, h: 7, label: 'Medical Station' },
-  SOCIAL: { x: 1, y: 10, w: 22, h: 5, label: 'Social Space' },
-};
-
-export function zoneAt(x: number, y: number): HabitatZone | null {
-  for (const [zone, r] of Object.entries(ZONES) as [HabitatZone, TileRect][]) {
-    if (rectContains(r, x, y)) return zone;
-  }
-  return null;
-}
-
 /** Static habitat objects (not purchasable). Footprint is in tiles, from top-left (x, y). */
 export interface HabitatProp extends TileRect {
   id: string;
   kind: string;
   name: string;
-  zone: HabitatZone;
   interaction?: PropInteraction;
 }
 
-export const HABITAT_PROPS: readonly HabitatProp[] = [
-  { id: 'medical-terminal', kind: 'MEDICAL_TERMINAL', name: 'Medical Terminal', zone: 'MEDICAL', x: 14, y: 2, w: 3, h: 2, interaction: 'MEDICAL_TERMINAL_SELECTED' },
-  { id: 'health-insights', kind: 'HEALTH_INSIGHTS', name: 'Health Insights', zone: 'MEDICAL', x: 19, y: 2, w: 3, h: 2, interaction: 'HEALTH_INSIGHTS_SELECTED' },
-  { id: 'medical-plant', kind: 'POTTED_PLANT', name: 'Potted plant', zone: 'MEDICAL', x: 22, y: 7, w: 1, h: 1 },
-  { id: 'message-board', kind: 'MESSAGE_BOARD', name: 'Message Board', zone: 'SOCIAL', x: 2, y: 10, w: 3, h: 2, interaction: 'MESSAGE_BOARD_SELECTED' },
-  { id: 'emote-point', kind: 'EMOTE_POINT', name: 'Emote corner', zone: 'SOCIAL', x: 7, y: 10, w: 2, h: 2, interaction: 'EMOTE_AREA_SELECTED' },
-  { id: 'sofa', kind: 'SOFA', name: 'Sofa', zone: 'SOCIAL', x: 10, y: 10, w: 3, h: 1 },
-  { id: 'comm-terminal', kind: 'COMM_TERMINAL', name: 'Earth Link', zone: 'SOCIAL', x: 19, y: 10, w: 2, h: 2, interaction: 'MESSAGE_BOARD_SELECTED' },
-  { id: 'garden-lamp', kind: 'LAMP', name: 'Garden lamp', zone: 'GARDEN', x: 11, y: 2, w: 1, h: 1 },
-  { id: 'garden-planter', kind: 'PLANTER', name: 'Planter', zone: 'GARDEN', x: 10, y: 8, w: 1, h: 1 },
-  { id: 'watering-can', kind: 'WATERING_CAN', name: 'Watering can', zone: 'GARDEN', x: 11, y: 7, w: 1, h: 1 },
-];
-
-export function propAtTile(x: number, y: number): HabitatProp | undefined {
-  return HABITAT_PROPS.find((p) => rectContains(p, x, y));
+/** A doorway tile and where it leads. Stepping onto it moves you to `to` at `arrive`. */
+export interface Door extends TileCoord {
+  to: RoomId;
+  arrive: TileCoord;
 }
+
+export interface Room {
+  id: RoomId;
+  name: string;
+  layout: readonly string[];
+  props: readonly HabitatProp[];
+  doors: readonly Door[];
+}
+
+/** Two-tile door in a side wall (rows 7–8), mapped onto the matching door of the next room. */
+function sideDoor(side: 'W' | 'E', to: RoomId): Door[] {
+  const x = side === 'W' ? 0 : ROOM_COLS - 1;
+  const arriveX = side === 'W' ? ROOM_COLS - 2 : 1;
+  return [7, 8].map((y) => ({ x, y, to, arrive: { x: arriveX, y } }));
+}
+
+export const ROOMS: Record<RoomId, Room> = {
+  GARDEN: {
+    id: 'GARDEN',
+    name: 'Garden',
+    layout: [
+      'XXXXXXXXXXXXXXXXXXXXXXXX', // 0
+      'XVVOOVVVVEeVVVVOOVVVOVVX', // 1
+      'X,GGGGGPPGGG,GGPPGGGGGGX', // 2
+      'XGSSSSGPPGSSSSGPPGSSSSGX', // 3
+      'XGSSSSGPPGSSSSGPPGSSSSGX', // 4
+      'XGSSSSGPPGSSSSGPPGSSSSGX', // 5
+      'XGGGG,GPPGGGGGGPPGG,GGGX', // 6
+      'XDDDDDDDDDDDDDDDDDDDDDDK', // 7
+      'XDDDDDDDDDDDDDDDDDDDDDDK', // 8
+      'XGGGGGGPPGG,GGGPPGGGGGGX', // 9
+      'XGSSSSGPPGSSSSGPPGSSSSGX', // 10
+      'XGSSSSGPPGSSSSGPPGSSSSGX', // 11
+      'XGSSSSGPPGSSSSGPPGSSSSGX', // 12
+      'XGGGGGGPPGGGG,GPPGGGGGGX', // 13
+      'XGGG,GGPPGGGGGGPPGGG,GGX', // 14
+      'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
+    ],
+    props: [
+      { id: 'garden-lamp', kind: 'LAMP', name: 'Garden lamp', x: 6, y: 2, w: 1, h: 1 },
+      { id: 'garden-planter', kind: 'PLANTER', name: 'Planter', x: 14, y: 9, w: 1, h: 1 },
+      { id: 'watering-can', kind: 'WATERING_CAN', name: 'Watering can', x: 17, y: 13, w: 1, h: 1 },
+    ],
+    doors: sideDoor('E', 'SOCIAL'),
+  },
+  SOCIAL: {
+    id: 'SOCIAL',
+    name: 'Social Space',
+    layout: [
+      'XXXXXXXXXXXXXXXXXXXXXXXX', // 0
+      'XVOOVVVVVVVEeVVVVVVVOOVX', // 1
+      'XCCCCCCCCCCCCCCCCCCCCCCX', // 2
+      'XCCCCCCCCCCCCCCCCCCCCCCX', // 3
+      'XCCCCCCCCCCCCCCCCCCCCCCX', // 4
+      'XCCCCCCCCCCCCCCCCCCCCCCX', // 5
+      'XCCCCCCCCCCCCCCCCCCCCCCX', // 6
+      'KCCCCCCCCCCCCCCCCCCCCCCK', // 7
+      'KCCCCCCCRRRRRRRRCCCCCCCK', // 8
+      'XCCCCCCCRRRRRRRRCCCCCCCX', // 9
+      'XCCCCCCCRRRRRRRRCCCCCCCX', // 10
+      'XCCCCCCCRRRRRRRRCCCCCCCX', // 11
+      'XCCCCCCCRRRRRRRRCCCCCCCX', // 12
+      'XCCCCCCCCCCCCCCCCCCCCCCX', // 13
+      'XCCCCCCCCCCCCCCCCCCCCCCX', // 14
+      'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
+    ],
+    props: [
+      { id: 'message-board', kind: 'MESSAGE_BOARD', name: 'Message Board', x: 4, y: 2, w: 3, h: 2, interaction: 'MESSAGE_BOARD_SELECTED' },
+      { id: 'emote-point', kind: 'EMOTE_POINT', name: 'Emote corner', x: 8, y: 2, w: 2, h: 2, interaction: 'EMOTE_AREA_SELECTED' },
+      { id: 'comm-terminal', kind: 'COMM_TERMINAL', name: 'Earth Link', x: 17, y: 2, w: 2, h: 2, interaction: 'MESSAGE_BOARD_SELECTED' },
+      { id: 'sofa', kind: 'SOFA', name: 'Sofa', x: 10, y: 6, w: 3, h: 1 },
+    ],
+    doors: [...sideDoor('W', 'GARDEN'), ...sideDoor('E', 'MEDICAL')],
+  },
+  MEDICAL: {
+    id: 'MEDICAL',
+    name: 'Medical Station',
+    layout: [
+      'XXXXXXXXXXXXXXXXXXXXXXXX', // 0
+      'XVVVVVVVOOVVVVVOOVVEeVVX', // 1
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 2
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 3
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 4
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 5
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 6
+      'KMMMMMMMMMMMMMMMMMMMMMMX', // 7
+      'KMMMMMMMMMMMMMMMMMMMMMMX', // 8
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 9
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 10
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 11
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 12
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 13
+      'XMMMMMMMMMMMMMMMMMMMMMMX', // 14
+      'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
+    ],
+    props: [
+      { id: 'medical-terminal', kind: 'MEDICAL_TERMINAL', name: 'Medical Terminal', x: 4, y: 2, w: 3, h: 2, interaction: 'MEDICAL_TERMINAL_SELECTED' },
+      { id: 'health-insights', kind: 'HEALTH_INSIGHTS', name: 'Health Insights', x: 10, y: 2, w: 3, h: 2, interaction: 'HEALTH_INSIGHTS_SELECTED' },
+      { id: 'medical-plant', kind: 'POTTED_PLANT', name: 'Potted plant', x: 2, y: 2, w: 1, h: 1 },
+      { id: 'medical-plant-2', kind: 'POTTED_PLANT', name: 'Potted plant', x: 21, y: 13, w: 1, h: 1 },
+    ],
+    doors: sideDoor('W', 'SOCIAL'),
+  },
+};
+
+/** The room plants live in. */
+export const GARDEN_ROOM: RoomId = 'GARDEN';
+
+export function getTileKind(room: RoomId, x: number, y: number): TileKind | undefined {
+  const ch = ROOMS[room].layout[y]?.[x];
+  return ch === undefined ? undefined : KIND_BY_CHAR[ch];
+}
+
+export function propAtTile(room: RoomId, x: number, y: number): HabitatProp | undefined {
+  return ROOMS[room].props.find((p) => rectContains(p, x, y));
+}
+
+export function doorAt(room: RoomId, x: number, y: number): Door | undefined {
+  return ROOMS[room].doors.find((d) => d.x === x && d.y === y);
+}
+
+/** Every prop in the habitat, with the room it's in. */
+export const ALL_PROPS: readonly (HabitatProp & { room: RoomId })[] = Object.values(ROOMS).flatMap((r) =>
+  r.props.map((p) => ({ ...p, room: r.id })),
+);
 
 /** What clicking a prop means: its station interaction, or "look at this decoration". */
 export function propInteraction(p: HabitatProp): HabitatInteraction {
   return p.interaction ? { type: p.interaction } : { type: 'PROP_SELECTED', propId: p.id };
 }
 
-/** Fixed spot where the NPC stands (garden). */
-export const NPC_RECT: TileRect = { x: 10, y: 5, w: 1, h: 1 };
-
-export function isNpcTile(x: number, y: number): boolean {
-  return rectContains(NPC_RECT, x, y);
-}
+/** Where the NPC lives and wanders around (centre of a tile, in tile units). */
+export const NPC_HOME = { room: 'GARDEN' as RoomId, x: 9.5, y: 6.5 };

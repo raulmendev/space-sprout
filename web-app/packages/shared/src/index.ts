@@ -5,3 +5,4 @@ export * from './contracts/growth';
 export * from './contracts/habitat';
 export * from './contracts/rules';
 export * from './contracts/movement';
+export * from './contracts/motion';

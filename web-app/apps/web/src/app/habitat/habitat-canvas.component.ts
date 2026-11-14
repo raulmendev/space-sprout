@@ -54,6 +54,7 @@ export class HabitatCanvasComponent {
     });
 
     effect(() => this.renderer()?.setState(this.habitat.renderState()));
+    effect(() => this.renderer()?.setActors(this.habitat.actors()));
     effect(() => this.renderer()?.setHover(this.habitat.hoverRect()));
     effect(() => this.renderer()?.setSelection(this.habitat.selectionRect()));
     effect(() => this.renderer()?.setGhost(this.habitat.ghost()));
