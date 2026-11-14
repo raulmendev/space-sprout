@@ -127,7 +127,12 @@ export class GardenService {
 function seedGarden(): GardenSnapshot {
   const gardenId = 'garden-demo';
   const longAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const mk = (itemType: string, x: number, y: number, by: Actor): GardenObject => ({
+  const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+  /**
+   * `wateredBy` set: watered an hour ago (wet soil). Omitted: thirsty (dry soil).
+   * `prunedBy` set too: every need met, so the plant shines.
+   */
+  const mk = (itemType: string, x: number, y: number, by: Actor, wateredBy?: Actor, prunedBy?: Actor): GardenObject => ({
     id: crypto.randomUUID(),
     gardenId,
     type: 'PLANT',
@@ -137,15 +142,26 @@ function seedGarden(): GardenSnapshot {
     createdAt: longAgo,
     placedBy: by.id,
     placedByName: by.name,
+    ...(wateredBy && {
+      care: {
+        boostMs: 0,
+        lastWateredAt: hourAgo,
+        ...(prunedBy && { lastPrunedAt: hourAgo }),
+        log: [
+          ...(prunedBy ? [{ action: 'PRUNE' as const, by: prunedBy.id, byName: prunedBy.name, at: hourAgo }] : []),
+          { action: 'WATER' as const, by: wateredBy.id, byName: wateredBy.name, at: hourAgo },
+        ],
+      },
+    }),
   });
   return {
     gardenId,
     balance: 20,
     objects: [
-      mk('tree', 3, 3, LOCAL_PLAYER),
+      mk('tree', 3, 3, LOCAL_PLAYER, FAMILY_DEMO, FAMILY_DEMO),
       mk('flower', 7, 5, FAMILY_DEMO),
-      mk('sunflower', 15, 4, FAMILY_DEMO),
-      mk('flower', 19, 11, LOCAL_PLAYER),
+      mk('sunflower', 15, 4, FAMILY_DEMO, LOCAL_PLAYER),
+      mk('flower', 19, 11, LOCAL_PLAYER, FAMILY_DEMO),
     ],
   };
 }

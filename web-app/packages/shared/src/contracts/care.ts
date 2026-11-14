@@ -54,6 +54,17 @@ export function isThirsty(obj: Pick<GardenObject, 'care'>, now: number): boolean
   return !last || now - Date.parse(last) >= CARE_RULES.thirstIntervalMs;
 }
 
+/** Wants a trim: past the seed stage (seeds can't be pruned) and not pruned within the prune cooldown. */
+export function needsPruning(obj: Plant, now: number): boolean {
+  if (getPlantStage(obj, now) === 'SEED') return false;
+  return cooldownLeft(obj.care?.lastPrunedAt, CARE_RULES.pruneCooldownMs, now) === 0;
+}
+
+/** Every need met (watered and, once it can be, pruned). Shown as a shine; a plant that isn't thriving just looks plain. */
+export function isThriving(obj: Plant, now: number): boolean {
+  return !isThirsty(obj, now) && !needsPruning(obj, now);
+}
+
 function cooldownLeft(lastAt: string | undefined, cooldownMs: number, now: number): number {
   return lastAt ? Math.max(0, Date.parse(lastAt) + cooldownMs - now) : 0;
 }

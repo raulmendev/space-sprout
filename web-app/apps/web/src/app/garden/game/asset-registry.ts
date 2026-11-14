@@ -14,6 +14,8 @@ import {
   NPC_SPROUT,
   SEED,
   SPROUT,
+  THIRST_BUBBLE,
+  TWINKLE,
   TILE_PLACEHOLDERS,
   gridInCanvas,
   gridToCanvas,
@@ -214,9 +216,13 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
 export const NPC_TEXTURE = 'npc-sprout';
 export const HINT_TEXTURE = 'gui-hint-plus';
 export const PLAYER_TEXTURE = 'player-astronaut';
+export const THIRST_TEXTURE = 'gui-thirst-bubble';
+export const TWINKLE_TEXTURE = 'fx-twinkle';
 register(NPC_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(NPC_SPROUT, 2, 32, 48));
 register(PLAYER_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, 32, 48));
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
+register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
+register(TWINKLE_TEXTURE, 'gui/effects', [32, 32], [0.5, 0.5], () => gridToCanvas(TWINKLE));
 
 // ---------------------------------------------------------------- lookup
 

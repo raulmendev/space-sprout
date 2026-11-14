@@ -14,6 +14,8 @@ import {
   getCatalogItem,
   getPlantStage,
   getTileKind,
+  isThirsty,
+  isThriving,
   objectRect,
   propAtTile,
   propInteraction,
@@ -24,6 +26,7 @@ import {
   HINT_TEXTURE,
   NPC_TEXTURE,
   PLAYER_TEXTURE,
+  THIRST_TEXTURE,
   plantSways,
   plantTextureKey,
   propPulses,
@@ -97,14 +100,20 @@ export class HabitatStore {
     for (const o of room === GARDEN_ROOM ? this.garden.objects() : []) {
       const rect = objectRect(o);
       const stage = getPlantStage(o, now);
+      const thirsty = isThirsty(o, now);
       sprites.push({
         id: o.id,
         texture: plantTextureKey(o.itemType, stage),
         ...rect,
         interaction: { type: 'PLANT_SELECTED', plantId: o.id },
         sway: stage === 'MATURE' && plantSways(o.itemType),
+        // A friendly "a drink would help" bubble; the plant itself never looks sad.
+        badge: thirsty ? THIRST_TEXTURE : undefined,
+        // Every need met (watered + pruned): a soft shine. Otherwise plain, never sad.
+        shine: isThriving(o, now),
       });
-      wetTiles.push(...footprintTiles(rect));
+      // Thirsty plants show dry soil too.
+      if (!thirsty) wetTiles.push(...footprintTiles(rect));
     }
 
     return { room, sprites, wetTiles };
