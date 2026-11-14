@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Short screens (landscape phones): tighter spacing, fewer extras. Usage: short:p-2 */
+@custom-variant short (@media (max-height: 500px));
+
 @theme {
   --font-pixel: "Pixelify Sans", ui-monospace, monospace;
   --font-sans: "Nunito", ui-sans-serif, system-ui, sans-serif;

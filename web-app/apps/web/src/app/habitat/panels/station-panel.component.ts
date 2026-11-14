@@ -22,11 +22,11 @@ const EMOTES = [
   imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent],
   host: { '(document:keydown.escape)': 'closed.emit()' },
   template: `
-    <section class="panel flex flex-col gap-3 p-4" role="region" [attr.aria-labelledby]="'panel-title'">
+    <section class="panel @container flex flex-col gap-3 p-4 short:gap-2 short:p-3" role="region" [attr.aria-labelledby]="'panel-title'">
       <header class="flex items-start justify-between gap-2">
-        <div>
+        <div class="flex flex-wrap items-baseline gap-x-2">
+          <h2 id="panel-title" #heading tabindex="-1" class="font-pixel text-2xl leading-tight outline-none short:text-xl">{{ meta().title }}</h2>
           <p class="text-xs font-bold uppercase tracking-wide text-bark/70">{{ meta().zone }}</p>
-          <h2 id="panel-title" #heading tabindex="-1" class="font-pixel text-2xl leading-tight outline-none">{{ meta().title }}</h2>
         </div>
         <button type="button" class="grid size-8 place-items-center rounded-full hover:bg-parchment focus-visible:outline-2 focus-visible:outline-sun" aria-label="Close panel" (click)="closed.emit()">✕</button>
       </header>
@@ -34,11 +34,10 @@ const EMOTES = [
       @switch (panel()) {
         @case ('MEDICAL_TERMINAL_SELECTED') {
           <app-medical-terminal-panel />
-          <p class="rounded-md bg-parchment/70 p-2 text-xs">🔒 Private to you. Family members never see health data.</p>
+          <p class="text-[11px] text-bark/70">🔒 Private to you. Family members never see health data.</p>
         }
         @case ('HEALTH_INSIGHTS_SELECTED') {
           <app-health-insights-panel />
-          <p class="rounded-md bg-parchment/70 p-2 text-xs">🔒 Private to you.</p>
         }
         @case ('MESSAGE_BOARD_SELECTED') {
           <p class="text-sm">Notes between orbit and home. Up to 280 characters, delivered whenever each side is online.</p>

@@ -1,4 +1,4 @@
-import { Component, inject, output, signal } from '@angular/core';
+import { Component, ElementRef, effect, inject, output, signal } from '@angular/core';
 import { ROOMS, RoomId } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from './habitat.store';
@@ -13,6 +13,7 @@ import { HabitatStore } from './habitat.store';
     class: 'pointer-events-none flex items-start justify-between gap-2 [&>*]:pointer-events-auto',
     '(document:fullscreenchange)': 'syncFullscreen()',
     '(document:keydown.escape)': 'menuOpen.set(false)',
+    '(document:pointerdown)': 'closeMenuIfOutside($event)',
   },
   template: `
     <nav aria-label="Rooms" class="rounded-full bg-night/60 p-1 backdrop-blur-sm">
@@ -71,9 +72,24 @@ export class HudComponent {
   protected readonly roomOrder: RoomId[] = ['GARDEN', 'SOCIAL', 'MEDICAL'];
   protected readonly rooms = ROOMS;
   protected readonly menuOpen = signal(false);
+  private readonly host = inject(ElementRef<HTMLElement>);
   protected readonly isFullscreen = signal(false);
   /** iPhone Safari has no element fullscreen; there, "Add to Home Screen" gives full screen instead. */
   protected readonly canFullscreen = typeof document !== 'undefined' && !!document.fullscreenEnabled;
+
+  constructor() {
+    // A station popup opening (or a room change) puts the menu away.
+    effect(() => {
+      this.habitat.openPanel();
+      this.habitat.activeRoom();
+      this.menuOpen.set(false);
+    });
+  }
+
+  /** Tapping anywhere outside the HUD closes the menu. */
+  protected closeMenuIfOutside(e: PointerEvent): void {
+    if (this.menuOpen() && !this.host.nativeElement.contains(e.target as Node)) this.menuOpen.set(false);
+  }
 
   protected syncFullscreen(): void {
     this.isFullscreen.set(!!document.fullscreenElement);

@@ -8,12 +8,12 @@ import { SOURCE_LABEL, formatValue, timeAgo } from './format';
 @Component({
   selector: 'app-health-insights-panel',
   imports: [TrendChartComponent],
-  host: { class: 'grid gap-3 sm:grid-cols-2' },
+  host: { class: 'grid gap-3 short:gap-2 @lg:grid-cols-2 @3xl:grid-cols-4' },
   template: `
     @for (metric of order; track metric) {
       @let readings = health.trends()[metric];
       @let latest = readings.at(-1);
-      <article class="rounded-lg bg-parchment/70 p-3" [attr.aria-labelledby]="'metric-' + metric">
+      <article class="rounded-lg bg-parchment/70 p-3 short:p-2" [attr.aria-labelledby]="'metric-' + metric">
         <header class="flex items-baseline justify-between gap-2">
           <h3 [id]="'metric-' + metric" class="font-bold">{{ def(metric).label }}</h3>
           @if (latest) { <span class="text-lg font-extrabold">{{ value(latest) }}</span> }
@@ -24,10 +24,10 @@ import { SOURCE_LABEL, formatValue, timeAgo } from './format';
         } @else {
           <p class="text-sm text-bark/70">No readings yet.</p>
         }
-        <p class="mt-1 text-xs text-bark">{{ def(metric).about }}</p>
+        <p class="mt-1 text-xs text-bark short:hidden">{{ def(metric).about }}</p>
       </article>
     }
-    <p class="text-xs text-bark/70 sm:col-span-2">Your own readings, newest on the right. This isn't a diagnosis; if something worries you, talk to your flight surgeon.</p>
+    <p class="text-[11px] text-bark/70 @lg:col-span-2 @3xl:col-span-4">🔒 Private to you. Your own readings, newest on the right. This isn't a diagnosis; if something worries you, talk to your flight surgeon.</p>
   `,
 })
 export class HealthInsightsPanelComponent {

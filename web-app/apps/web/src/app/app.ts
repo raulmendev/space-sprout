@@ -92,9 +92,21 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       @if (habitat.openPanel(); as p) {
         <app-station-dialog [panel]="p" [anchor]="roomView" (closed)="habitat.openPanel.set(null)" />
       }
+
+      <!-- Phones are played sideways; in portrait, ask to rotate instead of squeezing the room. -->
+      <div class="rotate-hint absolute inset-0 z-50 flex-col items-center justify-center gap-3 bg-night p-6 text-center text-cream" role="alert">
+        <span class="text-5xl" aria-hidden="true">📱↻</span>
+        <p class="font-pixel text-2xl">Turn your phone sideways</p>
+        <p class="max-w-xs text-sm text-cream/70">Jardín Comunal is made for landscape.</p>
+      </div>
     </div>
   `,
   styles: `
+    /* Only on touch phones held upright (not narrow desktop windows). */
+    .rotate-hint { display: none; }
+    @media (orientation: portrait) and (pointer: coarse) and (max-width: 600px) {
+      .rotate-hint { display: flex; }
+    }
     /* Sprout's bubble: between the corner controls when there's room, above them when there isn't. */
     .bubble-slot { left: 0.5rem; right: 0.5rem; bottom: 10.5rem; }
     @media (min-width: 640px) {

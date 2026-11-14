@@ -21,8 +21,9 @@ import { StationPanelComponent } from './station-panel.component';
       padding: 0;
       border: 0;
       background: transparent;
-      width: min(40rem, var(--anchor-w, 100vw) - 2rem, 100vw - 2rem);
-      max-height: calc(100dvh - 2rem);
+      /* Never bigger than the room view it sits on (or the screen). */
+      width: min(52rem, var(--anchor-w, 100vw) - 1rem, 100vw - 1rem);
+      max-height: min(var(--anchor-h, 100dvh) - 1rem, 100dvh - 1rem);
       overflow: auto;
     }
     /* Centre over the room view (falls back to the viewport centre without an anchor). */
@@ -76,6 +77,7 @@ export class StationDialogComponent {
     dialog.style.setProperty('--anchor-cx', `${r.left + r.width / 2}px`);
     dialog.style.setProperty('--anchor-cy', `${r.top + r.height / 2}px`);
     dialog.style.setProperty('--anchor-w', `${r.width}px`);
+    dialog.style.setProperty('--anchor-h', `${r.height}px`);
   }
 
   /** Safari lacks closedby="any": close when a click lands on the backdrop (outside the dialog box). */
