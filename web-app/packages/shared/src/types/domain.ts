@@ -27,9 +27,38 @@ export interface GardenObject {
   /** ISO timestamp. Plant growth is derived from this. */
   createdAt: string;
   placedBy?: string;
+  placedByName?: string;
+  /** Plants only: care history and the growth it has earned. */
+  care?: PlantCare;
 }
 
 export type PlantStage = 'SEED' | 'SPROUT' | 'MATURE';
+
+export type CareAction = 'WATER' | 'FERTILIZE' | 'PRUNE' | 'HARVEST';
+
+/** One care action, kept so both players can see who tended what. */
+export interface CareEvent {
+  action: CareAction;
+  by: string;
+  byName: string;
+  at: string;
+}
+
+export interface PlantCare {
+  /** Growth time added by care, in ms. Plants never lose growth. */
+  boostMs: number;
+  lastWateredAt?: string;
+  lastFertilizedAt?: string;
+  lastPrunedAt?: string;
+  /** Newest first, capped. */
+  log: CareEvent[];
+}
+
+/** Whoever is acting. Astronaut and family share one garden. */
+export interface Actor {
+  id: string;
+  name: string;
+}
 
 export type HealthMetric = 'HEART_RATE' | 'WEIGHT' | 'WELLBEING';
 export type MeasurementSource = 'MANUAL' | 'SIMULATED' | 'DEVICE';

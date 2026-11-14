@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { HabitatInteraction, PlacementError, ROOMS, RoomId } from '@garden/shared';
+import { CareAction, CareError, HabitatInteraction, PlacementError, ROOMS, RoomId } from '@garden/shared';
 import { GardenStore } from './garden/garden.store';
 import { PlantPickerComponent } from './garden/components/plant-picker.component';
 import { PlantCloseupComponent } from './garden/components/plant-closeup.component';
@@ -16,6 +16,12 @@ import { TouchPadComponent } from './habitat/touch-pad.component';
 import { ActionButtonComponent } from './habitat/action-button.component';
 import { StationPanelComponent } from './habitat/panels/station-panel.component';
 import type { TileCoord } from './garden/game/tile-manager';
+
+const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND', string>> = {
+  INSUFFICIENT_FUNDS: 'Not enough seeds yet. Healthy habits earn more!',
+  COOLDOWN: 'It needs a little rest first.',
+  NOT_FOUND: 'That plant is gone.',
+};
 
 const GENTLE_ERRORS: Record<PlacementError, string> = {
   INSUFFICIENT_FUNDS: 'Not quite enough seeds for that one yet.',
@@ -91,7 +97,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
                 <app-plant-picker [tile]="t" (picked)="plantAt(t, $event)" (closed)="garden.pickerTile.set(null)" />
               }
               @if (garden.closeup(); as c) {
-                <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" />
+                <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" />
               }
               @if (!garden.closeup()) {
                 <div class="pointer-events-none absolute bottom-3 left-1/2 z-20 w-[min(30rem,calc(100%-17rem))] -translate-x-1/2 [&>*]:pointer-events-auto">
@@ -229,6 +235,16 @@ export class App {
       this.garden.closeupId.set(null);
     }
     this.player.setKey(dir, down);
+  }
+
+  async onCare(plantId: string, action: CareAction): Promise<void> {
+    const result = await this.garden.care(plantId, action);
+    if (!result.ok) {
+      this.flash(CARE_ERRORS[result.error] ?? 'That didn\'t work. Try again.');
+      return;
+    }
+    if (action === 'HARVEST') this.flash(result.earned ? `Harvested! 🌱 +${result.earned}` : 'Harvested! The plot is free again.');
+    else if (result.earned) this.flash(`🌱 +${result.earned}`);
   }
 
   onDialogueAction(action: string): void {
