@@ -1,15 +1,46 @@
 import { Injectable } from '@angular/core';
-import { GardenObject, validatePlacement, getCatalogItem, PlacementError } from '@garden/shared';
+import {
+  Actor,
+  CareAction,
+  CareError,
+  GardenObject,
+  PlacementError,
+  applyCare,
+  careDay,
+  checkCare,
+  getCatalogItem,
+  validatePlacement,
+} from '@garden/shared';
+
+/** Garden coins earned per actor on one day, for the daily cap. */
+export type GardenEarnings = Record<string, { day: string; amount: number }>;
 
 export interface GardenSnapshot {
   gardenId: string;
   balance: number;
   objects: GardenObject[];
+  earnings?: GardenEarnings;
 }
 
 export type PlaceResult =
   | { ok: true; object: GardenObject; balance: number }
   | { ok: false; error: PlacementError };
+
+export type CareResult =
+  | { ok: true; object: GardenObject | null; balance: number; earned: number; earnedToday: number }
+  | { ok: false; error: CareError | 'NOT_FOUND' };
+
+/**
+ * Who is playing on this device. Until accounts exist, the local player is the astronaut;
+ * the family's actions arrive through the same shared garden once there is a backend.
+ */
+export const LOCAL_PLAYER: Actor = { id: 'astronaut-demo', name: 'Astronaut' };
+const FAMILY_DEMO: Actor = { id: 'family-demo', name: 'Family' };
+
+export function earnedToday(earnings: GardenEarnings | undefined, actorId: string, now: number): number {
+  const e = earnings?.[actorId];
+  return e && e.day === careDay(now) ? e.amount : 0;
+}
 
 /**
  * Persistence gateway. Milestone 1: localStorage.
@@ -32,7 +63,7 @@ export class GardenService {
     return seeded;
   }
 
-  async placeObject(itemType: string, x: number, y: number): Promise<PlaceResult> {
+  async placeObject(itemType: string, x: number, y: number, actor: Actor = LOCAL_PLAYER): Promise<PlaceResult> {
     const snap = await this.load();
     const error = validatePlacement(itemType, x, y, snap.objects, snap.balance);
     if (error) return { ok: false, error };
@@ -45,6 +76,8 @@ export class GardenService {
       x,
       y,
       createdAt: new Date().toISOString(),
+      placedBy: actor.id,
+      placedByName: actor.name,
     };
     snap.objects.push(object);
     snap.balance -= item.price;
@@ -58,6 +91,27 @@ export class GardenService {
     snap.balance += Math.max(0, Math.floor(amount));
     this.save(snap);
     return snap.balance;
+  }
+
+  /** Water, fertilize, prune or harvest a plant. Harvest removes it and frees the plot (`object: null`). */
+  async care(plantId: string, action: CareAction, actor: Actor = LOCAL_PLAYER): Promise<CareResult> {
+    const snap = await this.load();
+    const idx = snap.objects.findIndex((o) => o.id === plantId);
+    if (idx < 0) return { ok: false, error: 'NOT_FOUND' };
+    const now = Date.now();
+    const already = earnedToday(snap.earnings, actor.id, now);
+    const check = checkCare(snap.objects[idx], action, now, { balance: snap.balance, earnedToday: already });
+    if (!check.ok) return { ok: false, error: check.error! };
+
+    let object: GardenObject | null = null;
+    if (action === 'HARVEST') snap.objects.splice(idx, 1);
+    else snap.objects[idx] = object = applyCare(snap.objects[idx], action, now, actor);
+
+    snap.balance += check.reward - check.cost;
+    const total = already + check.reward;
+    snap.earnings = { ...snap.earnings, [actor.id]: { day: careDay(now), amount: total } };
+    this.save(snap);
+    return { ok: true, object, balance: snap.balance, earned: check.reward, earnedToday: total };
   }
 
   /** Demo helper: wipe local garden back to the seeded state. */
@@ -81,7 +135,12 @@ export class GardenService {
 function seedGarden(): GardenSnapshot {
   const gardenId = 'garden-demo';
   const longAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const mk = (itemType: string, x: number, y: number): GardenObject => ({
+  const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+  /**
+   * `wateredBy` set: watered an hour ago (wet soil). Omitted: thirsty (dry soil).
+   * `prunedBy` set too: every need met, so the plant shines.
+   */
+  const mk = (itemType: string, x: number, y: number, by: Actor, wateredBy?: Actor, prunedBy?: Actor): GardenObject => ({
     id: crypto.randomUUID(),
     gardenId,
     type: 'PLANT',
@@ -89,10 +148,28 @@ function seedGarden(): GardenSnapshot {
     x,
     y,
     createdAt: longAgo,
+    placedBy: by.id,
+    placedByName: by.name,
+    ...(wateredBy && {
+      care: {
+        boostMs: 0,
+        lastWateredAt: hourAgo,
+        ...(prunedBy && { lastPrunedAt: hourAgo }),
+        log: [
+          ...(prunedBy ? [{ action: 'PRUNE' as const, by: prunedBy.id, byName: prunedBy.name, at: hourAgo }] : []),
+          { action: 'WATER' as const, by: wateredBy.id, byName: wateredBy.name, at: hourAgo },
+        ],
+      },
+    }),
   });
   return {
     gardenId,
     balance: 20,
-    objects: [mk('tree', 3, 3), mk('flower', 7, 5), mk('sunflower', 15, 4), mk('flower', 19, 11)],
+    objects: [
+      mk('tree', 3, 3, LOCAL_PLAYER, FAMILY_DEMO, FAMILY_DEMO),
+      mk('flower', 7, 5, FAMILY_DEMO),
+      mk('sunflower', 15, 4, FAMILY_DEMO, LOCAL_PLAYER),
+      mk('flower', 19, 11, LOCAL_PLAYER, FAMILY_DEMO),
+    ],
   };
 }

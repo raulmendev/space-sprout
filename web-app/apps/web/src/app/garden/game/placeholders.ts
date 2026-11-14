@@ -25,6 +25,10 @@ const PALETTE: Record<string, string> = {
   V: '#2d4f7c', // visor
   v: '#8fc4f0', // visor glint
   g: '#8a8f9c', // boots
+  A: '#5fb3f0', // water
+  a: '#d4eeff', // water highlight
+  N: '#2f78c4', // water outline
+  S: '#fff3a0', // shine
 };
 
 type Grid = readonly string[];
@@ -177,6 +181,46 @@ export const HINT_PLUS: Grid = [
   '......KWWK......',
   '......KWWK......',
   '......KKKK......',
+  '................',
+  '................',
+];
+
+/** Friendly "a drink would help" bubble: a plain water drop, no alarm colours or symbols. */
+export const THIRST_BUBBLE: Grid = [
+  '................',
+  '...KKKKKKKKKK...',
+  '..KWWWWWWWWWWK..',
+  '..KWWWWNWWWWWK..',
+  '..KWWWNANWWWWK..',
+  '..KWWNAAANWWWK..',
+  '..KWNAaAAANWWK..',
+  '..KWNaAAAANWWK..',
+  '..KWNAAAAANWWK..',
+  '..KWWNAAANWWWK..',
+  '..KWWWNNNWWWWK..',
+  '..KWWWWWWWWWWK..',
+  '...KKWWKKKKKK...',
+  '....KWK.........',
+  '....KK..........',
+  '................',
+];
+
+/** One four-point twinkle for thriving plants: golden arms, white heart. */
+export const TWINKLE: Grid = [
+  '................',
+  '................',
+  '................',
+  '................',
+  '.......Y........',
+  '.......Y........',
+  '......YSY.......',
+  '....YYSWSYY.....',
+  '......YSY.......',
+  '.......Y........',
+  '.......Y........',
+  '................',
+  '................',
+  '................',
   '................',
   '................',
 ];

@@ -1,19 +1,25 @@
 import type { GardenObject, PlantStage } from '../types/domain';
-import { getCatalogItem } from './catalog';
+import { getCatalogItem, matureAfterMs } from './catalog';
 
-/** Deterministic, timestamp-based growth. No background jobs, no decay. */
-export function getPlantStage(obj: Pick<GardenObject, 'itemType' | 'createdAt'>, now: number): PlantStage {
-  const growth = getCatalogItem(obj.itemType)?.growth;
-  if (!growth) return 'MATURE';
-  const age = now - Date.parse(obj.createdAt);
-  if (age >= growth.matureAfterMs) return 'MATURE';
-  if (age >= growth.sproutAfterMs) return 'SPROUT';
-  return 'SEED';
+type Growable = Pick<GardenObject, 'itemType' | 'createdAt' | 'care'>;
+
+/** Time the plant counts as having grown: real age plus whatever care has added. */
+export function growthAgeMs(obj: Growable, now: number): number {
+  return now - Date.parse(obj.createdAt) + (obj.care?.boostMs ?? 0);
+}
+
+/** Deterministic, timestamp-based growth. No background jobs, no decay; care only moves it forward. */
+export function getPlantStage(obj: Growable, now: number): PlantStage {
+  const stages = getCatalogItem(obj.itemType)?.growth?.stages;
+  if (!stages?.length) return 'MATURE';
+  const age = growthAgeMs(obj, now);
+  let stage = stages[0][0];
+  for (const [s, startsAt] of stages) if (age >= startsAt) stage = s;
+  return stage;
 }
 
 /** Ms until the plant reaches maturity (0 if already mature). */
-export function msUntilMature(obj: Pick<GardenObject, 'itemType' | 'createdAt'>, now: number): number {
-  const growth = getCatalogItem(obj.itemType)?.growth;
-  if (!growth) return 0;
-  return Math.max(0, Date.parse(obj.createdAt) + growth.matureAfterMs - now);
+export function msUntilMature(obj: Growable, now: number): number {
+  const total = matureAfterMs(getCatalogItem(obj.itemType));
+  return total ? Math.max(0, total - growthAgeMs(obj, now)) : 0;
 }
