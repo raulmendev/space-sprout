@@ -145,6 +145,22 @@ for (const room of Object.keys(ROOMS) as RoomId[]) {
   register(roomTextureKey(room), 'habitat/rooms', [ROOM_COLS * TILE_SIZE, ROOM_ROWS * TILE_SIZE], TERRAIN, null);
 }
 
+/** A room's animated windows: the glass (the sky outside) drawn over the room picture, a frame every `frameMs`. */
+export interface RoomWindows {
+  frames: readonly string[];
+  /** Top-left corner on the room picture, in game px. */
+  at: readonly [number, number];
+  frameMs: number;
+}
+/** From tools/import_windows.py. Shown only with the room picture and every frame delivered. */
+export const ROOM_WINDOWS: Partial<Record<RoomId, RoomWindows>> = {};
+function roomWindows(room: RoomId, w: { frames: number; at: [number, number]; size: [number, number]; frameMs: number }): void {
+  const frames = Array.from({ length: w.frames }, (_, n) => `${roomTextureKey(room)}-window-${n}`);
+  for (const key of frames) register(key, 'habitat/rooms', w.size, TERRAIN, null);
+  ROOM_WINDOWS[room] = { frames, at: w.at, frameMs: w.frameMs };
+}
+roomWindows('SOCIAL', { frames: 8, at: [224, 32], size: [288, 96], frameMs: 170 });
+
 // ---------------------------------------------------------------- plants
 
 interface PlantVisual {
