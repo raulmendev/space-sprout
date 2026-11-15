@@ -4,6 +4,7 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "dev:web": "npm run start -w web",
+    "dev:web:railway": "npm run start:railway -w web",
     "build:web": "npm run build -w web",
     "check:dialogues": "node tools/check_dialogues.mjs"
   }

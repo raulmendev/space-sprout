@@ -4,8 +4,12 @@ import { loadJson, saveJson } from '../shared/storage';
 
 /** A deployed build sets this (angular.json → `define`); see the README. */
 declare const API_URL: string | undefined;
-/** The API: the deployed URL, else port 3000 on whatever host served this page (any local dev server, or a phone on the LAN). */
-const API = typeof API_URL === 'string' ? API_URL : `${location.protocol}//${location.hostname}:3000/api`;
+/**
+ * The API: the deployed URL, else port 3000 on whatever host served this page (any local dev
+ * server, or a phone on the LAN). A path (`/api`, from `dev:web:railway`) is this page's own
+ * origin: the dev server proxies it to Railway, so the browser never makes a cross-origin call.
+ */
+const API = typeof API_URL === 'string' ? new URL(API_URL, location.href).href.replace(/\/$/, '') : `${location.protocol}//${location.hostname}:3000/api`;
 
 const SESSION_KEY = 'jardin-comunal:session:v1';
 /** How long to wait for the station before giving up (boot waits on the session check). */
