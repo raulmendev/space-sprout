@@ -161,7 +161,9 @@ export type HabitatInteraction =
   | { type: 'STORE_SELECTED' }
   | { type: 'TILE_SELECTED'; x: number; y: number }
   | { type: 'PROP_SELECTED'; propId: string }
-  | { type: 'NPC_SELECTED'; npcId: NpcId };
+  | { type: 'NPC_SELECTED'; npcId: NpcId }
+  /** A decoration placed in the station. */
+  | { type: 'DECOR_SELECTED'; decorId: string };
 
 export type PropInteraction = Extract<
   HabitatInteraction,

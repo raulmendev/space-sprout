@@ -9,6 +9,8 @@ import {
   Inventory,
   SocialNote,
   PlacementError,
+  PlacedDecor,
+  RoomId,
   Purchase,
   PurchaseError,
   getStoreItem,
@@ -28,8 +30,11 @@ import {
   propAtTile,
 } from '@garden/shared';
 import { timeAgo } from '../health/format';
-import { CareResult, GardenService, LOCAL_PLAYER, PostNoteResult, earnedToday } from './garden.service';
+import { whoDid } from '../shared/format';
+import { CareResult, DecorResult, GardenService, LOCAL_PLAYER, PostNoteResult, earnedToday } from './garden.service';
 import type { TileCoord } from './game/tile-manager';
+
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export type CloseupInfo = NonNullable<ReturnType<GardenStore['closeup']>>;
 export type PlantOutcome = { ok: true; object: GardenObject } | { ok: false; error: PlacementError };
@@ -48,10 +53,12 @@ export class GardenStore {
   readonly purchases = signal<Purchase[]>([]);
   /** Notes pinned from this device (see NotesStore for the whole board). */
   readonly notes = signal<SocialNote[]>([]);
+  /** Decorations up in the station (anyone in the household placed them). */
+  readonly decorations = signal<PlacedDecor[]>([]);
   /** The purchases as one line: "You: Fertilizer (2 min ago) · Family: Photo frame (1 h ago)". */
   readonly recentPurchases = computed(() =>
     this.purchases()
-      .map((p) => `${p.by === LOCAL_PLAYER.id ? 'You' : p.byName}: ${getStoreItem(p.itemId)?.name ?? p.itemId} (${timeAgo(p.at)})`)
+      .map((p) => `${capitalise(whoDid(p.by, p.byName, LOCAL_PLAYER.id))}: ${getStoreItem(p.itemId)?.name ?? p.itemId} (${timeAgo(p.at)})`)
       .join(' · '),
   );
   /** Clock used for timestamp-based growth. */
@@ -102,6 +109,7 @@ export class GardenStore {
     this.inventory.set(snap.inventory);
     this.purchases.set(snap.purchases);
     this.notes.set(snap.notes ?? []);
+    this.decorations.set(snap.decorations);
     this.earnedToday.set(earnedToday(snap.earnings, LOCAL_PLAYER.id, Date.now()));
   }
 
@@ -166,6 +174,27 @@ export class GardenStore {
     this.inventory.set(result.inventory);
     this.purchases.set(result.purchases);
     return null;
+  }
+
+  placeDecor(itemId: string, room: RoomId, tile: TileCoord): Promise<DecorResult> {
+    return this.applyDecor(this.service.placeDecor(itemId, room, tile.x, tile.y));
+  }
+
+  moveDecor(decorId: string, tile: TileCoord): Promise<DecorResult> {
+    return this.applyDecor(this.service.moveDecor(decorId, tile.x, tile.y));
+  }
+
+  putAwayDecor(decorId: string): Promise<DecorResult> {
+    return this.applyDecor(this.service.putAwayDecor(decorId));
+  }
+
+  private async applyDecor(pending: Promise<DecorResult>): Promise<DecorResult> {
+    const result = await pending;
+    if (result.ok) {
+      this.decorations.set(result.decorations);
+      this.inventory.set(result.inventory);
+    }
+    return result;
   }
 
   /** Credit seeds earned elsewhere (health check-ins). */
