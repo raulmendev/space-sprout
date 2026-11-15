@@ -7,7 +7,9 @@
  */
 import {
   ALL_PROPS,
+  CLAY_POT,
   CrewId,
+  FERTILIZER,
   PlantStage,
   ROOMS,
   ROOM_COLS,
@@ -263,11 +265,11 @@ const PROP_VISUALS: Record<string, PropVisual> = {
   VINES_LEFT: { folder: 'social/decorations', size: [69, 79], palette: SOCIAL },
   VINES_RIGHT: { folder: 'social/decorations', size: [70, 76], palette: SOCIAL },
   // Garden furniture
-  WATERING_CAN: { folder: 'garden/decorations', size: [62, 66], palette: GARDEN },
-  GREENHOUSE: { folder: 'garden/decorations', size: [94, 57], palette: GARDEN },
-  GARDEN_BENCH: { folder: 'garden/decorations', size: [81, 44], palette: GARDEN },
-  VINE_ARCH: { folder: 'garden/decorations', size: [69, 62], palette: GARDEN },
-  VINE_PLANTER: { folder: 'garden/decorations', size: [64, 48], palette: GARDEN },
+  WATERING_CAN: { folder: 'garden/decorations', size: [62, 70], palette: GARDEN },
+  GREENHOUSE: { folder: 'garden/decorations', size: [94, 61], palette: GARDEN },
+  GARDEN_BENCH: { folder: 'garden/decorations', size: [81, 47], palette: GARDEN },
+  VINE_ARCH: { folder: 'garden/decorations', size: [69, 66], palette: GARDEN },
+  VINE_PLANTER: { folder: 'garden/decorations', size: [64, 52], palette: GARDEN },
 };
 
 /** State → texture mapping. Unknown or undelivered states fall back to `idle`. */
@@ -363,6 +365,9 @@ for (const { prefix, size, wave } of Object.values(SUITS)) {
 }
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
 register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
+/** Supply Store items drawn by the design team (cards in the store and inventory; others keep their emoji). */
+export const storeItemTextureKey = (itemId: string) => `store-${itemId}`;
+for (const id of [FERTILIZER, CLAY_POT]) register(storeItemTextureKey(id), 'gui/store', [64, 64], BOTTOM_CENTER, null, true);
 /** Station crew (placeholders until the design team's character art lands). */
 const CREW_LOOKS: Record<CrewId, Parameters<typeof crewGrid>[0]> = {
   MEDIC: { uniform: 'W', badge: 'R', hair: 'b' },

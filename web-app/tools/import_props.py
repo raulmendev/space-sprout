@@ -26,11 +26,11 @@ from art import ASSETS, add_shadow, clear_background, drop_glow, drop_strays, ga
 # delivered file name → (HabitatProp.kind, asset folder, scale, cleanup steps). Packs drawn at
 # 64 px per tile import at half; concept-art packs are scaled to the astronaut (36x50).
 PROPS: dict[str, tuple[str, str, float, set[str]]] = {
-    'r07_02_sign_watering.png': ('WATERING_CAN', 'garden/decorations', 0.5, set()),
-    'r08_06_greenhouse.png': ('GREENHOUSE', 'garden/decorations', 0.5, set()),
-    'r08_09_bench.png': ('GARDEN_BENCH', 'garden/decorations', 0.5, set()),
-    'r08_08_vine_arch.png': ('VINE_ARCH', 'garden/decorations', 0.5, set()),
-    'r08_04_planter_vines.png': ('VINE_PLANTER', 'garden/decorations', 0.5, set()),
+    'r07_02_sign_watering.png': ('WATERING_CAN', 'garden/decorations', 0.5, {'shadow'}),
+    'r08_06_greenhouse.png': ('GREENHOUSE', 'garden/decorations', 0.5, {'shadow'}),
+    'r08_09_bench.png': ('GARDEN_BENCH', 'garden/decorations', 0.5, {'shadow'}),
+    'r08_08_vine_arch.png': ('VINE_ARCH', 'garden/decorations', 0.5, {'shadow'}),
+    'r08_04_planter_vines.png': ('VINE_PLANTER', 'garden/decorations', 0.5, {'shadow'}),
     # Social Space 2x pack
     'floor_lamp_64x192.png': ('FLOOR_LAMP', 'social/decorations', 0.5, set()),
     'vines_top_left_192x192.png': ('VINES_LEFT', 'social/decorations', 0.5, set()),

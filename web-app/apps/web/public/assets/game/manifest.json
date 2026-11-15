@@ -233,6 +233,8 @@
     "prop-vines-right",
     "prop-watering-can",
     "room-garden",
-    "room-social"
+    "room-social",
+    "store-clay-pot",
+    "store-fertilizer"
   ]
 }
