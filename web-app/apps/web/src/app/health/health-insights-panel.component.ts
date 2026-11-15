@@ -121,8 +121,21 @@ const LOOP = [
     }
     .goals li.met { border-color: var(--color-leaf); background: color-mix(in srgb, var(--color-leaf) 18%, transparent); color: var(--color-leaf-dark); }
 
-    /* Six cards: two rows of three when there's room, two columns on narrow screens. */
-    .cards { display: grid; flex: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    /*
+     * A card per metric: rows of three when there's room, two columns on narrow screens. The
+     * popup has a fixed height, so the cards scroll inside the screen (the streak and the privacy
+     * note stay put); the padding keeps the cards' rivets and focus ring from being clipped.
+     */
+    .cards {
+      display: grid;
+      flex: 1;
+      min-height: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+      gap: 10px;
+      padding: 3px;
+      overflow-y: auto;
+    }
     @container (min-width: 40rem) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     .card { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; text-align: left; }
     .card:hover { filter: brightness(1.03); }
@@ -145,8 +158,7 @@ const LOOP = [
         grid-auto-flow: column;
         grid-auto-columns: calc((100% - 12px) / 2);
         gap: 12px;
-        padding: 3px;
-        overflow-x: auto;
+        overflow: auto hidden;
         scroll-snap-type: x mandatory;
         scroll-padding-inline: 3px;
         overscroll-behavior-x: contain;
