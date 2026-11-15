@@ -20,6 +20,10 @@ const MIN_INTEGER_FILL = 0.85;
 })
 export class HabitatCanvasComponent {
   readonly interaction = output<HabitatInteraction>();
+  /** Share of the game's pictures loaded so far, 0–1. */
+  readonly progress = output<number>();
+  /** The scene is up and has been given the room. */
+  readonly ready = output<void>();
   readonly zoom = signal(1);
   protected readonly width = computed(() => Math.round(WORLD_W * this.zoom()));
   protected readonly height = computed(() => Math.round(WORLD_H * this.zoom()));
@@ -39,6 +43,8 @@ export class HabitatCanvasComponent {
       const renderer = createHabitatRenderer(el, this.assets.deliveredKeys(), {
         onInteraction: (i) => this.interaction.emit(i),
         onHover: (i) => this.habitat.hover.set(i),
+        onProgress: (share) => this.progress.emit(share),
+        onReady: () => this.ready.emit(),
       });
       this.renderer.set(renderer);
 

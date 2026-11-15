@@ -20,6 +20,10 @@ export interface HabitatRenderer {
 export interface RendererCallbacks {
   onInteraction(i: HabitatInteraction): void;
   onHover(i: HabitatInteraction | null): void;
+  /** Share of the pictures loaded so far, 0–1. */
+  onProgress(share: number): void;
+  /** The scene is up and has been given the room (drawn on the next frame). */
+  onReady(): void;
 }
 
 /** Most canvas pixels per world pixel: past this a bigger canvas costs memory without looking sharper. */
@@ -56,7 +60,9 @@ export function createHabitatRenderer(parent: HTMLElement, deliveredKeys: readon
         scene = s;
         latest.forEach((fn) => fn(s));
         latest.clear();
+        cb.onReady();
       },
+      onProgress: cb.onProgress,
       onInteraction: cb.onInteraction,
       onHover: cb.onHover,
     }),
