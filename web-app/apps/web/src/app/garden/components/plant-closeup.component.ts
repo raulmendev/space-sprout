@@ -38,7 +38,7 @@ const seeds = (n: number) => `${n} seed${n === 1 ? '' : 's'}`;
   selector: 'app-plant-closeup',
   template: `
     <dialog #dialog closedby="any" aria-labelledby="closeup-title" (close)="closed.emit()">
-      <div class="panel flex flex-col gap-3 p-4">
+      <div class="panel flex flex-col gap-3 p-4 short:gap-2 short:p-3">
         <header class="flex items-start justify-between gap-2">
           <div>
             <!-- Initial focus lands on the title (like the station panels), not on a button. -->
@@ -284,6 +284,19 @@ const seeds = (n: number) => `${n} seed${n === 1 ? '' : 's'}`;
       0% { opacity: 0; translate: 0 6px; }
       40% { opacity: 1; }
       100% { opacity: 0; translate: 0 -18px; }
+    }
+
+    /* Short screens (landscape phones): fit the whole close-up without scrolling.
+       Last in the sheet so it overrides the wide layout's sizes above. */
+    @media (max-height: 500px) {
+      .stage { min-height: 0; padding: 6px 0; }
+      .plant-spot { zoom: .7; }
+      .halo { width: 210px; height: 210px; }
+      .disc { width: 48px; height: 48px; border-width: 3px; font-size: 1.35rem; }
+      .label { margin-top: 2px; font-size: .8rem; }
+      .hint { font-size: .7rem; }
+      .tl, .tr { top: 8px; }
+      .bl, .br { bottom: 6px; }
     }
   `,
 })

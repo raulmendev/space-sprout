@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output } from '@angular/core';
+import { Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, input, output, untracked, viewChild } from '@angular/core';
 import { PlacementError, ROOM_COLS, footprintOf } from '@garden/shared';
 import { colPct, rowPct } from '../../habitat/tile-percent';
 import { GardenStore } from '../garden.store';
@@ -20,10 +20,8 @@ function reason(error: PlacementError, itemType: string): string {
   host: { '(document:keydown.escape)': 'closed.emit()' },
   template: `
     <div
-      class="panel picker absolute z-10 grid grid-cols-4 gap-1 p-1.5 sm:grid-cols-6"
-      [style.left.%]="pos().left"
-      [style.top.%]="pos().top"
-      [style.transform]="pos().transform"
+      #panel
+      class="panel picker invisible absolute z-[25] grid grid-cols-4 gap-1 p-1.5 sm:grid-cols-6 short:grid-cols-7"
       role="menu"
       aria-label="Plant something here"
     >
@@ -65,15 +63,50 @@ export class PlantPickerComponent {
     }),
   );
 
-  /** Sit above the tile (below it near the top edge), nudged inward near the sides. */
-  protected readonly pos = computed(() => {
-    const { x, y } = this.tile();
-    const above = y >= 5;
-    const tx = x <= 3 ? '-15%' : x >= ROOM_COLS - 4 ? '-85%' : '-50%';
-    return {
-      left: colPct(x + 0.5),
-      top: rowPct(above ? y : y + 1),
-      transform: `translate(${tx}, ${above ? 'calc(-100% - 4px)' : '4px'})`,
-    };
-  });
+  private readonly panel = viewChild.required<ElementRef<HTMLDivElement>>('panel');
+
+  constructor() {
+    afterRenderEffect(() => this.place(this.tile()));
+    const onResize = () => this.place(untracked(this.tile));
+    window.addEventListener('resize', onResize);
+    inject(DestroyRef).onDestroy(() => window.removeEventListener('resize', onResize));
+  }
+
+  /**
+   * Sit above the tile, or below it when there's more room there, nudged inward
+   * near the sides; then clamp so the whole popover stays on screen and clear of
+   * the HUD. Done in px because the room (and so the room for the popover) varies.
+   */
+  private place({ x, y }: TileCoord): void {
+    const el = this.panel().nativeElement;
+    const room = (el.offsetParent ?? document.body).getBoundingClientRect();
+    // Layout size: unaffected by the pop-in animation's scale.
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    const tileTop = room.top + (rowPct(y) / 100) * room.height;
+    const tileBottom = room.top + (rowPct(y + 1) / 100) * room.height;
+    const cx = room.left + (colPct(x + 0.5) / 100) * room.width;
+
+    const minTop = HUD_CLEARANCE;
+    const maxBottom = window.innerHeight - EDGE;
+    const spaceAbove = tileTop - GAP - minTop;
+    const spaceBelow = maxBottom - (tileBottom + GAP);
+    const above = spaceAbove >= h || spaceAbove >= spaceBelow;
+    let top = above ? tileTop - GAP - h : tileBottom + GAP;
+    top = Math.max(minTop, Math.min(top, maxBottom - h));
+
+    const fx = x <= 3 ? 0.15 : x >= ROOM_COLS - 4 ? 0.85 : 0.5;
+    let left = cx - w * fx;
+    left = Math.max(EDGE, Math.min(left, window.innerWidth - EDGE - w));
+
+    el.style.left = `${left - room.left}px`;
+    el.style.top = `${top - room.top}px`;
+    el.classList.remove('invisible');
+  }
 }
+
+/** Space kept free under the HUD bar (it sits at top-2 and is ~3rem tall, like the tile info's top-14). */
+const HUD_CLEARANCE = 56;
+/** Minimum gap to the screen edges, and between the popover and its tile. */
+const EDGE = 8;
+const GAP = 4;
