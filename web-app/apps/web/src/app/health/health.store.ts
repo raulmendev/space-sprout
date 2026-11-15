@@ -1,8 +1,8 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { HealthMeasurement, HealthMetric, METRIC_ORDER, NewMeasurement, RewardOutcome, dayOf } from '@garden/shared';
+import { ALL_METRICS, HealthMeasurement, HealthMetric, MeasurementSource, NewMeasurement, RewardOutcome, dayOf } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
-import { HealthService } from './health.service';
+import { HealthService, UnknownAnswer } from './health.service';
 import { SimulatedWearable, WEARABLE_METRICS } from './simulated-wearable';
 
 export interface CheckInResult {
@@ -29,6 +29,8 @@ export class HealthStore {
   readonly wearable = new SimulatedWearable();
 
   readonly measurements = signal<HealthMeasurement[]>([]);
+  /** "I don't know" answers given to the crew. */
+  private readonly unknowns = signal<UnknownAnswer[]>([]);
   readonly syncing = signal(false);
   readonly lastSyncAt = signal<string | null>(null);
   readonly lastResult = signal<CheckInResult | null>(null);
@@ -39,9 +41,9 @@ export class HealthStore {
   /** Last readings per metric, oldest first. */
   readonly trends = computed(() => {
     const byMetric = {} as Record<HealthMetric, HealthMeasurement[]>;
-    for (const metric of METRIC_ORDER) byMetric[metric] = [];
+    for (const metric of ALL_METRICS) byMetric[metric] = [];
     for (const m of [...this.measurements()].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt))) byMetric[m.metric]?.push(m);
-    for (const metric of METRIC_ORDER) byMetric[metric] = byMetric[metric].slice(-TREND_LENGTH);
+    for (const metric of ALL_METRICS) byMetric[metric] = byMetric[metric].slice(-TREND_LENGTH);
     return byMetric;
   });
 
@@ -54,6 +56,15 @@ export class HealthStore {
       const prev = out[m.metric];
       if (!prev || prev.measuredAt < m.measuredAt) out[m.metric] = m;
     }
+    return out;
+  });
+
+  /** What the crew count as answered today: a reading, or an honest "I don't know". */
+  readonly answeredToday = computed(() => {
+    const day = dayOf(new Date().toISOString());
+    const out: Partial<Record<HealthMetric, true>> = {};
+    for (const [metric, reading] of Object.entries(this.today())) if (reading) out[metric as HealthMetric] = true;
+    for (const u of this.unknowns()) if (u.day === day) out[u.metric] = true;
     return out;
   });
 
@@ -72,6 +83,7 @@ export class HealthStore {
   async init(): Promise<void> {
     const snap = await this.service.load();
     this.measurements.set(snap.measurements);
+    this.unknowns.set(snap.unknowns ?? []);
     const synced = snap.measurements.filter((m) => m.source !== 'MANUAL').map((m) => m.measuredAt).sort();
     this.lastSyncAt.set(synced.at(-1) ?? null);
   }
@@ -89,18 +101,26 @@ export class HealthStore {
     }
   }
 
-  /** Manual check-in with any subset of metrics. Resolves to the seeds it earned. */
-  async submitManual(values: Partial<Record<HealthMetric, number>>): Promise<number> {
+  /** Check-in with any subset of metrics (typed in, or read by a crew instrument). Resolves to the seeds it earned. */
+  async submitManual(values: Partial<Record<HealthMetric, number>>, source: MeasurementSource = 'MANUAL'): Promise<number> {
     const measuredAt = new Date().toISOString();
-    const readings: NewMeasurement[] = METRIC_ORDER.filter((m) => values[m] !== undefined).map((metric) => ({
+    const readings: NewMeasurement[] = ALL_METRICS.filter((m) => values[m] !== undefined).map((metric) => ({
       metric,
       value: values[metric]!,
       measuredAt,
-      source: 'MANUAL',
+      source,
     }));
     if (!readings.length) return 0;
     await this.save(readings);
     return this.lastResult()?.earned ?? 0;
+  }
+
+  /** "I don't know" to a crew question. Resolves to the seeds it earned. */
+  async answerUnknown(metric: HealthMetric): Promise<number> {
+    const { earned, unknowns } = await this.service.recordUnknown(metric);
+    this.unknowns.set(unknowns);
+    await this.garden.credit(earned);
+    return earned;
   }
 
   async reset(): Promise<void> {

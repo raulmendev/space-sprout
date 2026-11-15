@@ -12,15 +12,18 @@ export interface CrewMember {
   role: string;
   /** Readings this crew member asks about, in the order they ask. */
   metrics: readonly HealthMetric[];
+  /** Reads all their metrics with their own instruments in one go, instead of asking. */
+  scans?: boolean;
   /** Where they are when the station starts. */
   start: HabitatPosition;
 }
 
+/** Each looks after the readings that fit their job; every reading has exactly one owner. */
 export const CREW: readonly CrewMember[] = [
-  { id: 'MEDIC', name: 'Dr. Mira', role: 'Medic', metrics: ['HEART_RATE', 'SLEEP', 'MOOD'], start: { room: 'MEDICAL', x: 15.5, y: 9.5 } },
-  { id: 'TRAINER', name: 'Coach Tao', role: 'Trainer', metrics: ['ACTIVITY'], start: { room: 'SOCIAL', x: 4.5, y: 12.5 } },
-  { id: 'CHEF', name: 'Chef Rosa', role: 'Chef', metrics: ['WATER'], start: { room: 'SOCIAL', x: 19.5, y: 4.5 } },
-  { id: 'SCIENTIST', name: 'Dr. Okafor', role: 'Scientist', metrics: ['RADIATION'], start: { room: 'GARDEN', x: 17.5, y: 8 } },
+  { id: 'MEDIC', name: 'Dr. Mira', role: 'Medic', metrics: ['MOOD', 'SLEEP', 'BODY_TEMP', 'HEART_RATE'], start: { room: 'MEDICAL', x: 15.5, y: 9.5 } },
+  { id: 'TRAINER', name: 'Coach Tao', role: 'Trainer', metrics: ['ACTIVITY', 'STRESS'], start: { room: 'SOCIAL', x: 4.5, y: 12.5 } },
+  { id: 'CHEF', name: 'Chef Rosa', role: 'Chef', metrics: ['CALORIES', 'WATER'], start: { room: 'SOCIAL', x: 19.5, y: 4.5 } },
+  { id: 'SCIENTIST', name: 'Dr. Okafor', role: 'Scientist', metrics: ['RADIATION', 'CO2'], scans: true, start: { room: 'GARDEN', x: 17.5, y: 8 } },
 ];
 
 export const CREW_BY_ID = Object.fromEntries(CREW.map((c) => [c.id, c])) as Record<CrewId, CrewMember>;
@@ -39,7 +42,7 @@ export const CREW_REMINDER = {
   leaveRadius: 6,
 } as const;
 
-/** The first of this member's readings not logged today, or null when they're all done. */
+/** The first of this member's readings not answered today, or null when they're all done. */
 export function nextAsk(member: CrewMember, loggedToday: Partial<Record<HealthMetric, unknown>>): HealthMetric | null {
   return member.metrics.find((m) => !loggedToday[m]) ?? null;
 }

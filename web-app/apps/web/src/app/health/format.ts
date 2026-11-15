@@ -1,5 +1,5 @@
 import type { HealthMeasurement, HealthMetric, MeasurementSource } from '@garden/shared';
-import { METRICS } from '@garden/shared';
+import { METRICS, choicesFor } from '@garden/shared';
 
 /** "2 h ago", "yesterday", "3 days ago". */
 export function timeAgo(iso: string, now = Date.now()): string {
@@ -33,6 +33,10 @@ export const METRIC_ICON: Record<HealthMetric, string> = {
   MOOD: '🙂',
   WATER: '💧',
   RADIATION: '☢️',
+  BODY_TEMP: '🌡️',
+  STRESS: '🧘',
+  CALORIES: '🍽️',
+  CO2: '🫧',
 };
 
 /** Mood faces for the 1–5 scale, shared by the picker and every place a mood is shown. */
@@ -53,6 +57,9 @@ export function formatValue(m: Pick<HealthMeasurement, 'metric' | 'value'>): str
     const mood = MOODS.find((x) => x.value === Math.round(m.value));
     return mood ? `${mood.face} ${mood.label}` : String(m.value);
   }
+  // Other scales (stress) show their own word, never "4/5".
+  const choice = choicesFor(m.metric).find((c) => c.value === Math.round(m.value));
+  if (choice) return `${choice.icon ?? ''} ${choice.label}`.trim();
   const def = METRICS[m.metric];
   const v = def.step < 1 ? m.value.toFixed(m.value % 1 ? 2 : 0).replace(/0$/, '') : String(m.value);
   return `${v} ${def.unit}`;

@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { HealthMetric, METRICS, METRIC_ORDER } from '@garden/shared';
+import { ALL_METRICS, HealthMetric, METRICS } from '@garden/shared';
 import { HealthStore } from './health.store';
 import { TrendChartComponent } from './trend-chart.component';
 import { SOURCE_LABEL, formatValue, timeAgo } from './format';
@@ -33,7 +33,7 @@ import { SOURCE_LABEL, formatValue, timeAgo } from './format';
 })
 export class HealthInsightsPanelComponent {
   protected readonly health = inject(HealthStore);
-  protected readonly order = METRIC_ORDER;
+  protected readonly order = ALL_METRICS;
   protected readonly source = SOURCE_LABEL;
   protected def = (m: HealthMetric) => METRICS[m];
   protected value = formatValue;

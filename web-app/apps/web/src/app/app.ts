@@ -89,7 +89,13 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       <app-touch-pad class="absolute bottom-3 right-3 z-20" />
       @if (!garden.closeup()) {
         <div class="bubble-slot pointer-events-none absolute z-20 [&>*]:pointer-events-auto">
-          <app-dialogue-bubble (action)="onDialogueAction($event)" (answer)="crewReminders.answer($event)" />
+          <app-dialogue-bubble
+            (action)="onDialogueAction($event)"
+            (answer)="crewReminders.answer($event)"
+            (unknown)="crewReminders.answerUnknown($event.speaker, $event.metric)"
+            (scan)="crewReminders.scan($event)"
+            (later)="crewReminders.later($event)"
+          />
         </div>
       }
 

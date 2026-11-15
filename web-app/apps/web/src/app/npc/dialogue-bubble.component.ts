@@ -1,6 +1,6 @@
 import { Component, computed, inject, linkedSignal, output } from '@angular/core';
-import { METRICS, validateMeasurement } from '@garden/shared';
-import { NpcStore } from './npc.store';
+import { CrewId, HealthMetric, METRICS, choicesFor, unknownRewardFor, validateMeasurement } from '@garden/shared';
+import { Line, NpcStore } from './npc.store';
 import { AssetService } from '../shared/assets.service';
 import { MoodPickerComponent } from '../health/mood-picker.component';
 import { NPC_IDENTITY } from './npc-identity';
@@ -21,9 +21,25 @@ import type { CrewAnswer } from './crew-reminders';
           <p class="mt-0.5 text-[15px] leading-snug">{{ line.text }}</p>
 
           @if (line.ask && line.speaker !== 'SPROUT') {
-            @if (line.ask === 'MOOD') {
+            @if (line.scan) {
+              <div class="mt-2 flex flex-wrap gap-2">
+                <button type="button" class="rounded-md border-2 border-bark-dark bg-sun px-3 py-1 text-sm font-bold" (click)="scan.emit(line.speaker)">📡 Scan</button>
+                <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="putOff(line)">Later</button>
+              </div>
+            } @else if (choices(line.ask); as opts) {
+              <div class="mt-2 flex flex-wrap gap-1.5" role="group" [attr.aria-label]="metrics[line.ask].label">
+                @for (o of opts; track o.id) {
+                  <button
+                    type="button"
+                    class="rounded-md border-2 border-bark/40 bg-parchment px-2 py-0.5 text-sm font-bold hover:bg-sun focus-visible:outline-2 focus-visible:outline-sun"
+                    (click)="answer.emit({ speaker: line.speaker, metric: line.ask, value: o.value! })"
+                  ><span aria-hidden="true">{{ o.icon }}</span> {{ o.label }}</button>
+                }
+              </div>
+              <button type="button" class="mt-1.5 text-xs font-bold underline" (click)="putOff(line)">Later</button>
+            } @else if (line.ask === 'MOOD') {
               <app-mood-picker class="mt-2" (pick)="answer.emit({ speaker: line.speaker, metric: 'MOOD', value: $event })" />
-              <button type="button" class="mt-1.5 text-xs font-bold underline" (click)="npc.dismiss()">Later</button>
+              <button type="button" class="mt-1.5 text-xs font-bold underline" (click)="putOff(line)">Later</button>
             } @else {
               @let def = metrics[line.ask];
               <form
@@ -48,7 +64,10 @@ import type { CrewAnswer } from './crew-reminders';
                   class="rounded-md border-2 border-bark-dark bg-sun px-3 py-1 text-sm font-bold disabled:opacity-50"
                   [disabled]="draft() === '' || !!error()"
                 >Log it</button>
-                <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="npc.dismiss()">Later</button>
+                @if (canSayUnknown(line.ask)) {
+                  <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="unknown.emit({ speaker: line.speaker, metric: line.ask })">Don't know</button>
+                }
+                <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="putOff(line)">Later</button>
               </form>
               @if (error(); as e) { <p class="mt-1 text-xs font-bold text-[#a33]" role="alert">{{ e }}</p> }
             }
@@ -66,7 +85,7 @@ import type { CrewAnswer } from './crew-reminders';
             </div>
           }
         </div>
-        <button type="button" class="self-start text-bark/70 hover:text-bark-dark" aria-label="Close" (click)="npc.dismiss()">✕</button>
+        <button type="button" class="self-start text-bark/70 hover:text-bark-dark" aria-label="Close" (click)="putOff(line)">✕</button>
       </div>
     }
   `,
@@ -80,9 +99,22 @@ export class DialogueBubbleComponent {
   protected readonly assets = inject(AssetService);
   readonly action = output<string>();
   readonly answer = output<CrewAnswer>();
+  readonly unknown = output<{ speaker: CrewId; metric: HealthMetric }>();
+  readonly scan = output<CrewId>();
+  /** A crew member's question was put off ("Later" or ✕). */
+  readonly later = output<CrewId>();
 
   protected readonly identity = NPC_IDENTITY;
   protected readonly metrics = METRICS;
+  /** Answer buttons for scale questions other than mood (stress); null when it's typed in. */
+  protected choices = (m: HealthMetric) => (m === 'MOOD' || !choicesFor(m).length ? null : choicesFor(m));
+  protected canSayUnknown = (m: HealthMetric) => unknownRewardFor(m) !== null;
+
+  /** Putting off a crew question gets a goodbye with a reminder; anything else just closes. */
+  protected putOff(line: Line): void {
+    if (line.ask && line.speaker !== 'SPROUT') this.later.emit(line.speaker);
+    else this.npc.dismiss();
+  }
   /** The typed answer; every new line starts with an empty field. */
   protected readonly draft = linkedSignal(() => (this.npc.current(), ''));
 

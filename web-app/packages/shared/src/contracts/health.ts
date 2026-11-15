@@ -78,9 +78,53 @@ export const METRICS: Record<HealthMetric, MetricDefinition> = {
     input: 'number',
     about: 'Dose from your personal dosimeter over the last day. Logging it builds your own exposure record over the mission.',
   },
+  BODY_TEMP: {
+    id: 'BODY_TEMP',
+    label: 'Body temperature',
+    unit: '°C',
+    min: 34,
+    max: 42,
+    step: 0.1,
+    input: 'number',
+    about: 'Your temperature today. In orbit it tends to run a little warmer than on Earth.',
+  },
+  STRESS: {
+    id: 'STRESS',
+    label: 'Stress',
+    unit: '/5',
+    min: 1,
+    max: 5,
+    step: 1,
+    input: 'scale',
+    about: 'How tense you feel, from low to too high. Some pressure helps you focus; too much is worth a breather.',
+  },
+  CALORIES: {
+    id: 'CALORIES',
+    label: 'Calories',
+    unit: 'kcal',
+    min: 0,
+    max: 8000,
+    step: 50,
+    input: 'number',
+    about: 'Roughly what you ate today. The galley plans meals around about 2,500 kcal a day.',
+  },
+  CO2: {
+    id: 'CO2',
+    label: 'Cabin CO₂',
+    unit: 'ppm',
+    min: 0,
+    max: 10000,
+    step: 10,
+    input: 'number',
+    about: "Carbon dioxide in the cabin air, from the station's sensors. The scrubbers keep it in check.",
+  },
 };
 
+/** The medical terminal's daily checklist (and the wearable's sync). */
 export const METRIC_ORDER: readonly HealthMetric[] = ['HEART_RATE', 'SLEEP', 'ACTIVITY', 'MOOD', 'WATER', 'RADIATION'];
+
+/** Every reading: the terminal's, plus the ones only the crew ask about. Health Insights shows them all. */
+export const ALL_METRICS: readonly HealthMetric[] = [...METRIC_ORDER, 'BODY_TEMP', 'STRESS', 'CALORIES', 'CO2'];
 
 /** A reading before it is stored (no id/user yet). */
 export interface NewMeasurement {
@@ -124,12 +168,12 @@ export function toMeasurement(input: NewMeasurement, id: string, userId: string)
 
 /** Health check-ins are the main way to earn seeds (plants pay only a little). */
 export const CHECK_IN_REWARD = {
-  /** Seeds per rewarded reading. */
+  /** Seeds per rewarded reading when no band applies; bands (checkin.ts) pay 1–4 instead. */
   perReading: 3,
   /** Rewarded readings per metric per day. */
   perMetricPerDay: 1,
-  /** Seeds per day from check-ins, across all metrics (every reading pays once a day). */
-  dailyCap: 18,
+  /** Seeds per day from check-ins, across all metrics: a full day of top answers fits under it. */
+  dailyCap: 30,
 } as const;
 
 export type RewardOutcome = 'REWARDED' | 'ALREADY_REWARDED' | 'METRIC_DONE_TODAY' | 'DAILY_CAP';
@@ -138,12 +182,14 @@ export const dayOf = (iso: string): string => iso.slice(0, 10);
 
 /**
  * How many seeds a new reading earns, given what was already granted.
+ * `worth` is what the answer pays before limits (see `rewardFor` in checkin.ts).
  * Pure and deterministic: the server will run the same function inside a
  * transaction, with a unique constraint on measurementId as the backstop.
  */
 export function decideReward(
   m: Pick<HealthMeasurement, 'id' | 'metric' | 'measuredAt'>,
   ledger: readonly Pick<RewardTransaction, 'measurementId' | 'metric' | 'day' | 'amount'>[],
+  worth: number = CHECK_IN_REWARD.perReading,
 ): { outcome: RewardOutcome; amount: number } {
   if (ledger.some((r) => r.measurementId === m.id)) return { outcome: 'ALREADY_REWARDED', amount: 0 };
   const day = dayOf(m.measuredAt);
@@ -152,6 +198,6 @@ export function decideReward(
     return { outcome: 'METRIC_DONE_TODAY', amount: 0 };
   }
   const earned = today.reduce((sum, r) => sum + r.amount, 0);
-  const amount = Math.min(CHECK_IN_REWARD.perReading, CHECK_IN_REWARD.dailyCap - earned);
+  const amount = Math.min(worth, CHECK_IN_REWARD.dailyCap - earned);
   return amount > 0 ? { outcome: 'REWARDED', amount } : { outcome: 'DAILY_CAP', amount: 0 };
 }
