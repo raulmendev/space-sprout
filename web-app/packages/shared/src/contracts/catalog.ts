@@ -15,6 +15,11 @@ export interface CatalogItem {
    * begins. The first starts at 0 and the last is MATURE. Most plants: SEED → SPROUT → MATURE.
    */
   growth?: { stages: readonly (readonly [PlantStage, number])[] };
+  /**
+   * Early placeholder plants: no longer sold or offered for planting, but kept so the ones
+   * already growing (and any packets already owned) still work.
+   */
+  retired?: boolean;
 }
 
 const SEC = 1000;
@@ -32,6 +37,7 @@ export const CATALOG: readonly CatalogItem[] = [
     description: 'A cheerful pink bloom. Grows quickly.',
     price: 5,
     growth: { stages: [['SEED', 0], ['SPROUT', 20 * SEC], ['MATURE', 1 * MIN]] },
+    retired: true,
   },
   {
     id: 'sunflower',
@@ -40,6 +46,7 @@ export const CATALOG: readonly CatalogItem[] = [
     description: 'Tall and bright. Always faces home.',
     price: 8,
     growth: { stages: [['SEED', 0], ['SPROUT', 40 * SEC], ['MATURE', 2 * MIN]] },
+    retired: true,
   },
   {
     id: 'tree',
@@ -50,6 +57,7 @@ export const CATALOG: readonly CatalogItem[] = [
     footprint: { w: 2, h: 2 },
     stageLabels: { SPROUT: 'Sapling' },
     growth: { stages: [['SEED', 0], ['SPROUT', 1 * MIN], ['MATURE', 4 * MIN]] },
+    retired: true,
   },
   {
     id: 'mustard',

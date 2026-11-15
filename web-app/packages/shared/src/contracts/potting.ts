@@ -1,7 +1,7 @@
 import type { GardenObject } from '../types/domain';
 import { CATALOG, getCatalogItem } from './catalog';
 import { getPlantStage } from './growth';
-import { CLAY_POT, Inventory, STORE_ITEMS, consume, getStoreItem, owned } from './store';
+import { ALL_STORE_ITEMS, CLAY_POT, Inventory, consume, getStoreItem, owned } from './store';
 
 /**
  * Potting: a grown plant leaves its plot and goes into the shared inventory as a potted plant,
@@ -54,7 +54,7 @@ export function potPlant(
 
 /** Everything the household inventory can hold, in a stable order: store items, then a potted version of each plant. */
 export const INVENTORY_ITEM_IDS: readonly string[] = [
-  ...STORE_ITEMS.map((i) => i.id),
+  ...ALL_STORE_ITEMS.map((i) => i.id),
   ...CATALOG.filter((p) => p.type === 'PLANT').map((p) => pottedItemId(p.id)),
 ];
 
