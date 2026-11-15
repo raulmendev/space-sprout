@@ -10,6 +10,8 @@ interface AssetManifest {
 @Injectable({ providedIn: 'root' })
 export class AssetService {
   private readonly delivered = signal<ReadonlySet<string>>(new Set());
+  /** True once the manifest has answered (or failed): until then every key looks undelivered. */
+  readonly manifestLoaded = signal(false);
   readonly ready: Promise<void> = this.loadManifest();
 
   deliveredKeys(): string[] {
@@ -47,6 +49,8 @@ export class AssetService {
       this.delivered.set(new Set(manifest.delivered ?? []));
     } catch {
       /* no manifest: everything uses placeholders */
+    } finally {
+      this.manifestLoaded.set(true);
     }
   }
 }

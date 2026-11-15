@@ -283,7 +283,47 @@ body {
   background: linear-gradient(to bottom, transparent 2%, color-mix(in srgb, var(--color-night) 55%, transparent) 12%);
 }
 .boot-body { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 1.25rem; margin-bottom: 8vh; }
-.boot-station { width: min(384px, 62vw, 70vh); height: auto; animation: boot-drift 6s ease-in-out infinite; }
+/* The station drifts; a light sweeps across it (masked to its shape) and its lights pulse. */
+.boot-station { position: relative; width: min(384px, 62vw, 70vh); animation: boot-drift 6s ease-in-out infinite; }
+.boot-station img { display: block; width: 100%; height: auto; }
+.boot-shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  mask: url('/assets/loading/station.webp') center / 100% 100% no-repeat;
+}
+.boot-shine::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 30%;
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.28) 50%, transparent 80%);
+  translate: -100% 0;
+  animation: boot-shine 5s ease-in-out infinite 1s;
+}
+/* Lights, in % of the picture: four truss beacons, the core's blue pairs, the thruster. */
+.boot-station i {
+  position: absolute;
+  left: var(--x);
+  top: var(--y);
+  width: var(--s, 5%);
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--c, #ffb347) 0, transparent 65%);
+  mix-blend-mode: screen;
+  animation: boot-pulse 2.4s ease-in-out infinite var(--d, 0s);
+}
+.boot-station i:nth-of-type(1) { --x: 4.4%; --y: 48.4%; }
+.boot-station i:nth-of-type(2) { --x: 31.1%; --y: 48.4%; --d: -0.6s; }
+.boot-station i:nth-of-type(3) { --x: 69%; --y: 48.4%; --d: -1.2s; }
+.boot-station i:nth-of-type(4) { --x: 95.3%; --y: 48.2%; --d: -1.8s; }
+.boot-station i:nth-of-type(n + 5):nth-of-type(-n + 8) { --c: #6fd3ff; --s: 6%; animation-duration: 1.6s; }
+.boot-station i:nth-of-type(5) { --x: 44.5%; --y: 60.5%; }
+.boot-station i:nth-of-type(6) { --x: 55.1%; --y: 60.3%; }
+.boot-station i:nth-of-type(7) { --x: 44.8%; --y: 83.5%; --d: -0.8s; }
+.boot-station i:nth-of-type(8) { --x: 55%; --y: 83.5%; --d: -0.8s; }
+.boot-station i:nth-of-type(9) { --x: 50.4%; --y: 96%; --s: 7%; --c: #ffd27a; animation: boot-flicker 0.3s steps(2) infinite alternate; }
 .boot-title { font-family: var(--font-pixel); font-size: 1.75rem; line-height: 1; text-shadow: 0 3px 0 rgb(0 0 0 / 0.35); }
 .boot-text { font-family: var(--font-pixel); font-size: 0.875rem; opacity: 0.85; }
 .boot-bar {
@@ -309,5 +349,12 @@ body {
 @keyframes boot-twinkle { to { opacity: 0.45; } }
 @keyframes boot-sparkle { to { opacity: 0.7; } }
 @keyframes boot-turn { to { translate: -50% 0; } }
+/* The global rule only shortens animations; looping ones would then flicker every frame. Stop them. */
+@media (prefers-reduced-motion: reduce) {
+  .boot-stars, .boot-stars::before, .boot-stars::after, .boot-earth::before, .boot-station, .boot-station i, .boot-station i:nth-of-type(9), .boot-shine::before, .boot-bar.waiting .boot-fill { animation: none; }
+}
+@keyframes boot-shine { 0% { translate: -100% 0; } 45%, 100% { translate: 340% 0; } }
+@keyframes boot-pulse { 0%, 100% { opacity: 0.15; } 50% { opacity: 1; } }
+@keyframes boot-flicker { from { opacity: 0.55; scale: 0.85; } to { opacity: 1; scale: 1.1; } }
 @keyframes boot-drift { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
 @keyframes boot-wait { from { translate: 0 0; } to { translate: 233% 0; } }
