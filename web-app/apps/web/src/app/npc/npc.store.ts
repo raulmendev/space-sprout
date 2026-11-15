@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
-import type { Dialogue, DialogueTrigger, HealthMetric, NpcId, PetId } from '@garden/shared';
-import { PET_LINES, dialoguesFor } from './dialogues';
+import type { Dialogue, DialogueTrigger, HealthMetric, NpcId } from '@garden/shared';
+import { PET_LINES, ReactingPet, dialoguesFor } from './dialogues';
 
 /** A line on screen. With `ask`, the bubble offers a quick answer for that reading. */
 export interface Line extends Omit<Dialogue, 'trigger'> {
@@ -11,7 +11,7 @@ export interface Line extends Omit<Dialogue, 'trigger'> {
 }
 
 /**
- * Controls what's said in the speech bubble: Sprout's lines and the crew's. Respects dismissal: automatic (non user-initiated)
+ * Controls what's said in the speech bubble: Rabanito's guide lines, the pets' and the crew's. Respects dismissal: automatic (non user-initiated)
  * lines are rate-limited so the NPC never nags.
  */
 @Injectable({ providedIn: 'root' })
@@ -20,19 +20,19 @@ export class NpcStore {
   private readonly lastAuto = new Map<DialogueTrigger, number>();
   private readonly counters = new Map<DialogueTrigger, number>();
   private autoCloseTimer?: ReturnType<typeof setTimeout>;
-  private readonly petLines = new Map<PetId, number>();
+  private readonly petLines = new Map<ReactingPet, number>();
 
   /** Cooldown for automatic lines (ms). */
   private static readonly AUTO_COOLDOWN = 45_000;
 
-  /** User clicked Sprout: always answer. */
+  /** User went over to Rabanito, the guide: always answer. */
   talk(): void {
     const greetings = dialoguesFor('GREETING');
     this.show(this.next('GREETING', greetings));
   }
 
   /** User went over to a pet: a different reaction each time. */
-  petSays(id: PetId): void {
+  petSays(id: ReactingPet): void {
     const n = this.petLines.get(id) ?? 0;
     this.petLines.set(id, n + 1);
     this.sayAs(id, PET_LINES[id][n % PET_LINES[id].length]);
@@ -69,10 +69,10 @@ export class NpcStore {
     this.current.set(null);
   }
 
-  /** One of Sprout's predefined lines. */
+  /** One of Rabanito's predefined lines. */
   private show(d: Dialogue): void {
     clearTimeout(this.autoCloseTimer);
-    this.current.set({ ...d, speaker: 'SPROUT' });
+    this.current.set({ ...d, speaker: 'RADISH' });
   }
 
   private next(trigger: DialogueTrigger, options: Dialogue[]): Dialogue {

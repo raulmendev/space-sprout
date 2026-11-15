@@ -150,7 +150,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     @media (orientation: portrait) and (pointer: coarse) and (max-width: 600px) {
       .rotate-hint { display: flex; }
     }
-    /* The speech bubble (Sprout's and the crew's): between the corner controls when there's room, above them when there isn't. */
+    /* The speech bubble (Rabanito's, the pets' and the crew's): between the corner controls when there's room, above them when there isn't. */
     .bubble-slot { left: 0.5rem; right: 0.5rem; bottom: 10.5rem; }
     .stepped-aside { opacity: 0; pointer-events: none; }
     .decor-top { top: 3.5rem; left: 50%; width: min(30rem, 100% - 1rem); translate: -50% 0; }
@@ -194,7 +194,7 @@ export class App {
         this.npc.dismiss();
       });
     });
-    // Someone starts talking to you (Sprout or the crew): the astronaut waves hello.
+    // Someone starts talking to you (Rabanito, a pet or the crew): the astronaut waves hello.
     let talking = false;
     effect(() => {
       const now = !!this.npc.current();
@@ -264,7 +264,7 @@ export class App {
         this.habitat.openPanel.set(i.type);
         break;
       case 'NPC_SELECTED':
-        if (i.npcId === 'SPROUT') this.npc.talk();
+        if (i.npcId === 'RADISH') this.npc.talk(); // Rabanito is the garden guide
         else if (isPet(i.npcId)) this.npc.petSays(i.npcId);
         else this.crewReminders.talk(i.npcId);
         break;
