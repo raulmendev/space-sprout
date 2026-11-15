@@ -22,7 +22,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
     </div>
 
     @if (tab() === 'sync') {
-      <div class="grid gap-3 short:gap-2 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div class="grid flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div class="card riveted-card flex flex-col gap-2.5 short:gap-2">
           <div class="flex gap-3">
             <!-- The (simulated) wearable, drawn in the illustrated style: thick outline, soft shading. -->
@@ -99,7 +99,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
         </section>
       </div>
     } @else {
-      <form class="grid gap-3 short:gap-2 @lg:grid-cols-2" (submit)="$event.preventDefault(); save()">
+      <form class="grid flex-1 gap-3 short:gap-2 @lg:grid-cols-2" (submit)="$event.preventDefault(); save()">
         <div class="card riveted-card flex flex-col gap-1.5">
           @for (m of numberMetrics; track m.id) {
             <label class="row">
@@ -172,7 +172,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       }
     </ng-template>
   `,
-  host: { class: 'console-screen flex flex-col gap-3 short:gap-2' },
+  host: { class: 'console-screen flex min-h-0 flex-1 flex-col gap-3 short:gap-2' },
   styles: `
     /* Screen, tabs and riveted cards come from the shared console classes in styles.css. */
     :host { --stripe: color-mix(in srgb, var(--color-steel) 25%, transparent); } /* the bezel's cream stripes would vanish on the screen */

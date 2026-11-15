@@ -19,7 +19,7 @@ const GROUPS: readonly { title: string; hint: string; has: (i: StoreItem) => boo
  */
 @Component({
   selector: 'app-inventory-panel',
-  host: { class: 'console-screen flex min-h-0 flex-col gap-3 short:gap-2' },
+  host: { class: 'console-screen flex min-h-0 flex-1 flex-col gap-3 short:gap-2' },
   template: `
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-0.5">
       @for (g of groups(); track g.title) {

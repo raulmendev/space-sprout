@@ -106,7 +106,7 @@ const CONFIRM_MS = 4000;
     </form>
   `,
   host: {
-    class: 'console-screen relative flex flex-col gap-3 short:gap-2',
+    class: 'console-screen relative flex min-h-0 flex-1 flex-col gap-3 short:gap-2',
     '[class.writing]': 'writing()',
     '(keydown.escape)': 'onEscape($event)',
   },
@@ -162,6 +162,10 @@ const CONFIRM_MS = 4000;
      */
     .notes {
       --note-w: 10.5rem;
+      /* Takes the popup's spare height (and gives it back while writing). */
+      flex: 1;
+      min-height: 0;
+      align-content: center;
       display: grid;
       grid-template-rows: repeat(2, auto);
       grid-auto-flow: column;
@@ -169,7 +173,7 @@ const CONFIRM_MS = 4000;
       justify-content: safe center;
       gap: 16px 12px;
       padding: 12px 6px 8px;
-      overflow-x: auto;
+      overflow: auto;
       scroll-snap-type: x proximity;
       overscroll-behavior-x: contain;
     }

@@ -38,11 +38,11 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
   selector: 'app-plant-closeup',
   template: `
     <dialog #dialog closedby="any" aria-labelledby="closeup-title" (close)="closed.emit()">
-      <div class="panel flex flex-col gap-3 p-4 short:gap-2 short:p-3">
-        <header class="flex items-start justify-between gap-2">
+      <div class="panel flex min-h-0 flex-1 flex-col gap-3 p-4 short:gap-2 short:p-3">
+        <header class="flex shrink-0 items-start justify-between gap-2">
           <div>
             <!-- Initial focus lands on the title (like the station panels), not on a button. -->
-            <h2 id="closeup-title" tabindex="-1" autofocus class="font-pixel text-2xl leading-tight outline-none">{{ info().item.name }}</h2>
+            <h2 id="closeup-title" tabindex="-1" autofocus class="font-pixel text-2xl leading-tight outline-none short:text-xl">{{ info().item.name }}</h2>
             <p class="flex flex-wrap items-center gap-x-2 text-sm font-bold text-leaf-dark">
               <span><span class="mr-1" aria-hidden="true">{{ stageEmoji() }}</span>{{ headline() }}</span>
               @if (info().thriving) {
@@ -64,6 +64,8 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
           </div>
         </header>
 
+        <!-- The popup has a fixed height: the header stays put and everything below scrolls. -->
+        <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain short:gap-2">
         <section class="stage" [class.thriving]="info().thriving" aria-label="Plant and care">
           <div class="halo" aria-hidden="true"></div>
           <div class="plant-spot" [style.height.px]="sceneH">
@@ -156,6 +158,7 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
             </div>
           </section>
         }
+        </div>
       </div>
     </dialog>
   `,
@@ -168,11 +171,14 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
       background: transparent;
       width: min(40rem, 100vw - 2rem);
       max-width: none;
-      max-height: calc(100dvh - 2rem);
-      overflow: auto;
+      /* Fixed height, like the station popups: it doesn't grow when ⓘ opens; the body scrolls. */
+      height: min(34rem, 100dvh - 2rem);
+      max-height: none; /* the height above already caps it; the browser's modal default is tighter */
+      overflow: hidden;
       container-type: inline-size;
     }
-    dialog:modal { overscroll-behavior: contain; }
+    dialog:modal { display: flex; flex-direction: column; overscroll-behavior: contain; }
+    .stage { flex-shrink: 0; }
     dialog[open] .panel { animation: zoom 220ms cubic-bezier(.2, 1.3, .4, 1); }
     dialog::backdrop {
       background: rgb(29 27 58 / 0.55);

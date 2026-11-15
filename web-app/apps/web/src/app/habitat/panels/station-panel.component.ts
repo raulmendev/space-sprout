@@ -31,12 +31,13 @@ const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>>
 @Component({
   selector: 'app-station-panel',
   imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent, MessageBoardPanelComponent, StorePanelComponent, InventoryPanelComponent],
-  // Shrinks to the popup's height and scrolls when its content is taller. Content can opt into
-  // filling the space instead (min-h-0 on itself, a scrolling region inside), like the store catalog.
-  host: { class: 'flex min-h-0 flex-col', '(document:keydown.escape)': 'closed.emit()' },
+  // Fills the popup's fixed height. The header stays put and the body below it scrolls when its
+  // content is taller. Content can fill the body instead (min-h-0 flex-1 on itself, a scrolling
+  // region inside), like the store catalog.
+  host: { class: 'flex min-h-0 flex-1 flex-col', '(document:keydown.escape)': 'closed.emit()' },
   template: `
     <section
-      class="panel @container flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain p-4 short:gap-2 short:p-3"
+      class="panel @container flex min-h-0 flex-1 flex-col gap-3 p-4 short:gap-2 short:p-3"
       [class.console]="console()"
       role="region"
       [attr.aria-labelledby]="'panel-title'"
@@ -105,6 +106,7 @@ const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>>
         >✕</button>
       </header>
 
+      <div class="panel-body flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain short:gap-2">
       @switch (panel()) {
         @case ('MEDICAL_TERMINAL_SELECTED') {
           <app-medical-terminal-panel />
@@ -132,6 +134,7 @@ const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>>
       @if (panel() === 'EMOTE_AREA_SELECTED') {
         <p class="text-xs italic text-bark/60">Panel shell: emotes arrive in a later step.</p>
       }
+      </div>
     </section>
   `,
   styles: `

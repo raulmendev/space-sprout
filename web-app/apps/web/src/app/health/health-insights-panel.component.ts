@@ -28,7 +28,7 @@ const LOOP = [
 @Component({
   selector: 'app-health-insights-panel',
   imports: [TrendChartComponent, MetricDetailComponent],
-  host: { class: 'console-screen flex min-h-0 flex-col gap-3 short:gap-2' },
+  host: { class: 'console-screen flex min-h-0 flex-1 flex-col gap-3 short:gap-2' },
   template: `
     @if (detail(); as metric) {
       <app-metric-detail [metric]="metric" (back)="closeDetail()" />
@@ -122,7 +122,7 @@ const LOOP = [
     .goals li.met { border-color: var(--color-leaf); background: color-mix(in srgb, var(--color-leaf) 18%, transparent); color: var(--color-leaf-dark); }
 
     /* Six cards: two rows of three when there's room, two columns on narrow screens. */
-    .cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .cards { display: grid; flex: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     @container (min-width: 40rem) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     .card { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; text-align: left; }
     .card:hover { filter: brightness(1.03); }
