@@ -180,3 +180,6 @@ export function footprintOf(itemType: string): Footprint {
 export function getCatalogItem(id: string): CatalogItem | undefined {
   return CATALOG.find((item) => item.id === id);
 }
+
+/** A plant's name for a sentence: "mustard", "rose bush" (its id when unknown). */
+export const plantName = (itemType: string): string => (getCatalogItem(itemType)?.name ?? itemType).toLowerCase();

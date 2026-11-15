@@ -48,8 +48,8 @@ export class GardenStore {
   private readonly live = inject(LiveChannel);
   /** The version of the state shown (server gardens only): anything older that arrives late is ignored. */
   private version = -1;
-  /** Is the live channel up? (`reconnecting` shows in the HUD.) */
-  readonly liveStatus = this.live.status;
+  /** The live channel dropped and is being retried (shown in the HUD). */
+  readonly reconnecting = this.live.reconnecting;
   /** The latest thing someone else in the station did, e.g. "Mom watered the mustard." */
   readonly news = signal<{ text: string } | null>(null);
 
@@ -118,36 +118,46 @@ export class GardenStore {
 
   constructor() {
     setInterval(() => this.now.set(this.service.now()), 1000);
-    // Coming back to the tab: catch up with what the rest of the station did meanwhile.
+    // Coming back to the tab: catch up with what the rest of the station did meanwhile (a phone's socket
+    // can die quietly while asleep). When the live channel is already reconnecting, its catch-up covers it.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void this.init().catch(() => {});
+      if (document.visibilityState === 'visible' && !this.reconnecting()) void this.reload().catch(() => {});
     });
   }
 
+  /** First load; from then on, hear the rest of the station as it happens. */
   async init(): Promise<void> {
+    await this.reload();
+    this.live.start({ garden: (news) => this.heard(news), caughtUp: () => void this.reload().catch(() => {}) });
+  }
+
+  async reload(): Promise<void> {
     const { state, version } = await this.service.load();
     this.apply(state, version);
-    // From now on, hear the rest of the station as it happens (reconnecting reloads, to catch up).
-    this.live.start({ garden: (news) => this.heard(news), caughtUp: () => void this.init().catch(() => {}) });
   }
 
-  /** Someone changed the garden (maybe us, on another device). */
+  /** Someone changed the garden (maybe us, on another device). Their news is told only if it's new to us. */
   private heard(news: GardenNews): void {
-    const text = news.by.id === LOCAL_PLAYER.id ? null : describeNews(news, this.objects(), this.decorations());
+    const before = { objects: this.objects(), decorations: this.decorations() };
     this.service.heardFrom(news.serverTime);
-    this.apply(news.state, news.version);
-    if (text) this.news.set({ text });
+    if (this.apply(news.state, news.version) && news.by.id !== LOCAL_PLAYER.id) {
+      this.news.set({ text: describeNews(news, before.objects, before.decorations) });
+    }
   }
 
-  /** Show the station's state as it now stands (after any change, ours or anyone's), unless we already show a newer one. */
-  private apply(state: GardenState, version?: number): void {
+  /**
+   * Show the station's state as it now stands (after any change, ours or anyone's). A server state
+   * is skipped unless it's newer than the one shown (our own change comes back as a broadcast too).
+   */
+  private apply(state: GardenState, version?: number): boolean {
     if (version !== undefined) {
-      if (version < this.version) return;
+      if (version <= this.version) return false;
       this.version = version;
     }
     this.state.set(state);
     this.now.set(this.service.now());
     if (this.closeupId() && !state.objects.some((o) => o.id === this.closeupId())) this.closeupId.set(null);
+    return true;
   }
 
   /** Ask the station; show its latest state whatever it answered. */
@@ -229,6 +239,6 @@ export class GardenStore {
     this.service.resetLocal();
     this.pickerTile.set(null);
     this.closeupId.set(null);
-    await this.init();
+    await this.reload();
   }
 }

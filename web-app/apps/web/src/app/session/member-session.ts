@@ -71,14 +71,13 @@ export const LIVE_URL = `${API.replace(/^http/, 'ws')}/live`;
 export const sessionToken = (): string | null => (devPlayer ? null : (session?.token ?? null));
 
 /** The session ended elsewhere (signed out, expired): forget it and reload, which brings back the start menu. */
-export function sessionEnded(): never {
+export function sessionEnded(): void {
   saveJson(SESSION_KEY, null);
   location.reload();
-  throw new Error('Session ended.');
 }
 
 /** True when this page talks to the station's server (a signed-in member, not the dev stand-in). */
-export const onStation = (): boolean => !!session && !devPlayer;
+export const onStation = (): boolean => !!sessionToken();
 
 /** "Can't reach the station": the request failed or timed out (not a refusal from the server). */
 export const isOffline = (e: unknown): boolean => e instanceof ApiError && e.status === 0;

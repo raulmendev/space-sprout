@@ -2,13 +2,12 @@ import { Injectable, signal } from '@angular/core';
 import { LIVE_DENIED, type LiveServerMessage } from '@garden/shared';
 import { LIVE_URL, sessionEnded, sessionToken } from '../session/member-session';
 
-export type LiveStatus = 'off' | 'connecting' | 'live' | 'reconnecting';
 export type GardenNews = Extract<LiveServerMessage, { type: 'GARDEN' }>;
 
 interface Listener {
   /** Someone in the station changed the garden. */
   garden(news: GardenNews): void;
-  /** (Re)connected: reload, since changes may have happened while we weren't listening. */
+  /** Reconnected: reload, since changes may have happened while we weren't listening. */
   caughtUp(): void;
 }
 
@@ -18,12 +17,14 @@ const MAX_RETRY_MS = 30_000;
 /**
  * The station's live channel: hears every change anyone in the station makes, as it happens.
  * Only for a signed-in member (the dev stand-in and the garden behind the start menu stay local).
- * A dropped connection retries with growing waits, and straight away when the network comes
- * back or the tab is shown again.
+ * A dropped connection retries with growing, jittered waits (so a restarted server isn't hit by
+ * everyone at once), and straight away when the network comes back or the tab is shown again.
+ * A 4401 close means the session ended (signed out, expired): back to the start menu.
  */
 @Injectable({ providedIn: 'root' })
 export class LiveChannel {
-  readonly status = signal<LiveStatus>('off');
+  /** The connection dropped and is being retried. */
+  readonly reconnecting = signal(false);
   private listener?: Listener;
   private socket?: WebSocket;
   private failures = 0;
@@ -32,34 +33,32 @@ export class LiveChannel {
   start(listener: Listener): void {
     if (this.listener || !sessionToken()) return;
     this.listener = listener;
-    const reconnectNow = () => {
-      if (this.status() === 'reconnecting') this.open();
-    };
-    addEventListener('online', reconnectNow);
-    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && reconnectNow());
+    const retryNow = () => this.reconnecting() && this.open();
+    addEventListener('online', retryNow);
+    document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && retryNow());
     this.open();
   }
 
   private open(): void {
     clearTimeout(this.retryTimer);
     this.socket?.close();
-    this.status.set(this.failures ? 'reconnecting' : 'connecting');
     const socket = (this.socket = new WebSocket(LIVE_URL));
     socket.onopen = () => socket.send(JSON.stringify({ type: 'AUTH', token: sessionToken() }));
     socket.onmessage = (e) => {
       const message = JSON.parse(e.data as string) as LiveServerMessage;
       if (message.type === 'READY') {
+        if (this.reconnecting()) this.listener?.caughtUp(); // the first connect follows a fresh load
         this.failures = 0;
-        this.status.set('live');
-        this.listener?.caughtUp();
-      } else if (message.type === 'GARDEN') this.listener?.garden(message);
-      else if (message.type === 'DENIED') sessionEnded();
+        this.reconnecting.set(false);
+      } else this.listener?.garden(message);
     };
     socket.onclose = (e) => {
-      if (socket !== this.socket || e.code === LIVE_DENIED) return; // replaced, or signed out (DENIED handles it)
+      if (socket !== this.socket) return; // replaced by a newer connection
+      if (e.code === LIVE_DENIED) return sessionEnded();
       this.failures++;
-      this.status.set('reconnecting');
-      this.retryTimer = setTimeout(() => this.open(), Math.min(MAX_RETRY_MS, 1000 * 2 ** (this.failures - 1)));
+      this.reconnecting.set(true);
+      const wait = Math.min(MAX_RETRY_MS, 1000 * 2 ** (this.failures - 1)) * (0.5 + Math.random());
+      this.retryTimer = setTimeout(() => this.open(), wait);
     };
   }
 }

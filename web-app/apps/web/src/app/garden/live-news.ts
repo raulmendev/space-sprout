@@ -1,27 +1,28 @@
-import { type GardenObject, type PlacedDecor, describeItem, getCatalogItem } from '@garden/shared';
+import { type GardenObject, type PlacedDecor, describeItem, plantName } from '@garden/shared';
+import { seeds } from '../shared/format';
+import { CARE_PAST } from './care-labels';
 import type { GardenNews } from './live-channel';
-
-const CARE_VERB = { WATER: 'watered', FERTILIZE: 'fertilized', PRUNE: 'pruned', HARVEST: 'harvested' } as const;
 
 /**
  * Someone else's change in one line, e.g. "Mom watered the mustard." `objects` and `decorations`
  * are the garden as it was just before (a harvested plant is gone afterwards).
  */
 export function describeNews({ by, command }: GardenNews, objects: readonly GardenObject[], decorations: readonly PlacedDecor[]): string {
-  const plant = (id: string) => plantName(objects.find((o) => o.id === id)?.itemType);
-  const decor = (id: string) => describeItem(decorations.find((d) => d.id === id)?.itemId ?? '').name.toLowerCase() || 'decoration';
+  const plant = (id: string) => plantName(objects.find((o) => o.id === id)?.itemType ?? 'plant');
+  const item = (itemId: string) => describeItem(itemId).name.toLowerCase() || 'decoration';
+  const decor = (id: string) => item(decorations.find((d) => d.id === id)?.itemId ?? '');
   const did = (() => {
     switch (command.type) {
       case 'PLANT':
         return `planted ${withArticle(plantName(command.itemType))}`;
       case 'CARE':
-        return `${CARE_VERB[command.action]} the ${plant(command.plantId)}`;
+        return `${CARE_PAST[command.action].toLowerCase()} the ${plant(command.plantId)}`;
       case 'BUY':
-        return `bought ${withArticle(describeItem(command.itemId).name.toLowerCase())} 🛒`;
+        return `bought ${withArticle(item(command.itemId))} 🛒`;
       case 'POT':
         return `potted the ${plant(command.plantId)}`;
       case 'PLACE_DECOR':
-        return `put up ${withArticle(describeItem(command.itemId).name.toLowerCase())}`;
+        return `put up ${withArticle(item(command.itemId))}`;
       case 'MOVE_DECOR':
         return `moved the ${decor(command.decorId)}`;
       case 'WATER_DECOR':
@@ -33,11 +34,10 @@ export function describeNews({ by, command }: GardenNews, objects: readonly Gard
       case 'TAKE_DOWN_NOTE':
         return 'took a note down';
       case 'CREDIT':
-        return `earned 🌱 ${command.amount} with a health check-in`;
+        return `earned ${seeds(command.amount)} 🌱 with a health check-in`;
     }
   })();
   return `${by.name} ${did}.`;
 }
 
-const plantName = (itemType: string | undefined) => (getCatalogItem(itemType ?? '')?.name ?? 'plant').toLowerCase();
 const withArticle = (noun: string) => `${/^[aeiou]/.test(noun) ? 'an' : 'a'} ${noun}`;

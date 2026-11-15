@@ -11,9 +11,7 @@ export type LiveServerMessage =
   /** Signed in: changes to this station will follow. */
   | { type: 'READY'; serverTime: string }
   /** Someone in the station changed the garden: its whole new state, so a missed message can't leave anyone behind. */
-  | { type: 'GARDEN'; version: number; state: GardenState; serverTime: string; by: Actor; command: GardenCommand }
-  /** The token was refused: sign in again. */
-  | { type: 'DENIED' };
+  | { type: 'GARDEN'; version: number; state: GardenState; serverTime: string; by: Actor; command: GardenCommand };
 
-/** Close code for a refused or missing token (the 4000s are the app's own). */
+/** Close code for a refused, missing, signed-out or expired session: sign in again (the 4000s are the app's own). */
 export const LIVE_DENIED = 4401;

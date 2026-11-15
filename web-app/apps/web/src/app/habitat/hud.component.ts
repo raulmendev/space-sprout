@@ -40,7 +40,7 @@ import { stationKey } from '../session/member-session';
           [title]="'Playing as ' + me.displayName"
         ><span class="text-lg" aria-hidden="true">{{ meIcon }}</span><span class="hidden sm:inline">{{ me.displayName }}</span></span>
         <!-- Hangs below the name, out of the row's layout, so it never pushes the buttons off a small screen. -->
-        @if (garden.liveStatus() === 'reconnecting') {
+        @if (garden.reconnecting()) {
           <span class="absolute left-1/2 top-full mt-1.5 flex h-7 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-night/75 px-3 text-xs font-bold text-cream backdrop-blur-sm" role="status">
             <span class="size-2 animate-pulse rounded-full bg-sun" aria-hidden="true"></span>Reconnecting…
           </span>
