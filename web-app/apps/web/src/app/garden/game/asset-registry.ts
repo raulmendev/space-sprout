@@ -303,7 +303,7 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
  */
 export const POT_TEXTURE = 'decor-pot';
 export const POT_FRONT_TEXTURE = 'decor-pot-front';
-export const POT_SIZE: [number, number] = [45, 38];
+export const POT_SIZE: [number, number] = [45, 39]; // the bottom 2-3 px are the contact shadow
 register(POT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potArt);
 register(POT_FRONT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potFrontArt);
 
