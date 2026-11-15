@@ -75,7 +75,9 @@ import { stationKey } from '../session/member-session';
               </p>
             }
             <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); changePlayer.emit()">Change player</button>
-            <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); reset.emit()">Reset demo</button>
+            @if (garden.canReset) {
+              <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); reset.emit()">Reset demo</button>
+            }
           </div>
         }
       </div>

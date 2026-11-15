@@ -1,4 +1,5 @@
 import { Component, DestroyRef, computed, inject, signal, untracked } from '@angular/core';
+import { failureText } from '../garden/failure-text';
 import { STORE_ITEMS, STORE_SECTIONS, StoreItem, StoreSection, owned } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
@@ -198,8 +199,8 @@ export class StorePanelComponent {
     this.feedback.set(null);
     try {
       const error = await this.garden.buy(item.id);
-      if (error === 'UNKNOWN_ITEM') this.feedback.set({ text: 'Currently unavailable.' });
-      else if (error === 'INSUFFICIENT_FUNDS') this.feedback.set({ text: `Need ${moreSeeds(item.price - this.garden.balance())}.` });
+      if (error === 'INSUFFICIENT_FUNDS') this.feedback.set({ text: `Need ${moreSeeds(item.price - this.garden.balance())}.` });
+      else if (error) this.feedback.set({ text: failureText({ UNKNOWN_ITEM: 'Currently unavailable.' }, error) });
       else this.feedback.set({ itemId: item.id, text: boughtText(item) });
     } catch {
       // Nothing was saved, so nothing was charged: just let them try again.

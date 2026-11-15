@@ -1,4 +1,4 @@
-import type { User, UserRole } from '../types/domain';
+import type { Actor, User, UserRole } from '../types/domain';
 
 export const USER_ROLES = ['ASTRONAUT', 'FAMILY'] as const satisfies readonly UserRole[];
 
@@ -23,6 +23,9 @@ export interface Member extends User {
 }
 
 export const DISPLAY_NAME_MAX = 16;
+
+/** Who did something, as care logs, purchases and decorations record it. */
+export const toActor = (u: Pick<User, 'id' | 'displayName'>): Actor => ({ id: u.id, name: u.displayName });
 
 /**
  * A station key is how a household is joined: someone starts a station, and the family

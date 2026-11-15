@@ -1,4 +1,4 @@
-import { type Actor, type CrewId, type CrewMember, DEMO_MEMBERS, type HealthMetric, type Member, ROLE_COLORS, type Suit, type User, crewFor, metricsFor } from '@garden/shared';
+import { type CrewId, type CrewMember, DEMO_MEMBERS, type HealthMetric, type Member, ROLE_COLORS, type Suit, type User, crewFor, metricsFor } from '@garden/shared';
 import { type PlayerChoice, currentMember, householdMembers, savePlayer, signInAs, stationKey } from './member-session';
 
 /** The two demo members (seeded on the server too, station key GARDEN), credited in the demo garden and notes. */
@@ -43,8 +43,6 @@ export const ROLE = CURRENT_USER.role;
 export const SUIT: Suit = MEMBER?.suit ?? 'turquoise';
 
 export const IS_FAMILY = ROLE === 'FAMILY';
-
-export const asActor = (u: User): Actor => ({ id: u.id, name: u.displayName });
 
 /** The readings this player logs, in checklist order. */
 export const MY_METRICS: readonly HealthMetric[] = metricsFor(ROLE);

@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { canTakeDown, type SocialNote } from '@garden/shared';
-import { LOCAL_PLAYER } from '../garden/garden.service';
+import { type GardenFailure, LOCAL_PLAYER } from '../garden/garden.service';
 import { ASTRONAUT_USER, FAMILY_USER, authorOf, isAstronaut, perMemberKey } from '../session/current-user';
 import { GardenStore } from '../garden/garden.store';
 import { loadJson, saveJson } from '../shared/storage';
@@ -66,17 +66,21 @@ export class NotesStore {
     saveJson(READ_KEY, [...ids]);
   }
 
-  /** Pin a note, using one post-it. False for an empty note or an empty stock. */
-  async post(content: string): Promise<boolean> {
-    return (await this.garden.postNote(content)).ok;
+  /** Pin a note, using one post-it. Null when pinned, else why not. */
+  async post(content: string): Promise<GardenFailure | null> {
+    const pinned = await this.garden.postNote(content);
+    return pinned.ok ? null : pinned.error;
   }
 
-  /** Take one of your own notes off the board. False if it isn't yours. */
-  async takeDown(note: SocialNote): Promise<boolean> {
-    if (!this.canTakeDown(note)) return false;
-    if (!DEMO_NOTES.some((n) => n.id === note.id)) return this.garden.takeDownNote(note.id);
+  /** Take one of your own notes off the board. Null when it's down, else why not. */
+  async takeDown(note: SocialNote): Promise<GardenFailure | null> {
+    if (!this.canTakeDown(note)) return 'NOT_YOURS';
+    if (!DEMO_NOTES.some((n) => n.id === note.id)) {
+      const done = await this.garden.takeDownNote(note.id);
+      return done.ok ? null : done.error;
+    }
     this.removedDemo.update((ids) => new Set([...ids, note.id]));
     saveJson(REMOVED_DEMO_KEY, [...this.removedDemo()]);
-    return true;
+    return null;
   }
 }
