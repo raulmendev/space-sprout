@@ -17,6 +17,7 @@ import {
   TileKind,
   getCatalogItem,
   plantStages,
+  pottedPlantOf,
 } from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
 import { BOARD_SIZE, NOTE_COLORS, NOTE_SIZE, noteBubbleArt, noteStackArt, stickyNoteArt } from './notice-board';
@@ -42,6 +43,8 @@ import {
   wetSoilTile,
   woodPathTile,
   DECOR_ART,
+  potArt,
+  potFrontArt,
 } from './placeholders';
 
 const ASSET_ROOT = 'assets/game';
@@ -278,8 +281,18 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
 
 // ---------------------------------------------------------------- station decorations
 
-/** Map sprite of a placed decoration (a store item id, e.g. 'photo-frame'). */
-export const decorTextureKey = (itemId: string) => `decor-${itemId}`;
+/**
+ * The pot every potted plant stands in, in two layers: the whole pot (behind the plant) and its
+ * front (lip and body, without the opening) drawn over the plant, so the plant sits inside it.
+ */
+export const POT_TEXTURE = 'decor-pot';
+export const POT_FRONT_TEXTURE = 'decor-pot-front';
+export const POT_SIZE: [number, number] = [45, 38];
+register(POT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potArt);
+register(POT_FRONT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potFrontArt);
+
+/** Map sprite of a placed decoration (e.g. 'photo-frame'); potted plants use the pot. */
+export const decorTextureKey = (itemId: string) => (pottedPlantOf(itemId) ? POT_TEXTURE : `decor-${itemId}`);
 for (const [itemId, art] of Object.entries(DECOR_ART)) {
   register(decorTextureKey(itemId), 'social/decorations', art.size, BOTTOM_CENTER, art.draw);
 }

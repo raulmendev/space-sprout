@@ -1,6 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HabitatPosition, PLAYER_START, Point, TileRect, doorAt, planReach, slide, tileCenter, tileOf } from '@garden/shared';
-import { GardenStore } from '../garden/garden.store';
 import { Ticker } from './ticker.service';
 import type { Facing } from '../garden/game/asset-registry';
 
@@ -18,7 +17,6 @@ export const WAVE_MS = 1400;
  */
 @Injectable({ providedIn: 'root' })
 export class PlayerStore {
-  private readonly garden = inject(GardenStore);
   private readonly ticker = inject(Ticker);
 
   readonly position = signal<HabitatPosition>(PLAYER_START);
@@ -40,7 +38,7 @@ export class PlayerStore {
 
   /** Walk up to something in the current room, then do `action`. Unreachable targets act immediately. */
   approach(rect: TileRect, action: () => void): void {
-    const route = planReach(this.room(), this.position(), rect, this.garden.objects());
+    const route = planReach(this.room(), this.position(), rect);
     if (!route) {
       this.stopRoute();
       action();
@@ -131,7 +129,7 @@ export class PlayerStore {
       return;
     }
 
-    const next = slide(pos.room, pos, dx, dy, this.garden.objects());
+    const next = slide(pos.room, pos, dx, dy);
     if (next.x === pos.x && next.y === pos.y) {
       // Blocked (shouldn't happen on a planned route): give up rather than push against a wall.
       this.route = [];

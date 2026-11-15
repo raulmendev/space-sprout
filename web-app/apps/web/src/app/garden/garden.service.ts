@@ -32,6 +32,9 @@ import {
   placeDecor,
   moveDecor,
   putAwayDecor,
+  waterDecor,
+  potPlant,
+  PotError,
 } from '@garden/shared';
 import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, asActor } from '../session/current-user';
 
@@ -61,6 +64,8 @@ export type PostNoteResult = { ok: true; note: SocialNote; inventory: Inventory 
 export type PlaceResult =
   | { ok: true; object: GardenObject; inventory: Inventory }
   | { ok: false; error: PlacementError };
+
+export type PotResult = { ok: true; itemId: string; inventory: Inventory } | { ok: false; error: PotError };
 
 export type DecorResult =
   | { ok: true; decorations: PlacedDecor[]; inventory: Inventory }
@@ -141,8 +146,7 @@ export class GardenService {
     const snap = await this.load();
     const result = applyPurchase(snap, itemId, actor, new Date().toISOString());
     if (!result.ok) return result;
-    Object.assign(snap, result.state);
-    this.save(snap);
+    this.commit(snap, result.state);
     return { ok: true, ...result.state };
   }
 
@@ -157,6 +161,21 @@ export class GardenService {
     return this.commitDecor(snap, moveDecor(snap, decorId, x, y));
   }
 
+  /** Water a potted plant in the station. */
+  async waterDecor(decorId: string, actor: Actor = LOCAL_PLAYER): Promise<DecorResult> {
+    const snap = await this.load();
+    return this.commitDecor(snap, waterDecor(snap, decorId, actor, new Date().toISOString()));
+  }
+
+  /** Pot a grown plant: it leaves the garden and joins the inventory, using a clay pot. */
+  async potPlant(plantId: string): Promise<PotResult> {
+    const snap = await this.load();
+    const result = potPlant(snap, plantId, Date.now());
+    if (!result.ok) return result;
+    this.commit(snap, result.state);
+    return { ok: true, itemId: result.itemId, inventory: snap.inventory };
+  }
+
   /** Take a decoration down; it goes back into the inventory. */
   async putAwayDecor(decorId: string): Promise<DecorResult> {
     const snap = await this.load();
@@ -165,9 +184,14 @@ export class GardenService {
 
   private commitDecor(snap: GardenSnapshot, result: DecorChange): DecorResult {
     if (!result.ok) return result;
-    Object.assign(snap, result.state);
-    this.save(snap);
+    this.commit(snap, result.state);
     return { ok: true, ...result.state };
+  }
+
+  /** Apply a rule's new state to the snapshot and save it. */
+  private commit(snap: GardenSnapshot, state: Partial<GardenSnapshot>): void {
+    Object.assign(snap, state);
+    this.save(snap);
   }
 
   /** Add seeds to the balance (health check-in rewards). Returns the new balance. */

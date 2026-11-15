@@ -23,8 +23,8 @@ export function objectAtTile<T extends Placed>(objects: readonly T[], x: number,
   return objects.find((o) => rectContains(objectRect(o), x, y));
 }
 
-/** Something already stands here: a prop or a placed object (garden objects live in the garden room). Characters never block. */
-export function isBlocked(room: RoomId, x: number, y: number, objects: readonly Placed[]): boolean {
+/** A tile is taken (for planting): a prop or a plant stands there. Plants only take tiles, they don't block walking. */
+function isTaken(room: RoomId, x: number, y: number, objects: readonly Placed[]): boolean {
   if (propAtTile(room, x, y)) return true;
   return room === GARDEN_ROOM && !!objectAtTile(objects, x, y);
 }
@@ -37,7 +37,7 @@ function spatialError(itemType: string, x: number, y: number, objects: readonly 
     if (!kind) return 'OUT_OF_BOUNDS';
     if (item.type === 'PLANT' && kind !== 'SOIL') return 'NOT_PLANTABLE';
     if (item.type === 'DECORATION' && kind !== 'GRASS' && kind !== 'GRASS_FLOWERS') return 'NOT_PLANTABLE';
-    if (isBlocked(GARDEN_ROOM, t.x, t.y, objects)) return 'TILE_OCCUPIED';
+    if (isTaken(GARDEN_ROOM, t.x, t.y, objects)) return 'TILE_OCCUPIED';
   }
   return null;
 }

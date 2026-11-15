@@ -6,7 +6,9 @@ import {
   MedicalTerminalState,
   PropInteraction,
   ROOMS,
-  DECOR_SPECS,
+  PlacedDecor,
+  decorSpec,
+  pottedPlantOf,
   TileCoord,
   TileRect,
   decorAt,
@@ -31,6 +33,9 @@ import {
   PLAYER_FRAMES,
   PLAYER_TEXTURE,
   THIRST_TEXTURE,
+  POT_SIZE,
+  POT_FRONT_TEXTURE,
+  getAsset,
   decorTextureKey,
   plantSways,
   plantTextureKey,
@@ -55,6 +60,14 @@ export interface Reachable {
   /** What the action button will do, e.g. "Open Medical Terminal". */
   label: string;
 }
+
+/**
+ * A potted plant: the pot, the plant's own map art (same size as in the garden, swaying the same way)
+ * with its base this many px below the pot's top edge, then the pot's front lip over it. The lip
+ * hides most of the soil mound baked into the art, so the plant grows out of the pot.
+ */
+const POTTED_PLANT_BASE = 16;
+const POT_FRONT_DECAL: RenderDecal = { texture: POT_FRONT_TEXTURE, dx: POT_SIZE[0] / 2, dy: POT_SIZE[1] / 2 };
 
 /** How far from the player's feet something can be and still be usable (tiles, to its nearest edge). */
 const REACH = 1.5;
@@ -139,7 +152,8 @@ export class HabitatStore {
         texture: decorTextureKey(d.itemId),
         ...decorRect(d),
         interaction: { type: 'DECOR_SELECTED', decorId: d.id },
-        flat: DECOR_SPECS[d.itemId]?.flat,
+        flat: decorSpec(d.itemId)?.flat,
+        ...this.potLook(d, now),
       });
     }
 
@@ -165,6 +179,16 @@ export class HabitatStore {
 
     return { room, sprites, wetTiles };
   });
+
+  /** A potted plant: the grown plant stands in the pot (pinned on it), and shines once watered. */
+  private potLook(d: PlacedDecor, now: number): Pick<RenderSprite, 'decals' | 'shine'> {
+    const plant = pottedPlantOf(d.itemId);
+    if (!plant) return {};
+    const texture = plantTextureKey(plant, 'MATURE');
+    const height = getAsset(texture)?.height ?? 64;
+    const plantDecal = { texture, dx: POT_SIZE[0] / 2, dy: POTTED_PLANT_BASE - height / 2, sway: plantSways(plant) };
+    return { decals: [plantDecal, POT_FRONT_DECAL], shine: !isThirsty(d, now) };
+  }
 
   /** Moving characters in the active room. Updates every frame, separately from the room. */
   readonly actors = computed<RenderActor[]>(() => {

@@ -62,7 +62,7 @@ function boughtText(item: StoreItem): string {
       }
     </div>
 
-    <ul class="catalog grid min-h-0 flex-1 gap-2 overflow-y-auto overscroll-contain p-0.5 @lg:grid-cols-2" role="tabpanel" [attr.aria-label]="sectionTitle()">
+    <ul class="catalog grid min-h-0 flex-1 content-start gap-2 overflow-y-auto overscroll-contain p-0.5 @lg:grid-cols-2" role="tabpanel" [attr.aria-label]="sectionTitle()">
       @for (item of items(); track item.id) {
         @let have = count(item.id);
         @let missing = item.price - garden.balance();
@@ -75,7 +75,7 @@ function boughtText(item: StoreItem): string {
             }
           </span>
           <div class="min-w-0 flex-1">
-            <p class="font-extrabold leading-tight">{{ item.name }}</p>
+            <p class="name font-extrabold leading-tight">{{ item.name }}</p>
             <!-- On short screens a one-line cut ("A cheerful pi…") says nothing; the name and sprite carry it. -->
             <p class="desc line-clamp-2 short:hidden">{{ item.description }}</p>
             @if (missing > 0) {
@@ -123,7 +123,10 @@ function boughtText(item: StoreItem): string {
     }
     .sprite img { width: 3.5rem; height: 3.5rem; object-fit: contain; }
     .sprite .icon { font-size: 2rem; line-height: 1; }
-    .desc { font-size: 0.8rem; line-height: 1.25; color: color-mix(in srgb, var(--color-bark-dark) 75%, transparent); }
+    /* One line where the description shows; on short screens (no description) up to two, always two tall. */
+    .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    /* Always two lines tall, so every card is the same height whatever its copy. */
+    .desc { min-height: 2.5em; font-size: 0.8rem; line-height: 1.25; color: color-mix(in srgb, var(--color-bark-dark) 75%, transparent); }
 
     /* Price on top, action below: clearly two things, one big target (at least 44 × 44). */
     .buy {
@@ -153,6 +156,7 @@ function boughtText(item: StoreItem): string {
     @media (max-height: 500px) {
       .strip { padding: 0.25rem 0.75rem; }
       .card { padding: 6px 10px; gap: 0.6rem; }
+      .name { display: -webkit-box; min-height: 2.5em; white-space: normal; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
       .sprite { width: 3rem; height: 3rem; }
       .sprite img { width: 2.6rem; height: 2.6rem; }
       .sprite .icon { font-size: 1.5rem; }

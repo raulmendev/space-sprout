@@ -1,23 +1,42 @@
 import { Component, computed, inject } from '@angular/core';
-import { STORE_ITEMS, StoreItem, getCatalogItem, isDecor, owned } from '@garden/shared';
+import { INVENTORY_ITEM_IDS, describeItem, getCatalogItem, getStoreItem, isDecor, owned, pottedPlantOf } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { AssetService } from '../shared/assets.service';
 import { previewTextureKey } from '../garden/game/asset-registry';
 import { DECOR_ROOM_NAMES, DecorStore } from '../decor/decor.store';
 import { HabitatStore } from '../habitat/habitat.store';
 
+interface Group {
+  title: string;
+  hint: string;
+  /** Shown instead of `hint` when its things can't be placed in the room you're in. */
+  awayHint?: string;
+  /** Shown when the group is empty. Default: buy some at the store. */
+  empty?: string;
+  has: (itemId: string) => boolean;
+}
+
+const section = (itemId: string) => getStoreItem(itemId)?.section;
+
 /** Inventory groups, each with where its things get used. */
-const GROUPS: readonly { title: string; hint: string; awayHint?: string; has: (i: StoreItem) => boolean }[] = [
-  { title: 'Seed packets', hint: 'Tap any empty soil in the Garden to plant one.', has: (i) => !!i.plant },
-  { title: 'Supplies', hint: "Use from a plant's close-up.", has: (i) => i.section === 'GARDEN' && !i.plant },
-  { title: 'Messages', hint: 'Write one on the Message Board in the Social Space.', has: (i) => i.section === 'MESSAGES' },
+const GROUPS: readonly Group[] = [
+  { title: 'Seed packets', hint: 'Tap any empty soil in the Garden to plant one.', has: (id) => !!getStoreItem(id)?.plant },
+  { title: 'Supplies', hint: "Use from a plant's close-up.", has: (id) => section(id) === 'GARDEN' && !getStoreItem(id)?.plant },
+  { title: 'Messages', hint: 'Write one on the Message Board in the Social Space.', has: (id) => section(id) === 'MESSAGES' },
+  {
+    title: 'Potted plants',
+    hint: 'Tap Place, then pick a spot on any floor.',
+    empty: 'None yet. Pot a grown plant from its close-up (it uses a clay pot).',
+    has: (id) => !!pottedPlantOf(id),
+  },
   {
     title: 'Decorations',
     hint: 'Tap Place, then pick a spot in the room.',
     awayHint: `Place them from the ${DECOR_ROOM_NAMES}.`,
-    has: (i) => i.section === 'DECORATIONS',
+    has: (id) => section(id) === 'DECORATIONS',
   },
 ];
+
 
 /**
  * The household's shared inventory, opened from the backpack in the top bar:
@@ -33,11 +52,11 @@ const GROUPS: readonly { title: string; hint: string; awayHint?: string; has: (i
         <section class="mb-3 last:mb-0 short:mb-2" [attr.aria-label]="g.title">
           <h3 class="flex flex-wrap items-baseline gap-x-2 font-extrabold">
             {{ g.title }}
-            <span class="text-xs font-normal text-bark/70">{{ g.items.length ? ((!decor.canDecorateHere() && g.awayHint) || g.hint) : 'None yet. The Supply Store in the Social Space has some.' }}</span>
+            <span class="text-xs font-normal text-bark/70">{{ g.items.length ? ((g.awayNow && g.awayHint) || g.hint) : (g.empty ?? 'None yet. The Supply Store in the Social Space has some.') }}</span>
           </h3>
           @if (g.items.length) {
             <ul class="mt-1.5 grid grid-cols-2 gap-2 @lg:grid-cols-3 short:gap-1.5 short:@lg:grid-cols-2">
-              @for (row of g.items; track row.item.id) {
+              @for (row of g.items; track row.id) {
                 <li class="riveted-card flex items-center gap-2.5 px-3 py-2 short:py-1.5">
                   <span class="sprite" aria-hidden="true">
                     @if (row.item.plant) {
@@ -57,9 +76,9 @@ const GROUPS: readonly { title: string; hint: string; awayHint?: string; has: (i
                     <button
                       type="button"
                       class="btn-press shrink-0 bg-sun px-2 py-0.5 text-sm font-bold disabled:bg-parchment disabled:opacity-50"
-                      [disabled]="!row.count || !decor.canDecorateHere()"
+                      [disabled]="!row.count || !row.placeHere"
                       [attr.aria-label]="'Place ' + row.item.name"
-                      (click)="place(row.item.id)"
+                      (click)="place(row.id)"
                     >Place</button>
                   }
                 </li>
@@ -100,24 +119,29 @@ export class InventoryPanelComponent {
   protected readonly decor = inject(DecorStore);
   private readonly habitat = inject(HabitatStore);
 
-  /** Owned items (count > 0) per group, in store order. */
+  /** Owned items (in the inventory, or placed in the station), grouped by where they get used. */
   protected readonly groups = computed(() => {
     const inv = this.garden.inventory();
-    const decorations = this.garden.decorations();
-    return GROUPS.map((g) => ({
-      ...g,
-      items: STORE_ITEMS.filter(g.has)
-        .map((item) => ({
-          item,
-          // Under "Seed packets", the plant's name is enough ("Wildflower", not "Wildflower seeds").
-          label: item.plant ? (getCatalogItem(item.plant)?.name ?? item.name) : item.name,
-          count: owned(inv, item.id),
-          /** How many are up in the station (decorations): still the household's, so still listed. */
-          up: decorations.filter((d) => d.itemId === item.id).length,
-          placeable: isDecor(item.id),
-        }))
-        .filter((r) => r.count > 0 || r.up > 0),
-    }));
+    const up = new Map<string, number>();
+    for (const d of this.garden.decorations()) up.set(d.itemId, (up.get(d.itemId) ?? 0) + 1);
+    const rows = INVENTORY_ITEM_IDS.map((id) => {
+      const item = describeItem(id);
+      return {
+        id,
+        item,
+        // Under "Seed packets" and "Potted plants", the plant's name is enough ("Wildflower", not "Wildflower seeds").
+        label: item.plant ? (getCatalogItem(item.plant)?.name ?? item.name) : item.name,
+        count: owned(inv, id),
+        /** How many are up in the station (still the household's, so still listed). */
+        up: up.get(id) ?? 0,
+        placeable: isDecor(id),
+        placeHere: this.decor.canPlaceHere(id),
+      };
+    }).filter((r) => r.count > 0 || r.up > 0);
+    return GROUPS.map((g) => {
+      const items = rows.filter((r) => g.has(r.id));
+      return { ...g, items, awayNow: items.some((r) => r.placeable && !r.placeHere) };
+    });
   });
 
   /** Close the inventory and start placing one in the room. */

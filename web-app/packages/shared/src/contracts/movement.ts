@@ -1,9 +1,8 @@
-import { ROOM_COLS, ROOM_ROWS, RoomId, TileKind, doorAt, getTileKind } from './habitat';
+import { ROOM_COLS, ROOM_ROWS, RoomId, TileKind, doorAt, getTileKind, propAtTile } from './habitat';
 import type { Point } from '../types/domain';
 import { TileCoord, TileRect, chebyshev } from './geometry';
-import { Placed, isBlocked } from './rules';
 
-/** Floors you can stand on. Soil is walkable; plants (placed objects) still block their footprint. */
+/** Floors you can stand on. Plants never block: characters walk through them (only stations do). */
 const WALKABLE: ReadonlySet<TileKind> = new Set<TileKind>([
   'SOIL',
   'GRASS',
@@ -24,9 +23,25 @@ export interface HabitatPosition extends Point {
 /** Where a new player appears: the middle of the social-space rug. */
 export const PLAYER_START: HabitatPosition = { room: 'SOCIAL', x: 12.5, y: 11.5 };
 
-export function isWalkable(room: RoomId, x: number, y: number, objects: readonly Placed[]): boolean {
-  const kind = getTileKind(room, x, y);
-  return !!kind && WALKABLE.has(kind) && !isBlocked(room, x, y, objects);
+/** Which tiles of a room can be stood on. Built once per room: only floors and stations decide it. */
+const walkableGrids = new Map<RoomId, Uint8Array>();
+function walkableGrid(room: RoomId): Uint8Array {
+  let grid = walkableGrids.get(room);
+  if (!grid) {
+    grid = new Uint8Array(ROOM_COLS * ROOM_ROWS);
+    for (let y = 0; y < ROOM_ROWS; y++) {
+      for (let x = 0; x < ROOM_COLS; x++) {
+        const kind = getTileKind(room, x, y);
+        grid[y * ROOM_COLS + x] = +(!!kind && WALKABLE.has(kind) && !propAtTile(room, x, y));
+      }
+    }
+    walkableGrids.set(room, grid);
+  }
+  return grid;
+}
+
+export function isWalkable(room: RoomId, x: number, y: number): boolean {
+  return x >= 0 && y >= 0 && x < ROOM_COLS && y < ROOM_ROWS && walkableGrid(room)[y * ROOM_COLS + x] === 1;
 }
 
 const DIRS = [
@@ -39,11 +54,9 @@ const DIRS = [
 const index = (t: TileCoord) => t.y * ROOM_COLS + t.x;
 
 /** Breadth-first search within one room. Returns the steps after `from`, or null. */
-function search(room: RoomId, from: TileCoord, isGoal: (t: TileCoord) => boolean, objects: readonly Placed[]): TileCoord[] | null {
+function search(room: RoomId, from: TileCoord, isGoal: (t: TileCoord) => boolean): TileCoord[] | null {
   if (isGoal(from)) return [];
-  // Walkability computed once per search instead of once per neighbour visit.
-  const walkable = new Uint8Array(ROOM_COLS * ROOM_ROWS);
-  for (let y = 0; y < ROOM_ROWS; y++) for (let x = 0; x < ROOM_COLS; x++) walkable[y * ROOM_COLS + x] = +isWalkable(room, x, y, objects);
+  const walkable = walkableGrid(room);
 
   const prev = new Map<number, TileCoord | null>([[index(from), null]]);
   const queue: TileCoord[] = [from];
@@ -65,8 +78,8 @@ function search(room: RoomId, from: TileCoord, isGoal: (t: TileCoord) => boolean
   return null;
 }
 
-export function findPath(room: RoomId, from: TileCoord, to: TileCoord, objects: readonly Placed[]): TileCoord[] | null {
-  return search(room, from, (t) => t.x === to.x && t.y === to.y, objects);
+export function findPath(room: RoomId, from: TileCoord, to: TileCoord): TileCoord[] | null {
+  return search(room, from, (t) => t.x === to.x && t.y === to.y);
 }
 
 /**
@@ -74,12 +87,12 @@ export function findPath(room: RoomId, from: TileCoord, to: TileCoord, objects: 
  * further if it's boxed in). Never ends on a door, so walking up to
  * something can't accidentally change rooms. Null if it can't be reached.
  */
-export function pathToReach(room: RoomId, from: TileCoord, rect: TileRect, objects: readonly Placed[]): TileCoord[] | null {
+export function pathToReach(room: RoomId, from: TileCoord, rect: TileRect): TileCoord[] | null {
   for (const reach of [1, 2]) {
     const path = search(room, from, (t) => {
       const d = chebyshev(t, rect);
       return d > 0 && d <= reach && !doorAt(room, t.x, t.y);
-    }, objects);
+    });
     if (path) return path;
   }
   return null;
