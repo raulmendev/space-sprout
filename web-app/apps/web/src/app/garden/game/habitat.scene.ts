@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
-import { GROUND_SHADOW_TEXTURE, PropFx, ROOM_WINDOWS, RoomWindows, TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset, roomTextureKey } from './asset-registry';
+import { GROUND_SHADOW_TEXTURE, LABEL_PANEL, PLANT_LABEL_MINI_TEXTURE, PLANT_LABEL_TEXTURE, PropFx, ROOM_WINDOWS, RoomWindows, TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset, roomTextureKey } from './asset-registry';
 import { missingTexture } from './placeholders';
 import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingScale, restingSize } from './tile-manager';
 
@@ -23,6 +23,11 @@ export interface RenderSprite extends TileRect {
   flat?: boolean;
   /** Small images pinned on the sprite (notes on the message board). Taps go through to the sprite. */
   decals?: readonly RenderDecal[];
+  /**
+   * A named plant's label: a little sign stands at its foot; `open` (the player is next to it, or
+   * pointing at it) shows the name on the big sign above it. Taps go through to the sprite.
+   */
+  sign?: { text: string; open: boolean };
 }
 
 /** A decal's centre, in pixels from the sprite's top-left corner, and its tilt in degrees. */
@@ -85,6 +90,29 @@ const NAME_TAG = {
   /** Between the top of the art (its first visible row) and the pill. */
   gap: 3,
 } as const;
+
+/** Plant labels (see applySign). The big sign's text is in CSS px, like the name tags. */
+const SIGN = {
+  style: { fontFamily: '"Pixelify Sans", monospace', fontSize: '14px', fontStyle: '600', color: '#4a2c1c' },
+  /** Between the plant's top (or its thirst bubble) and the sign's feet, in world px. */
+  gap: 1,
+  /**
+   * World px kept clear at the top of the room for the HUD (the room tabs and seeds pill overlap the
+   * canvas there); a sign that would reach into it goes under the plant.
+   */
+  topRoom: 40,
+  /** Room kept free at each end of the panel, in CSS px. */
+  padX: 4,
+  /** The little sign's centre from the plot's left edge, and how far its feet reach onto the next row, in world px. */
+  miniInset: 11,
+  miniDrop: 3,
+} as const;
+
+/** The big sign's registered size: its container's units, CSS px once scaled by tagScale. */
+const SIGN_SIZE = (() => {
+  const { width, height } = getAsset(PLANT_LABEL_TEXTURE)!;
+  return { w: width, h: height };
+})();
 
 /** Emote bubbles: a cream speech bubble with a small tail, the emoji inside. CSS px, like name tags. */
 const EMOTE_BUBBLE = {
@@ -158,6 +186,7 @@ interface SpriteEntry {
   shine?: { stars: Phaser.GameObjects.Image[]; glow: Phaser.GameObjects.Ellipse; tweens: Phaser.Tweens.Tween[] };
   decals: Phaser.GameObjects.Image[];
   fx?: { layers: Phaser.GameObjects.Image[]; tweens: Phaser.Tweens.Tween[] };
+  sign?: { mini: Phaser.GameObjects.Image; open?: { box: Phaser.GameObjects.Container; text: Phaser.GameObjects.Text } };
 }
 
 /** Render layers (spec §9). World objects are additionally y-sorted by footprint bottom. */
@@ -234,6 +263,8 @@ export class HabitatScene extends Phaser.Scene {
     }
 
     this.tiles = new TileManager(this);
+    // Canvas text only uses a web font that's already loaded: fetch the plant signs' one now.
+    void document.fonts.load(`${SIGN.style.fontStyle} ${SIGN.style.fontSize} ${SIGN.style.fontFamily}`);
 
     this.hover = this.add.rectangle(0, 0, 0, 0).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.6).setDepth(DEPTH.INDICATOR).setVisible(false);
     this.selection = this.add.rectangle(0, 0, 0, 0).setOrigin(0).setStrokeStyle(2, 0xfff3a0, 1).setDepth(DEPTH.INDICATOR + 1).setVisible(false);
@@ -301,6 +332,13 @@ export class HabitatScene extends Phaser.Scene {
       e.box.setScale(this.tagScale);
       e.text.setResolution(this.tagResolution);
     });
+    for (const entry of this.sprites.values()) {
+      const open = entry.sign?.open;
+      if (!open) continue;
+      open.box.setScale(this.tagScale);
+      open.text.setResolution(this.tagResolution);
+      this.fitSignText(open.text);
+    }
   }
 
   setState(state: HabitatRenderState): void {
@@ -332,6 +370,7 @@ export class HabitatScene extends Phaser.Scene {
       this.removeShine(entry);
       this.removeDecals(entry);
       this.removeFx(entry);
+      this.removeSign(entry);
       entry.img.destroy();
     }
     this.sprites.clear();
@@ -380,6 +419,7 @@ export class HabitatScene extends Phaser.Scene {
       this.removeShine(entry);
       this.removeDecals(entry);
       this.removeFx(entry);
+      this.removeSign(entry);
       entry.img.destroy();
       this.sprites.delete(id);
     }
@@ -416,6 +456,7 @@ export class HabitatScene extends Phaser.Scene {
     this.applyShine(entry, data, prev);
     this.applyDecals(entry, data, prev);
     this.applyFx(entry, data, prev);
+    this.applySign(entry, data);
 
     const motionChanged = !prev || prev.sway !== data.sway || prev.pulse !== data.pulse;
     if (!motionChanged || this.reducedMotion) return;
@@ -857,6 +898,61 @@ export class HabitatScene extends Phaser.Scene {
     entry.decals = [];
   }
 
+  /**
+   * A named plant's label. The little sign stands at the plant's front-left, just in front of it.
+   * Open, the big sign floats above the plant (and its thirst bubble) at a fixed size on screen,
+   * like the name tags, so the name reads the same on a phone and a monitor.
+   */
+  private applySign(entry: SpriteEntry, data: RenderSprite): void {
+    if (!data.sign) return this.removeSign(entry);
+    const { img } = entry;
+    const { px, py } = this.tiles.anchor(data);
+    const left = px - (data.w * TILE_SIZE) / 2;
+    const mini = entry.sign?.mini ?? fitToGame(this.add.image(0, 0, PLANT_LABEL_MINI_TEXTURE)).setOrigin(0.5, 1);
+    mini.setPosition(left + SIGN.miniInset, py + SIGN.miniDrop).setDepth(img.depth + 0.6);
+    const sign = (entry.sign ??= { mini });
+
+    if (!data.sign.open) {
+      sign.open?.box.destroy();
+      sign.open = undefined;
+      return;
+    }
+    let open = sign.open;
+    if (!open) {
+      const pic = fitToGame(this.add.image(0, 0, PLANT_LABEL_TEXTURE)).setOrigin(0.5, 1);
+      const { w, h } = restingSize(pic);
+      const text = this.add
+        .text(w * ((LABEL_PANEL.left + LABEL_PANEL.right) / 2 - 0.5), -h * (1 - (LABEL_PANEL.top + LABEL_PANEL.bottom) / 2), '', SIGN.style)
+        .setOrigin(0.5)
+        .setResolution(this.tagResolution);
+      const box = this.add.container(0, 0, [pic, text]).setScale(this.tagScale).setDepth(DEPTH.INDICATOR - 1);
+      open = sign.open = { box, text };
+      if (!this.reducedMotion && !this.building) this.popIn(box, 0.4, 260, 0, this.tagScale);
+    }
+    if (open.text.text !== data.sign.text) {
+      open.text.setText(data.sign.text);
+      this.fitSignText(open.text);
+    }
+    // Above the plant (and its thirst bubble); a plant in the top row has no room there, so under it.
+    const bubble = entry.badge ? entry.badge.y - entry.badge.displayHeight : Infinity;
+    const above = Math.min(this.headTop(img), bubble) - SIGN.gap;
+    const height = SIGN_SIZE.h * this.tagScale;
+    open.box.setPosition(px, above - height >= SIGN.topRoom ? above : py + SIGN.miniDrop + height);
+  }
+
+  /** Shrink a long name to fit the panel (one line); short ones keep the full size. */
+  private fitSignText(text: Phaser.GameObjects.Text): void {
+    text.setScale(1);
+    const room = (LABEL_PANEL.right - LABEL_PANEL.left) * SIGN_SIZE.w - SIGN.padX * 2;
+    if (text.width > room) text.setScale(room / text.width);
+  }
+
+  private removeSign(entry: SpriteEntry): void {
+    entry.sign?.mini.destroy();
+    entry.sign?.open?.box.destroy();
+    entry.sign = undefined;
+  }
+
   private removeShine(entry: SpriteEntry): void {
     entry.shine?.tweens.forEach((t) => t.remove());
     entry.shine?.stars.forEach((s) => s.destroy());
@@ -957,6 +1053,7 @@ function sameSprite(a: RenderSprite, b: RenderSprite): boolean {
     sameInteraction &&
     a.texture === b.texture && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h &&
     a.sway === b.sway && a.pulse === b.pulse && a.badge === b.badge && a.shine === b.shine &&
+    a.sign?.text === b.sign?.text && a.sign?.open === b.sign?.open &&
     sameDecals(a.decals ?? [], b.decals ?? [])
   );
 }

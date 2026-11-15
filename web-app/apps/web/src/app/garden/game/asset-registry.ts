@@ -574,6 +574,13 @@ register(NOTE_BUBBLE_TEXTURE, 'gui/icons', [20, 19], BOTTOM_CENTER, noteBubbleAr
 register(NOTE_TEXTURES.astronaut, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.astronaut));
 register(NOTE_TEXTURES.family, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.family));
 register(NOTE_TEXTURES.more, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], noteStackArt);
+/** Plant labels (tools/import_label.py): the sign that pops up over a named plant, and the little one standing by it. */
+export const PLANT_LABEL_TEXTURE = 'plant-label';
+export const PLANT_LABEL_MINI_TEXTURE = 'plant-label-mini';
+/** The cream panel the name goes on, as fractions of the sign picture (printed by tools/import_label.py). */
+export const LABEL_PANEL = { left: 0.083, top: 0.18, right: 0.915, bottom: 0.502 } as const;
+register(PLANT_LABEL_TEXTURE, 'garden/labels', [144, 71], BOTTOM_CENTER, null);
+register(PLANT_LABEL_MINI_TEXTURE, 'garden/labels', [26, 13], BOTTOM_CENTER, null);
 
 // ---------------------------------------------------------------- lookup
 

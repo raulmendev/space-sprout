@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { CareAction, CareError, DecorError, HabitatInteraction, PlacementError, PotError, describeItem, isPet } from '@garden/shared';
+import { CareAction, CareError, DecorError, HabitatInteraction, LabelError, PlacementError, PotError, describeItem, isPet } from '@garden/shared';
 import { GardenStore } from './garden/garden.store';
 import { PlantPickerComponent } from './garden/components/plant-picker.component';
 import { PlantCloseupComponent } from './garden/components/plant-closeup.component';
@@ -58,6 +58,11 @@ const POT_ERRORS: Record<PotError, string> = {
   NOT_FOUND: 'That plant is gone.',
 };
 
+const LABEL_ERRORS: Record<LabelError, string> = {
+  OUT_OF_LABELS: 'You need a plant label. The Supply Store has them.',
+  NOT_FOUND: 'That plant is gone.',
+};
+
 const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down',
   ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right',
@@ -98,7 +103,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
             <app-plant-picker [tile]="t" (picked)="plantAt(t, $event)" (closed)="garden.pickerTile.set(null)" />
           }
           @if (garden.closeup(); as c) {
-            <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" (pot)="onPot(c.object.id)" />
+            <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" (pot)="onPot(c.object.id)" (label)="onLabel(c.object.id, $event)" />
           }
         </div>
       </div>
@@ -314,6 +319,16 @@ export class App {
       return;
     }
     this.flash(`${describeItem(result.itemId).name} is in the 🎒 inventory.`);
+  }
+
+  /** A plant named, renamed or its label taken off, from its close-up (`text` comes tidied: see labelText). */
+  async onLabel(plantId: string, text: string): Promise<void> {
+    const result = await this.garden.labelPlant(plantId, text);
+    if (!result.ok) {
+      this.flash(failureText(LABEL_ERRORS, result.error));
+      return;
+    }
+    this.flash(text ? `🏷️ “${text}”` : 'The label is off.');
   }
 
   /** Place / move / water / put away finished: say how it went. */

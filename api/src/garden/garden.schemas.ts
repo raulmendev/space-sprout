@@ -1,4 +1,4 @@
-import { CARE_ACTIONS, NOTE_RULES, ROOM_IDS } from '@garden/shared';
+import { CARE_ACTIONS, LABEL_RULES, NOTE_RULES, ROOM_IDS } from '@garden/shared';
 import { z } from 'zod';
 
 const id = z.string().min(1).max(64);
@@ -14,6 +14,7 @@ export const CommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('CARE'), plantId: id, action: z.enum(CARE_ACTIONS) }),
   z.object({ type: z.literal('BUY'), itemId: id }),
   z.object({ type: z.literal('POT'), plantId: id }),
+  z.object({ type: z.literal('LABEL'), plantId: id, text: z.string().max(LABEL_RULES.maxLength * 4) }), // slack for spaces the rule tidies away
   z.object({ type: z.literal('PLACE_DECOR'), itemId: id, room, x: tile, y: tile }),
   z.object({ type: z.literal('MOVE_DECOR'), decorId: id, x: tile, y: tile }),
   z.object({ type: z.literal('WATER_DECOR'), decorId: id }),

@@ -145,6 +145,20 @@ export class HabitatStore {
     return { decals, badge: this.notes.unread() ? NOTE_BUBBLE_TEXTURE : undefined, badgeAt: BUBBLE_AT };
   });
 
+  /**
+   * Named plants whose sign shows the name: every one within reach of the player, and the one the
+   * pointer is on. A string of ids, so walking (or pointing at unnamed plants) only redraws the room
+   * when the set changes.
+   */
+  private readonly openSigns = computed(() => {
+    if (this.activeRoom() !== GARDEN_ROOM) return '';
+    const h = this.hover();
+    const pointed = h?.type === 'PLANT_SELECTED' ? h.plantId : null;
+    const feet = this.player.position();
+    const ids = this.garden.objects().filter((o) => o.label && (o.id === pointed || distanceToRect(feet, objectRect(o)) <= REACH));
+    return ids.map((o) => o.id).join(' ');
+  });
+
   readonly renderState = computed<HabitatRenderState>(() => {
     const room = this.activeRoom();
     const now = this.garden.now();
@@ -180,6 +194,7 @@ export class HabitatStore {
     }
 
     const wetTiles: TileCoord[] = [];
+    const openSigns = new Set(this.openSigns().split(' '));
     for (const o of room === GARDEN_ROOM ? this.garden.objects() : []) {
       const rect = objectRect(o);
       const stage = getPlantStage(o, now);
@@ -194,6 +209,7 @@ export class HabitatStore {
         badge: thirsty ? THIRST_TEXTURE : undefined,
         // Every need met (watered + pruned): a soft shine. Otherwise plain, never sad.
         shine: isThriving(o, now),
+        sign: o.label ? { text: o.label, open: openSigns.has(o.id) } : undefined,
       });
       // Thirsty plants show dry soil too.
       if (!thirsty) wetTiles.push(...footprintTiles(rect));

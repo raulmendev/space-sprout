@@ -2,6 +2,7 @@ import type { Actor, CareAction, GardenObject, SocialNote } from '../types/domai
 import { type CareError, applyCare, careDay, checkCare } from './care';
 import { type DecorChange, type DecorError, type PlacedDecor, moveDecor, placeDecor, putAwayDecor, waterDecor } from './decor';
 import type { RoomId } from './habitat';
+import { type LabelError, labelPlant } from './labels';
 import { canTakeDown, checkPostNote, noteText, type PostNoteError } from './notes';
 import { type PotError, potPlant } from './potting';
 import { type PlacementError, validatePlacement } from './rules';
@@ -35,6 +36,8 @@ export type GardenCommand =
   | { type: 'CARE'; plantId: string; action: CareAction }
   | { type: 'BUY'; itemId: string }
   | { type: 'POT'; plantId: string }
+  /** Name a plant (an empty text takes its label off). */
+  | { type: 'LABEL'; plantId: string; text: string }
   | { type: 'PLACE_DECOR'; itemId: string; room: RoomId; x: number; y: number }
   | { type: 'MOVE_DECOR'; decorId: string; x: number; y: number }
   | { type: 'WATER_DECOR'; decorId: string }
@@ -48,7 +51,7 @@ export type GardenCommand =
    */
   | { type: 'REWARD'; amount: number };
 
-export type GardenError = PlacementError | CareError | PurchaseError | PotError | DecorError | PostNoteError | 'NOT_FOUND' | 'NOT_YOURS';
+export type GardenError = PlacementError | CareError | PurchaseError | PotError | LabelError | DecorError | PostNoteError | 'NOT_FOUND' | 'NOT_YOURS';
 
 /** What a command made, besides the new state: the plant planted, the seeds earned, the potted item. */
 export interface CommandResult {
@@ -130,6 +133,10 @@ export function runCommand(state: GardenState, cmd: GardenCommand, actor: Actor,
     case 'POT': {
       const potted = potPlant(state, cmd.plantId, now);
       return potted.ok ? ok(potted.state, { itemId: potted.itemId }) : no(potted.error);
+    }
+    case 'LABEL': {
+      const named = labelPlant(state, cmd.plantId, cmd.text);
+      return named.ok ? ok(named.state) : no(named.error);
     }
     case 'PLACE_DECOR':
       return decor(placeDecor(state, cmd.itemId, cmd.room, cmd.x, cmd.y, actor, at, newId()));

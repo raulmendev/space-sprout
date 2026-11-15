@@ -1,7 +1,7 @@
-# Handoff: Jardín Comunal (as of 2026-11-15, evening)
+# Handoff: Jardín Comunal (as of 2026-11-15, night)
 
-Two people work on this repo with Claude, each in their own checkout, and both merge PRs into `main`.
-**Always `git fetch` before starting.** `main` moves fast: about ten PRs landed during one session today.
+Two people work on this repo with Claude, each in their own checkout, plus Claude agents in worktrees, and all of them merge PRs into `main`.
+**Always `git fetch` before starting.** `main` moves fast: PRs #27–#40 all landed on 2026-11-15.
 
 ## 1. Where things stand (read this first)
 
@@ -10,7 +10,12 @@ Two people work on this repo with Claude, each in their own checkout, and both m
 - `api/`: the NestJS API.
 - `shared/`: the game rules, at the repo root (moved there in #17).
 
-**`main` = `ad69646`** (PR #26). Merged PRs so far:
+**Live:**
+- Web: **https://garden.raulmen.dev** (Cloudflare Worker, #37; `npm run deploy:cloudflare` in `web-app/apps/web`).
+- API: Railway (#30, #31). Its `CORS_ORIGINS` must include `https://garden.raulmen.dev`.
+- Android: a Capacitor app with Health Connect sync (chucordova).
+
+**`main` = `1e6439d`** (PR #40). Merged PRs so far:
 - **#1–#5:** plant care, close-up, full-screen layout, terminal look, station crew.
 - **#6–#9:** Supply Store, inventory, message board with Health Insights goals and streaks, decorations.
 - **#10:** Garden room art.
@@ -34,10 +39,15 @@ Two people work on this repo with Claude, each in their own checkout, and both m
 - **#30, #31:** the API deployed on Railway.
 - **#32:** live updates: every change reaches the rest of the station as it happens.
 - **#33:** the emote wheel (§5), plus the #26 cleanups (prop states fall back to the idle picture).
+- **#34:** Medical Bay supply cart moved 3 tiles up.
+- **#35:** health on the server: each member's private record; seeds paid in the same transaction; `CREDIT` removed (§8).
 - **#36:** Medical Bay and Social Space props come alive (§3).
 - **#37:** the web app deployed as a Cloudflare Worker (garden.raulmen.dev).
-- **#38:** presence: everyone in the station walks around in their suits, and emotes reach them.
-- **The decorations PR** (`feat/decorations-art`): real art and shop icons for the 5 store decorations, plus 5 new ones (§4).
+- **#38:** presence: everyone in the same room sees each other walk, in their suits, with name tags and emotes (signed-in players only).
+- **#39:** real art and shop icons for the 5 store decorations, plus 5 new ones (§3, §4).
+- **#40:** a loading screen instead of a black screen while the game loads.
+
+**Raúl's session on 2026-11-15 (afternoon to night), in order:** #33 emotes (a HUD wheel iterated with the user against a design concept), #36 room animations in code, #39 decorations. Each feature followed the same pattern: build → check in the Playwright phone window (and frame by frame at 1280×800 for animations) → `/simplify` (4 review agents) → "commit, push and merge".
 
 Also on `main` without a PR (chucordova):
 - the new astronaut and the family user;
@@ -48,15 +58,15 @@ Also on `main` without a PR (chucordova):
 - touch controls: pad on the left, A button on the right;
 - an Android app (Capacitor) with Health Connect sync at the medical terminal.
 
-**In flight:** nothing on Raúl's checkout. A prop state with no art of its own (e.g. `MEDICAL_TERMINAL` `syncing`) now loads its registry `fallback` (the idle picture) at boot; `STATES` is gone from `import_props.py`.
+**In flight:** `feat/plant-labels` (Raúl's checkout, not committed yet): plant labels (§3). Also on `main` since this handoff: chucordova's start-menu fit, stacked terminal cards and Health Connect steps → exercise minutes.
 
 **Checkouts and who uses them:**
 
 | Where | Who | Notes |
 |---|---|---|
 | `~/Documents/ardencemx/astro-garden` (macOS) | Raúl | Chat in **English**. Dev server on **4200**. Commits as Raul Mendez. |
-| `.claude/worktrees/garden-qa` (same Mac) | another Claude agent | `feat/garden-server`. Servers on 4201/4202. Never edit, stash or stop anything there; reading is fine. |
-| `.claude/worktrees/garden-qa-2` | another Claude agent | `fix/pot-it-button` (#27). Same rules. |
+| `.claude/worktrees/garden-qa` (same Mac) | another Claude agent | Last on `feat/presence` (#38, merged). Servers on 4201/4202. Never edit, stash or stop anything there; reading is fine. |
+| `.claude/worktrees/garden-qa-2` | another Claude agent | Last on `feat/loading-screen` (#40, merged). Same rules. |
 | `C:\Users\jesus\Desktop\Astro Garden\astro-garden` (Windows) | chucordova | Chat in **Spanish**. Commits with `git -c user.name=chucordova -c user.email=jesusremedios.cordova@gmail.com commit …`. `npm.cmd`, not `npm`. `apps/web/angular.json` `"analytics": false` stays uncommitted there. |
 
 **Stash on Raúl's checkout:** `stash@{0}` ("handoff edits (garden art session)") holds an old version of this file. It's superseded and can be dropped.
@@ -71,6 +81,8 @@ Also on `main` without a PR (chucordova):
   - The web app finds the API on port 3000 of whatever host served the page.
   - If the API can't be reached, the last session on the device is used.
 - If the user "doesn't see" new work, `ng serve` may be serving a stale bundle after a compile error. Restart it, then hard-reload.
+  - **As of this handoff, Raúl's server on 4200 is stale** (it predates #33). Restart it (`npm run dev:web`). Claude tested on a throwaway `npx ng serve --port 4213` (stopped) rather than restarting the user's server.
+  - Check what's served with `curl -s localhost:4200/<chunk>.js | grep -c <new symbol>`, or in the page by fetching the loaded scripts.
 
 **Checks used every time:**
 - Build (also type-checks templates): `cd web-app/apps/web && npx ng build --configuration development`
@@ -114,7 +126,7 @@ web-app/
 - **Phones are landscape-only.** Test at **844×390** and **667×375**; popups have one fixed height and their body scrolls.
 - **No judgement in plants or health.** Seeds come mainly from health habits. The habitat is shared with the family (cooperative).
 
-## 3. Rendering and art (Raúl's sessions, PRs #10, #14, #26)
+## 3. Rendering and art (Raúl's sessions, PRs #10, #14, #26, #36, #39)
 
 **Grid:** a tile is **32 px** in game and a room is 24×16 tiles = **768×512**. Art is delivered and stored at **2×**: 64 px per tile, rooms 1536×1024.
 
@@ -140,6 +152,20 @@ web-app/
 - Medical Bay: terminal (heartbeat glow + ECG redraw), Health Insights (body chart refresh, tube, DNA screen), scan pod (scanning band). Social Space: kiosk (sign, strips, counter screen), floor lamp halo, coffee-table lantern flicker.
 - `sway: true` rocks small potted plants. The wide planters and the hanging vines stay still on purpose (they tilt like boxes).
 - With reduced motion, glows stay half lit and nothing sweeps.
+- Decorations get the same effects through `DECOR_VISUALS` (below).
+
+**Decorations (PR #39),** store items players place (`DECOR_SPECS` in `shared/src/contracts/decor.ts`, Social Space only):
+- Art from `Jardin_Comunal_Decorations_Sprites_and_Minis.zip` (photo frame, Earth poster, fairy lights, cozy rug, star lamp, each with a shop icon) and five single exports (terrarium, holo globe, keepsake shelf, memory board, galaxy lamp; no icons, so their store cards are the sprite fitted).
+- `DECOR_VISUALS` in `asset-registry.ts`: one row per decoration with its drawn size (printed by `tools/import_decor.py`) and glows. Each fairy-light bulb twinkles on its own; the star lamp, holo globe and galaxy lamp breathe.
+- A sprite may overhang its footprint: the cozy rug is 92×58 on 2×2 tiles. Don't widen a footprint to fit art: placed decorations store only their top-left, so the change would move existing ones into walls or stations.
+
+**Plant labels** (`feat/plant-labels`): name a plant after a memory ("Birth of Johanna").
+- Rules in `shared/src/contracts/labels.ts`: a **Plant label** store item (Gardening, 3 seeds, 1 in the starter inventory). Naming a plant with no label uses one; renaming is free and anyone can; an empty name takes it off (no refund). 24 characters, one line. `GardenObject.label`; command `LABEL`.
+- Harvesting or potting a plant takes its label with it (a potted plant is just an inventory count).
+- Art: `Pixel Art Purple Sci-Fi Garden Sign.png` → `tools/import_label.py` (black background, cleared with a tight tolerance plus the enclosed hole between the posts).
+- Room: a little sign (`plant-label-mini`, 26×13) at every named plant's front-left. The big sign with the name opens for every named plant within reach, and the one under the pointer. It's a fixed size on screen like the name tags; plants in the top row show it under them, clear of the HUD.
+- Close-up: the sign stands in the plant's soil, over its foot (absolutely placed, so the fixed-height popup never grows). Unnamed plants show it faded with "🏷️ Name it" (or "🛒 Get a label" when none are owned). Tap it to write; ✓ / ✕ beside it, Enter saves, Esc cancels without closing; an empty name shows 🗑️ and takes the label off. The name is sized to fill the panel (`--chars` + container units).
+- Pre-existing, not from labels: at 667×375 the close-up body runs 16 px over (the "Pot it" row).
 
 **Garden (PR #10):**
 - Room art from `Jardin_Comunal_Layout_Tiles_128px_CORREGIDOS.zip`.
@@ -190,8 +216,9 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
 | `import_windows.py <room> <pack folder>` | Copies a pack's window overlay frames, marks them delivered, prints the `roomWindows(...)` line. Reads both manifest layouts the design team has used. |
 | `import_board.py <pack folder>` | Board, three notes, unread bubble |
 | `import_pot.py` | The potted-plant pot's two layers (behind and in front of the plant) |
+| `import_label.py <PNG>` | Plant label: the big sign, the little one and its store card; prints the cream panel (`LABEL_PANEL`) |
 | `import_decor.py <folder>` | Store decorations: map sprite `decor-<item>` (sized to the astronaut, shadow if it stands on the floor) and store card `store-<item>` (the pack's `<item>_icon.png`, else the sprite fitted). Prints sizes for `DECOR_VISUALS`. |
-| `art.py` | Shared steps: `trim`, `clear_background`, `drop_glow`, `components`/`only`, `drop_strays`, `seat_shadows`, `add_shadow`, `save_scaled`, `mark_delivered`, `HI_RES = 2` |
+| `art.py` | Shared steps: `trim`, `clear_background`, `drop_glow`, `components`/`only`, `drop_strays`, `seat_shadows`, `add_shadow`, `save_scaled` (optional `detail` above 2x), `icon_from` (store cards), `mark_delivered`, `HI_RES = 2` |
 
 **Cleanup steps per sprite** (4th field of a `PROPS` entry):
 - `glow`: clear a soft glow halo.
@@ -259,6 +286,8 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
   - "Commit, push and merge" means: commit → fetch → merge `origin/main` into the branch → build + browser re-test → push → `gh pr create` (body ends with the Claude Code line) → `gh pr merge --merge` → fast-forward local `main`.
   - Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
   - Uses `/simplify`: report what was fixed and what was skipped.
+  - Iterates on looks in short steps ("better but not quite there", "now blue", "the circle pink"). Make the change, screenshot it, and say what changed; when a request is vague ("more ui wise"), make a concrete polish pass rather than a long question.
+  - Asks for `/simplify` after each feature, then "commit, push and merge"; keeps `HANDOFF.md` current in each PR.
 - **chucordova**
   - Pushes straight to `main` after checking for conflicts.
   - Wants to watch tests in Chrome (Claude in Chrome extension).
@@ -275,18 +304,19 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
 - **Tap checks:** click a station and wait about 4.5 s, since the player walks there first, then read `habitat.openPanel()`.
 - **Sprite checks:** compose the PNG over the room's floor next to the astronaut (`characters/player-astronaut-black-down-3.png`, 72 px wide at 2×) and look at it before placing. Then screenshot the room with the astronaut standing next to the new piece.
 - **Reachability:** after moving props, flood-fill the room's walkable tiles from the door (layout minus prop footprints) and check none are cut off. The Medical Bay has 218, all reachable.
-- **Animation checks:** take two screenshots a moment apart and diff the window strip.
+- **Animation checks:** take 4–5 screenshots ~450 ms apart at 1280×800 and crop each animated piece into one strip (Pillow in a throwaway venv). Two frames often miss a glow's peak.
+- **Decorations:** give seeds by editing the save (`balance` in `jardin-comunal:garden:v9`) and reloading, then `garden.buy(id)` and `garden.placeDecor(id, 'SOCIAL', {x, y})`; it returns `{ ok, error }` (e.g. `TILE_OCCUPIED`, `WRONG_SURFACE`). Wall decorations go on row 1.
 - Zoneless Angular: wait about 300 ms after a click before reading the DOM.
-- `localStorage.clear()` + reload gives the seeded demo. The garden save key is `jardin-comunal:garden:v8`.
+- `localStorage.clear()` + reload gives the seeded demo (dev stand-in only; signed-in players use the server). The garden save key is `jardin-comunal:garden:v9`.
 
 ## 8. Known issues and debt
 
-- **Memory:** every room picture (3 × 1536×1024), every window frame and every delivered key, including the Angular-only `preview-*` close-ups, load at boot. Load per room and skip `uiOnly` assets when it matters. A spritesheet per room's windows would save 7 requests each.
+- **Memory:** every room picture (3 × 1536×1024), every window frame and every delivered game key load at boot (UI-only pictures such as store cards and close-ups no longer do, since #39). Load per room when it matters. A spritesheet per room's windows would save 7 requests each (16 window frames ≈ 4.6 MB of GPU memory).
 - **Half-tile positions:** furniture can't use them yet. The Social Space armchairs and table, and the Medical rug, which is shifted 16 px to centre on the benches, work around it.
 - **Medical Bay:**
   - The furniture may want to be ~15–25% larger (the design guide's last step); not tried yet.
   - The station states have no art of their own yet, so the map no longer shows the ↻/✓ glyphs.
-- **Health** must stay astronaut-only on the server.
+- **Health** is on the server since #35: private per member, the station only hears the seeds. Its follow-ups: the crew have no "can't reach the station" line, and the reward ledger needs pruning before records get large.
 - **Station keys:** no password, and `POST /api/join` isn't rate-limited.
 - **Decorations:**
   - Wall ones can only go on row 1 of the Social Space (`V` tiles), the top band of the painted wall; rows 2-3 would look more natural, but moving them invalidates wall decorations already placed.
@@ -297,12 +327,13 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
 
 ## 9. Suggested next steps
 
-1. Drop `stash@{0}` on Raúl's checkout (an old copy of this file).
+1. Restart the dev server on 4200, and drop `stash@{0}` on Raúl's checkout (an old copy of this file).
 2. Confirm the 5 new decorations' names and prices, and whether wall decorations should hang lower (§8).
-3. Medical Bay polish:
+3. Animation frames: if the design team draws any, ask for PNG frames of only the moving part plus its position on the picture (like the windows), packed one sheet per room. Code effects stay for lights and screens (they cost almost nothing).
+4. Medical Bay polish:
    - the ~20% furniture size test, with before/after side by side;
    - place or drop the side-view bench;
    - ask the design team for per-state terminal and insights pictures.
-4. Confirm the open check-in questions and the "mid-stride" report with chucordova.
-5. Health privacy and the family role on the server.
-6. Demo prep: seed data, a 2–3 minute script, app icons.
+5. Confirm the open check-in questions and the "mid-stride" report with chucordova.
+6. The family role on the server (what family members see and can do, now that health is private).
+7. Demo prep: seed data, a 2–3 minute script, app icons. The web app and API are already deployed.

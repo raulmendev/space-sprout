@@ -159,11 +159,26 @@ def add_shadow(im: Image.Image, feet: bool = False) -> Image.Image:
     return out
 
 
-def save_scaled(im: Image.Image, size: tuple[int, int], out: Path) -> None:
-    """Save at HI_RES times the game `size` (LANCZOS when it has to be resized)."""
+def save_scaled(im: Image.Image, size: tuple[int, int], out: Path, detail: int = HI_RES) -> None:
+    """Save at `detail` (HI_RES unless art drawn at a fixed screen size needs more) times the game
+    `size` (LANCZOS when it has to be resized)."""
     out.parent.mkdir(parents=True, exist_ok=True)
-    target = (size[0] * HI_RES, size[1] * HI_RES)
+    target = (size[0] * detail, size[1] * detail)
     (im if im.size == target else im.resize(target, Image.LANCZOS)).save(out, optimize=True)
+
+# Store cards (gui/store): 64 game px square.
+ICON = 64
+ICON_MARGIN = 4
+
+
+def icon_from(sprite: Image.Image) -> Image.Image:
+    """A store card picture from the sprite: fitted inside the icon with a small margin, centred."""
+    box = (ICON - 2 * ICON_MARGIN) * HI_RES
+    scale = min(box / sprite.width, box / sprite.height)
+    small = sprite.resize((max(1, round(sprite.width * scale)), max(1, round(sprite.height * scale))), Image.LANCZOS)
+    canvas = Image.new('RGBA', (ICON * HI_RES, ICON * HI_RES))
+    canvas.alpha_composite(small, ((canvas.width - small.width) // 2, (canvas.height - small.height) // 2))
+    return canvas
 
 
 def mark_delivered(*keys: str) -> None:

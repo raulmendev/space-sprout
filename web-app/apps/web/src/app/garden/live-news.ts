@@ -1,4 +1,4 @@
-import { type GardenObject, type PlacedDecor, describeItem, plantName } from '@garden/shared';
+import { type GardenObject, type PlacedDecor, describeItem, labelText, plantName } from '@garden/shared';
 import { seeds } from '../shared/format';
 import { CARE_PAST } from './care-labels';
 import type { GardenNews } from './live-channel';
@@ -21,6 +21,10 @@ export function describeNews({ by, command }: GardenNews, objects: readonly Gard
         return `bought ${withArticle(item(command.itemId))} 🛒`;
       case 'POT':
         return `potted the ${plant(command.plantId)}`;
+      case 'LABEL': {
+        const name = labelText(command.text);
+        return name ? `named the ${plant(command.plantId)} “${name}” 🏷️` : `took the label off the ${plant(command.plantId)}`;
+      }
       case 'PLACE_DECOR':
         return `put up ${withArticle(item(command.itemId))}`;
       case 'MOVE_DECOR':
