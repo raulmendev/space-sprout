@@ -1,7 +1,9 @@
-import { Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { AssetService } from '../shared/assets.service';
 import { suitPortraitKey } from '../garden/game/asset-registry';
-import { NAME_MAX, ROLE, SAVED_PROFILE, SUIT, SUITS, type PlayerProfile, type Suit, saveProfile } from './current-user';
+import { DISPLAY_NAME_MAX, type Member, STATION_KEY_LENGTH, SUITS, type Suit, normalizeStationKey } from '@garden/shared';
+import { CURRENT_USER, ROLE, SAVED_PROFILE, SUIT, saveProfile, switchTo } from './current-user';
+import { type PlayerChoice, stationMembers } from './member-session';
 
 const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine', purple: 'Purple', cactus: 'Cactus', leaf: 'Leaf' };
 
@@ -126,20 +128,51 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
                 class="field font-mono uppercase placeholder:font-sans placeholder:normal-case"
                 autocomplete="off"
                 spellcheck="false"
-                placeholder="Leave blank for now"
+                placeholder="Blank starts a new station"
                 aria-describedby="station-key-hint"
                 [value]="stationKey()"
                 (input)="stationKey.set($any($event.target).value)"
               />
-              <span id="station-key-hint" class="flex items-center gap-1.5 text-xs text-bark">
-                <span class="grid size-4 shrink-0 place-items-center rounded-full bg-steel text-[0.65rem] font-black text-cream" aria-hidden="true">i</span>
-                Lets you join the same station as someone else (coming soon).
-              </span>
+              @if (!aboard() && !keyError()) {
+                <span id="station-key-hint" class="flex items-center gap-1.5 text-xs text-bark">
+                  <span class="grid size-4 shrink-0 place-items-center rounded-full bg-steel text-[0.65rem] font-black text-cream" aria-hidden="true">i</span>
+                  Got a key from family? Type it to join their station.
+                </span>
+              } @else if (keyError()) {
+                <span id="station-key-hint" class="text-xs font-bold text-alert" role="alert">{{ keyError() }}</span>
+              }
             </label>
+            <!-- Someone already in this station, on a new device: tap yourself instead of joining again. -->
+            @if (aboard(); as a) {
+              <div class="flex flex-col gap-1 short:gap-0.5" role="group" aria-labelledby="aboard-title">
+                <span id="aboard-title" class="text-xs font-bold text-bark">Already aboard? Tap yourself:</span>
+                <ul class="flex gap-1.5 overflow-x-auto pb-1 short:pb-0.5">
+                  @for (m of a.members; track m.id) {
+                    <li class="shrink-0">
+                      <button
+                        type="button"
+                        class="soft-btn btn-press flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-sm font-extrabold"
+                        [disabled]="busy()"
+                        [attr.aria-label]="(m.id === me ? 'Keep playing as ' : 'Play as ') + m.displayName"
+                        (click)="pick(a.key, m)"
+                      >
+                        <span class="grid size-6 place-items-center rounded-full text-sm" [style.background]="m.color" aria-hidden="true">{{ m.role === 'ASTRONAUT' ? '🧑‍🚀' : '🏡' }}</span>
+                        {{ m.displayName }}@if (m.id === me) {<span class="font-normal text-bark">&nbsp;(you)</span>}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
           </div>
         </div>
 
-        <button type="submit" class="chunky-btn btn-press start-btn">🚀 Start <span aria-hidden="true">›</span></button>
+        @if (error()) {
+          <p class="text-center text-sm font-bold text-alert" role="alert">{{ error() }}</p>
+        }
+        <button type="submit" class="chunky-btn btn-press start-btn" [disabled]="busy()" [attr.aria-busy]="busy()">
+          @if (busy()) { Boarding… } @else { 🚀 Start <span aria-hidden="true">›</span> }
+        </button>
       </form>
     </dialog>
   `,
@@ -276,7 +309,7 @@ export class StartMenuComponent {
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
 
   protected readonly suits = SUITS;
-  protected readonly nameMax = NAME_MAX;
+  protected readonly nameMax = DISPLAY_NAME_MAX;
   protected readonly roles = [
     { value: 'ASTRONAUT', label: 'Astronaut', icon: '🧑‍🚀' },
     { value: 'FAMILY', label: 'Family', icon: '🏡' },
@@ -284,9 +317,20 @@ export class StartMenuComponent {
 
   // Start from what this page is playing as, so "Change player" only changes what you touch.
   protected readonly name = signal(SAVED_PROFILE?.role === ROLE ? SAVED_PROFILE.name : '');
-  protected readonly role = signal<PlayerProfile['role']>(ROLE);
+  protected readonly role = signal<PlayerChoice['role']>(ROLE);
   protected readonly suit = signal<Suit>(SUIT);
   protected readonly stationKey = signal(SAVED_PROFILE?.stationKey ?? '');
+  /** Waiting for the station to answer Start. */
+  protected readonly busy = signal(false);
+  /** Why Start didn't go through (an unknown key, no connection). */
+  protected readonly error = signal('');
+  /** Who's in the station the typed key names (once it's a whole key). */
+  protected readonly aboard = signal<{ key: string; members: Member[] } | null>(null);
+  /** Why the typed key found nobody (unknown key, no connection). */
+  protected readonly keyError = signal('');
+  /** Who this page is playing as, marked "(you)" in the list. */
+  protected readonly me = SAVED_PROFILE ? CURRENT_USER.id : null;
+  private lookups = 0;
   /** Set once Start is pressed without a name; cleared as soon as one is typed. */
   private readonly triedStart = signal(false);
   protected readonly showNameError = computed(() => this.triedStart() && !this.name().trim());
@@ -304,6 +348,34 @@ export class StartMenuComponent {
 
   constructor() {
     afterNextRender(() => this.dialog().nativeElement.showModal());
+    effect(() => void this.lookUp(normalizeStationKey(this.stationKey())));
+  }
+
+  /** Looks up who's in the station once a whole key is typed; only the latest answer counts. */
+  private async lookUp(key: string): Promise<void> {
+    const n = ++this.lookups;
+    this.aboard.set(null);
+    this.keyError.set('');
+    if (key.length !== STATION_KEY_LENGTH) return;
+    try {
+      const members = await stationMembers(key);
+      if (n === this.lookups) this.aboard.set({ key, members });
+    } catch (e) {
+      if (n === this.lookups) this.keyError.set((e as Error).message);
+    }
+  }
+
+  /** "That's me": play as someone already in the station (yourself: just carry on). */
+  protected async pick(key: string, m: Member): Promise<void> {
+    if (m.id === this.me) return this.dialog().nativeElement.close();
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      await switchTo(key, m.id);
+    } catch (e) {
+      this.error.set((e as Error).message);
+      this.busy.set(false);
+    }
   }
 
   protected focusOf(p: number): number {
@@ -409,13 +481,21 @@ export class StartMenuComponent {
     if (!this.canCancel()) e.preventDefault();
   }
 
-  protected start(): void {
+  protected async start(): Promise<void> {
     const name = this.name().trim();
     if (!name) {
       this.triedStart.set(true);
       this.nameInput().nativeElement.focus();
       return;
     }
-    saveProfile({ name, role: this.role(), suit: this.suit(), stationKey: this.stationKey() });
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      await saveProfile({ name, role: this.role(), suit: this.suit(), stationKey: this.stationKey() });
+    } catch (e) {
+      this.error.set((e as Error).message);
+      this.busy.set(false);
+    }
   }
 }

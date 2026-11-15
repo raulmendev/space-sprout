@@ -11,6 +11,7 @@ export * from './contracts/health';
 export * from './contracts/checkin';
 export * from './contracts/crew';
 export * from './contracts/roles';
+export * from './contracts/members';
 export * from './contracts/store';
 export * from './contracts/notes';
 export * from './contracts/insights';

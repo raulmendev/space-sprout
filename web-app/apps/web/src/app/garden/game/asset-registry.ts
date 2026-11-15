@@ -22,7 +22,8 @@ import {
   pottedPlantOf,
 } from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
-import { SUIT, type Suit } from '../../session/current-user';
+import type { Suit } from '@garden/shared';
+import { SUIT } from '../../session/current-user';
 import { BOARD_SIZE, NOTE_COLORS, NOTE_SIZE, noteBubbleArt, noteStackArt, stickyNoteArt } from './notice-board';
 import {
   ASTRONAUT,

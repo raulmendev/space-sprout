@@ -54,6 +54,7 @@ import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
 import { NpcStore } from '../npc/npc.store';
 import type { ActorAnim, HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
+import { CURRENT_USER } from '../session/current-user';
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
 
@@ -234,6 +235,7 @@ export class HabitatStore {
       interaction: null,
       anim: this.playerAnim(),
       shadow: true,
+      label: CURRENT_USER.displayName,
     });
     return actors;
   });
