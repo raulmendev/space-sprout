@@ -25,6 +25,7 @@ import {
   HINT_TEXTURE,
   NOTE_BUBBLE_TEXTURE,
   NOTE_TEXTURES,
+  PLAYER_FRAMES,
   PLAYER_TEXTURE,
   THIRST_TEXTURE,
   plantSways,
@@ -32,10 +33,10 @@ import {
   propPulses,
   propTextureKey,
 } from '../garden/game/asset-registry';
-import { PlayerStore } from './player.store';
+import { PlayerStore, WAVE_MS } from './player.store';
 import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
-import type { HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
+import type { ActorAnim, HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
 
@@ -159,8 +160,29 @@ export class HabitatStore {
       interaction: { type: 'NPC_SELECTED', npcId: n.id },
     }));
     const { x, y } = this.player.position();
-    actors.push({ id: 'player', texture: PLAYER_TEXTURE, x, y, flipX: this.player.facingLeft(), moving: this.player.moving(), interaction: null });
+    actors.push({
+      id: 'player',
+      texture: PLAYER_TEXTURE,
+      x,
+      y,
+      flipX: false,
+      moving: this.player.moving(),
+      interaction: null,
+      anim: this.playerAnim(),
+    });
     return actors;
+  });
+
+  /** Walking: four frames in the way they face. Standing: that direction's standing pose. Waving: the wave, twice. */
+  private readonly playerAnim = computed<ActorAnim>(() => {
+    const waveAt = this.player.waveAt();
+    if (waveAt !== null && !this.player.moving()) {
+      return { frames: [...PLAYER_FRAMES.wave, ...PLAYER_FRAMES.wave], fps: (2 * PLAYER_FRAMES.wave.length * 1000) / WAVE_MS, loop: false, startedAt: waveAt };
+    }
+    const facing = this.player.facing();
+    return this.player.moving()
+      ? { frames: PLAYER_FRAMES.walk[facing], fps: 8, loop: true, startedAt: 0 }
+      : { frames: [PLAYER_FRAMES.idle[facing]], fps: 1, loop: false, startedAt: 0 };
   });
 
   readonly hoverRect = computed(() => this.targetRect(this.hover()));

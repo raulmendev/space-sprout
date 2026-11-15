@@ -40,6 +40,18 @@ export interface RenderActor {
   flipX: boolean;
   moving: boolean;
   interaction: HabitatInteraction | null;
+  /** Frame-by-frame art (the astronaut). Without it the texture is still, flipped and bobbed. */
+  anim?: ActorAnim;
+}
+
+/** Frames played by the scene's own clock, so they keep going while nothing else changes. */
+export interface ActorAnim {
+  frames: readonly string[];
+  fps: number;
+  /** Loops forever (walking) or holds the last frame (a wave). */
+  loop: boolean;
+  /** performance.now() when it started: frame 0 is shown at this moment. */
+  startedAt: number;
 }
 
 /** Feet sit a little below the foot point so characters look planted on the floor. */
@@ -81,6 +93,8 @@ export class HabitatScene extends Phaser.Scene {
   private readonly sprites = new Map<string, SpriteEntry>();
   private readonly wet = new Map<string, Phaser.GameObjects.Image>();
   private readonly actors = new Map<string, Phaser.GameObjects.Image>();
+  /** The latest characters sent, kept for when a room change held them back. */
+  private lastActors: readonly RenderActor[] = [];
   private readonly failed = new Set<string>();
   private room: RoomId | null = null;
   private ground: Phaser.GameObjects.Image[] = [];
@@ -203,6 +217,9 @@ export class HabitatScene extends Phaser.Scene {
     this.building = true;
     this.applyState(state);
     this.building = false;
+    // Characters sent during the fade were held back: draw them now, in their latest pose.
+    // (Standing still sends nothing new, so waiting for "the next update" could freeze a walk frame.)
+    this.setActors(this.lastActors);
   }
 
   private applyState(state: HabitatRenderState): void {
@@ -279,7 +296,8 @@ export class HabitatScene extends Phaser.Scene {
 
   /** Place characters for this frame. Cheap: no tweens, just positions. */
   setActors(actors: readonly RenderActor[]): void {
-    if (this.queued || !this.room) return; // mid room change: the next frame catches up
+    this.lastActors = actors;
+    if (this.queued || !this.room) return; // mid room change: enterRoom draws the latest
     const seen = new Set<string>();
     const bob = this.reducedMotion ? 0 : Math.abs(Math.sin(this.time.now / 90)) * 2;
     for (const a of actors) {
@@ -294,10 +312,13 @@ export class HabitatScene extends Phaser.Scene {
       const px = a.x * TILE_SIZE;
       const py = a.y * TILE_SIZE + FOOT_OFFSET_PX;
       img
-        .setPosition(px, py - (a.moving ? bob : 0))
-        .setFlipX(a.flipX)
+        // Animated art walks on its own; only still sprites get the bob and the mirror.
+        .setPosition(px, py - (a.moving && !a.anim ? bob : 0))
+        .setFlipX(a.anim ? false : a.flipX)
         .setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS)
-        .setData('interaction', a.interaction);
+        .setData('interaction', a.interaction)
+        .setData('anim', a.anim ?? null);
+      this.showFrame(img);
     }
     for (const [id, img] of this.actors) {
       if (!seen.has(id)) {
@@ -305,6 +326,22 @@ export class HabitatScene extends Phaser.Scene {
         this.actors.delete(id);
       }
     }
+  }
+
+  /** Phaser's per-frame hook: advance every animated character. */
+  override update(): void {
+    for (const img of this.actors.values()) this.showFrame(img);
+  }
+
+  /** The frame an animated character should show right now (reduced motion: a wave stays on its first frame). */
+  private showFrame(img: Phaser.GameObjects.Image): void {
+    const anim = img.getData('anim') as ActorAnim | null;
+    if (!anim?.frames.length) return;
+    const n = anim.frames.length;
+    const step = Math.floor(((performance.now() - anim.startedAt) * anim.fps) / 1000);
+    const i = anim.loop ? ((step % n) + n) % n : this.reducedMotion ? 0 : Math.min(Math.max(step, 0), n - 1);
+    const key = anim.frames[i];
+    if (img.texture.key !== key) img.setTexture(key);
   }
 
   /** Keep the floating badge in sync: appear with a soft pop, bob gently, fade out when gone. */

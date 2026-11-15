@@ -155,6 +155,13 @@ export class App {
         this.npc.dismiss();
       });
     });
+    // Someone starts talking to you (Sprout or the crew): the astronaut waves hello.
+    let talking = false;
+    effect(() => {
+      const now = !!this.npc.current();
+      if (now && !talking) untracked(() => this.player.wave());
+      talking = now;
+    });
     this.health.init();
     this.garden.init().then(() => setTimeout(() => this.npc.say('GREETING'), 600));
   }
