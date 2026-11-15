@@ -1,4 +1,4 @@
-import { Component, Injector, afterNextRender, inject, signal } from '@angular/core';
+import { Component, DestroyRef, ElementRef, Injector, afterNextRender, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { HealthMeasurement, HealthMetric, METRICS, METRIC_ORDER, goalTarget, isGoalMetric } from '@garden/shared';
 import { HealthStore } from './health.store';
 import { TrendChartComponent } from './trend-chart.component';
@@ -9,7 +9,22 @@ import { METRIC_ICON, SOURCE_LABEL, comparisonText, formatAmount, formatValue, t
  * Health Insights, a station console: the check-in streak and today's goals, then a card per
  * metric (latest value, the week against the astronaut's own usual range). A card opens the
  * metric in detail. Descriptive only: no diagnosis, no "good" or "bad" values.
+ *
+ * On landscape phones the cards become slides of two, swiped (or paged) sideways, so each card
+ * keeps room for its source, chart and full comparison. The slides loop: a copy of the last
+ * slide sits before the first and a copy of the first after the last; when a swipe settles on
+ * a copy, the row jumps (invisibly) to the real slide. The copies only show on phones and are
+ * hidden from assistive tech and the keyboard.
  */
+const PER_SLIDE = 2;
+const SLIDE_COUNT = Math.ceil(METRIC_ORDER.length / PER_SLIDE);
+/** Cards in row order: [copy of last slide] real slides [copy of first slide]. */
+const LOOP = [
+  ...METRIC_ORDER.slice(-PER_SLIDE).map((metric) => ({ metric, copy: true })),
+  ...METRIC_ORDER.map((metric) => ({ metric, copy: false })),
+  ...METRIC_ORDER.slice(0, PER_SLIDE).map((metric) => ({ metric, copy: true })),
+];
+
 @Component({
   selector: 'app-health-insights-panel',
   imports: [TrendChartComponent, MetricDetailComponent],
@@ -22,7 +37,7 @@ import { METRIC_ICON, SOURCE_LABEL, comparisonText, formatAmount, formatValue, t
         <p class="flex items-center gap-2">
           <span class="text-2xl leading-none short:text-xl" aria-hidden="true">🔥</span>
           <span>
-            <b>{{ streak().length ? streak().length + '-day check-in streak' : 'No streak yet' }}</b>
+            <b>{{ streak().length ? streak().length + '-day streak' : 'No streak yet' }}</b>
             <small class="block">
               @if (!streak().checkedInToday) { Check in today to {{ streak().length ? 'keep it going' : 'start one' }}. }
               @else if (streak().next; as next) { +{{ next.amount }} seeds at {{ next.days }} days. }
@@ -41,10 +56,20 @@ import { METRIC_ICON, SOURCE_LABEL, comparisonText, formatAmount, formatValue, t
         </ul>
       </section>
 
-      <div class="cards">
-        @for (metric of order; track metric) {
+      <div class="cards" #cards role="group" aria-label="Metrics" (scroll)="onScroll()">
+        @for (item of loop; track $index) {
+          @let metric = item.metric;
           @let s = health.cards()[metric];
-          <button type="button" class="card riveted-card" [id]="'card-' + metric" (click)="openDetail(metric)" [attr.aria-label]="def(metric).label + ': details'">
+          <button
+            type="button"
+            class="card riveted-card"
+            [class.copy]="item.copy"
+            [attr.id]="item.copy ? null : 'card-' + metric"
+            [attr.tabindex]="item.copy ? -1 : null"
+            [attr.aria-hidden]="item.copy || null"
+            (click)="openDetail(metric)"
+            [attr.aria-label]="def(metric).label + ': details'"
+          >
             <span class="flex items-baseline justify-between gap-2">
               <span class="label"><span aria-hidden="true">{{ icon[metric] }}</span>{{ def(metric).label }}</span>
               @if (s.latest) { <span class="value">{{ amount(metric, s.latest.value) }}</span> }
@@ -59,6 +84,13 @@ import { METRIC_ICON, SOURCE_LABEL, comparisonText, formatAmount, formatValue, t
           </button>
         }
       </div>
+      <nav class="pager" aria-label="Metric pages">
+        <button type="button" class="arrow soft-btn btn-press" aria-label="Previous metrics" (click)="step(-1)">‹</button>
+        @for (i of slides; track i) {
+          <button type="button" class="dot" [class.on]="slide() === i" [attr.aria-current]="slide() === i" [attr.aria-label]="slideLabel(i)" (click)="goTo(i)"></button>
+        }
+        <button type="button" class="arrow soft-btn btn-press" aria-label="Next metrics" (click)="step(1)">›</button>
+      </nav>
       <p class="text-[11px] text-bark/75">🔒 Private to you: your own readings, compared only with your own usual. Not a diagnosis; if something worries you, talk to your flight surgeon.</p>
     }
   `,
@@ -100,26 +132,41 @@ import { METRIC_ICON, SOURCE_LABEL, comparisonText, formatAmount, formatValue, t
     .meta { font-size: 0.72rem; color: color-mix(in srgb, var(--color-bark-dark) 70%, transparent); }
     .chart { display: block; margin-top: 2px; }
     .insight { font-size: 0.75rem; font-weight: 700; color: var(--color-bark-dark); }
+    .pager, .copy { display: none; }
 
-    /* Same breakpoint as the short: variant in styles.css: three across, the essentials only. */
+    /* Same breakpoint as the short: variant in styles.css: slides of two cards, swiped or paged sideways. */
     @media (max-height: 500px) {
       .habits { flex-wrap: nowrap; padding: 3px 10px; }
       .habits small { display: none; }
       .goals { flex-wrap: nowrap; gap: 4px; }
       .goals li { padding: 0 6px; font-size: 0.7rem; }
-      .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-      .card { padding: 4px 8px; font-size: 0.85rem; }
-      .meta { display: none; }
-      .value { font-size: 0.9rem; }
-      .chart { height: 1.9rem; overflow: hidden; }
-      .insight { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 0.66rem; }
+      .cards {
+        grid-template-columns: none;
+        grid-auto-flow: column;
+        grid-auto-columns: calc((100% - 12px) / 2);
+        gap: 12px;
+        padding: 3px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scroll-padding-inline: 3px;
+        overscroll-behavior-x: contain;
+        scrollbar-width: none;
+      }
+      .cards::-webkit-scrollbar { display: none; }
+      .card { scroll-snap-align: start; padding: 6px 10px; }
+      .copy { display: flex; }
+      .pager { display: flex; align-items: center; justify-content: center; gap: 8px; }
+      .arrow { width: 1.9rem; height: 1.5rem; border-radius: 8px; font-size: 1.1rem; line-height: 1; }
+      .dot { width: 10px; height: 10px; padding: 0; border: 2px solid var(--color-bark-dark); border-radius: 50%; background: transparent; }
+      .dot.on { background: var(--color-sun); }
+      .dot:focus-visible { outline: 2px solid var(--color-steel); outline-offset: 2px; }
     }
   `,
 })
 export class HealthInsightsPanelComponent {
   protected readonly health = inject(HealthStore);
   private readonly injector = inject(Injector);
-  protected readonly order = METRIC_ORDER;
+  protected readonly loop = LOOP;
   protected readonly icon = METRIC_ICON;
   protected readonly source = SOURCE_LABEL;
   protected readonly streak = this.health.streak;
@@ -127,6 +174,23 @@ export class HealthInsightsPanelComponent {
 
   /** The metric opened in detail, if any. */
   protected readonly detail = signal<HealthMetric | null>(null);
+
+  /** Phone slides: which one is showing (the pager only appears on short screens). */
+  protected readonly slides = Array.from({ length: SLIDE_COUNT }, (_, i) => i);
+  /** The real slide showing (0-based). */
+  protected readonly slide = signal(0);
+  private readonly cardsEl = viewChild<ElementRef<HTMLElement>>('cards');
+  private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  private settleTimer?: ReturnType<typeof setTimeout>;
+
+  constructor() {
+    // Whenever the row (re)appears, start on the current real slide, not on the copy before it.
+    effect(() => {
+      if (!this.cardsEl()) return;
+      afterNextRender(() => this.jump(untracked(this.slide) + 1), { injector: this.injector });
+    });
+    inject(DestroyRef).onDestroy(() => clearTimeout(this.settleTimer));
+  }
 
   protected def = (m: HealthMetric) => METRICS[m];
   protected amount = formatAmount;
@@ -147,6 +211,61 @@ export class HealthInsightsPanelComponent {
     const target = formatAmount(g.metric, g.target);
     if (g.value === null) return `${name} goal ${target}: not logged today`;
     return `${name}: ${formatValue({ metric: g.metric, value: g.value })} of ${target}${g.met ? ', reached' : ''}`;
+  }
+
+  /**
+   * Where each position in the row starts, in scroll coordinates: 0 is the copy of the last
+   * slide, 1..SLIDE_COUNT the real slides, SLIDE_COUNT + 1 the copy of the first.
+   */
+  private positions(): number[] {
+    const el = this.cardsEl()?.nativeElement;
+    if (!el) return [];
+    const cards = [...el.children] as HTMLElement[];
+    return Array.from({ length: SLIDE_COUNT + 2 }, (_, k) => cards[k * PER_SLIDE].offsetLeft - cards[0].offsetLeft);
+  }
+
+  /** The row position nearest to where it's scrolled. */
+  private nearest(): number {
+    const left = this.cardsEl()!.nativeElement.scrollLeft;
+    const pos = this.positions();
+    return pos.reduce((best, x, k) => (Math.abs(x - left) < Math.abs(pos[best] - left) ? k : best), 0);
+  }
+
+  protected onScroll(): void {
+    this.slide.set((this.nearest() - 1 + SLIDE_COUNT) % SLIDE_COUNT);
+    // Once the swipe settles on a copy, swap to the real slide it shows.
+    clearTimeout(this.settleTimer);
+    this.settleTimer = setTimeout(() => {
+      const k = this.nearest();
+      if (k === 0) this.jump(SLIDE_COUNT);
+      else if (k === SLIDE_COUNT + 1) this.jump(1);
+    }, 120);
+  }
+
+  /** Move to row position `k` instantly (no animation). */
+  private jump(k: number): void {
+    const left = this.positions()[k];
+    if (left !== undefined) this.cardsEl()!.nativeElement.scrollTo({ left, behavior: 'instant' });
+  }
+
+  /** Scroll to row position `k`. */
+  private glide(k: number): void {
+    const left = this.positions()[k];
+    if (left !== undefined) this.cardsEl()!.nativeElement.scrollTo({ left, behavior: this.reducedMotion ? 'instant' : 'smooth' });
+  }
+
+  /** Arrows: one slide along, through the copy at either end, so the loop looks continuous. */
+  protected step(direction: 1 | -1): void {
+    this.glide(this.slide() + 1 + direction);
+  }
+
+  protected goTo(i: number): void {
+    this.glide(i + 1);
+  }
+
+  /** "Heart rate and Sleep". */
+  protected slideLabel(i: number): string {
+    return METRIC_ORDER.slice(i * PER_SLIDE, (i + 1) * PER_SLIDE).map((m) => METRICS[m].label).join(' and ');
   }
 
   protected openDetail(metric: HealthMetric): void {

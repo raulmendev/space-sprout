@@ -108,7 +108,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
               <input
                 type="number"
                 inputmode="decimal"
-                class="w-20 min-w-0 rounded-md border-2 border-bark/30 bg-cream px-2 py-1 text-right focus-visible:outline-2 focus-visible:outline-sun short:w-16 short:py-0.5"
+                class="w-20 min-w-0 rounded-md border-2 border-bark/30 bg-cream px-2 py-1 text-right focus-visible:outline-2 focus-visible:outline-sun short:w-16 short:py-0"
                 [min]="m.min" [max]="m.max" [step]="m.step"
                 [value]="draft()[m.id] ?? ''"
                 (input)="setDraft(m.id, $any($event.target).value)"
@@ -119,7 +119,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
             </label>
             @if (errors()[m.id]; as e) { <p [id]="'err-' + m.id" class="-mt-1 text-right text-xs font-bold text-alert">{{ e }}</p> }
           }
-          <p class="text-xs text-bark/70">Fill in any of these; you don't need all of them.</p>
+          <p class="text-xs text-bark/70 short:hidden">Fill in any of these; you don't need all of them.</p>
         </div>
         <div class="card riveted-card flex flex-col gap-2">
           <fieldset>
@@ -158,12 +158,14 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       @if (health.lastResult(); as r) {
         <p class="reward" role="status">
           <span class="text-xl short:text-base" aria-hidden="true">🌱</span>
-          @if (r.earned > 0) { <span>+{{ r.earned }} seeds<span class="short:hidden"> for checking in</span><span class="hidden short:inline"> earned</span></span> }
-          @else if (r.alreadyRewarded) { Saved. Today's seeds for these are already yours }
+          @if (r.earned > 0) { <span>+{{ r.earned }} seeds<span class="short:hidden"> for checking in</span>@if (!r.bonuses.length) {<span class="hidden short:inline"> earned</span>}</span> }
+          @else if (r.alreadyRewarded) { <span class="short:hidden">Saved. Today's seeds for these are already yours</span><span class="hidden short:inline">{{ r.bonuses.length ? 'Saved' : 'Saved. Already earned today' }}</span> }
           @else { Saved. }
           @for (b of r.bonuses; track b.ref) {
-            <span class="bonus" [title]="b.label + ': +' + b.amount + ' seeds'">{{ b.reason === 'GOAL' ? '🎯' : '🔥' }}<span class="short:hidden"> {{ b.label }}</span> +{{ b.amount }}</span>
+            <span class="bonus short:hidden" [title]="b.label + ': +' + b.amount + ' seeds'">{{ b.reason === 'GOAL' ? '🎯' : '🔥' }} {{ b.label }} +{{ b.amount }}</span>
           }
+          <!-- Phones: the bonuses as one total, so the banner stays on one line. -->
+          @if (r.bonuses.length) { <span class="bonus hidden short:inline" [title]="bonusList(r.bonuses)">+{{ bonusTotal(r.bonuses) }} bonus</span> }
         </p>
       } @else {
         <p class="reward muted"><span class="text-xl short:text-base" aria-hidden="true">🌱</span>Check in to earn seeds</p>
@@ -249,19 +251,23 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
 
     /* Same breakpoint as the short: variant in styles.css: compact everything to fit landscape phones. */
     @media (max-height: 500px) {
-      .card { padding: 8px 10px; }
+      .card { padding: 6px 10px; }
       .watch-tile { width: 3.5rem; height: 4.5rem; padding: 3px 4px; }
       .chunky-btn { padding: 0.3rem 0.75rem; font-size: 1rem; }
-      .row-icon { min-height: 1.3rem; }
+      .row-icon { min-height: 1.2rem; }
       .row[data-mood-pending] { display: none; }
       .quick .word { display: none; } /* faces only; each button keeps its "Mood: …" label */
       .mood { padding: 0.1rem 0; font-size: 10px; }
-      .reward { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+      /* One line on phones, whatever the result says (screen readers still get all of it). */
+      .reward { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; padding: 0.2rem 0.5rem; font-size: 0.8rem; }
     }
   `,
 })
 export class MedicalTerminalPanelComponent {
   protected readonly health = inject(HealthStore);
+  protected bonusTotal = (bonuses: readonly { amount: number }[]) => bonuses.reduce((sum, b) => sum + b.amount, 0);
+  /** "Sleep goal +2, 3-day streak +3". */
+  protected bonusList = (bonuses: readonly { label: string; amount: number }[]) => bonuses.map((b) => `${b.label} +${b.amount}`).join(', ');
   protected readonly tab = signal<'sync' | 'manual'>('sync');
   protected readonly moods = MOODS;
   protected readonly icon = METRIC_ICON;
