@@ -18,8 +18,14 @@ import { loadJson, saveJson } from '../shared/storage';
 /** Why a command didn't go through: the rules said no, or the station couldn't be reached. */
 export type GardenFailure = GardenError | 'OFFLINE';
 
-/** A command's answer. A refusal from the station still carries its latest state. */
-export type GardenReply = { state?: GardenState } & ({ ok: true; result: CommandResult } | { ok: false; error: GardenFailure });
+/** A command's answer. A refusal from the station still carries its latest state (and, from the server, its version). */
+export type GardenReply = { state?: GardenState; version?: number } & ({ ok: true; result: CommandResult } | { ok: false; error: GardenFailure });
+
+/** A garden as loaded: the server's carries its version, a local copy has none. */
+export interface LoadedGarden {
+  state: GardenState;
+  version?: number;
+}
 
 /** Who is playing on this page: everything they do is credited to them. */
 export const LOCAL_PLAYER: Actor = toActor(CURRENT_USER);
@@ -44,9 +50,14 @@ export class GardenService {
     return Date.now() + this.offsetMs;
   }
 
-  async load(): Promise<GardenState> {
-    if (!this.remote) return this.localState();
-    return (await this.timed(() => stationCall<GardenView>('/garden'))).state;
+  async load(): Promise<LoadedGarden> {
+    if (!this.remote) return { state: this.localState() };
+    return this.timed(() => stationCall<GardenView>('/garden'));
+  }
+
+  /** A live message carries the server's clock too. */
+  heardFrom(serverTime: string): void {
+    this.offsetMs = Date.parse(serverTime) - Date.now();
   }
 
   /**

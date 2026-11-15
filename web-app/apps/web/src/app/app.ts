@@ -183,6 +183,11 @@ export class App {
   private noticeTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
+    // Someone else in the station did something: say so ("Mom watered the mustard.").
+    effect(() => {
+      const news = this.garden.news();
+      if (news) untracked(() => this.flash(news.text));
+    });
     // Leaving a room closes whatever belonged to it.
     effect(() => {
       this.habitat.activeRoom();

@@ -64,6 +64,19 @@ async function call<T>(path: string, init: RequestInit = {}, token?: string): Pr
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
+/** The live channel's address (WebSocket, same host and port as the API). */
+export const LIVE_URL = `${API.replace(/^http/, 'ws')}/live`;
+
+/** This device's session token on a station, if signed in. */
+export const sessionToken = (): string | null => (devPlayer ? null : (session?.token ?? null));
+
+/** The session ended elsewhere (signed out, expired): forget it and reload, which brings back the start menu. */
+export function sessionEnded(): never {
+  saveJson(SESSION_KEY, null);
+  location.reload();
+  throw new Error('Session ended.');
+}
+
 /** True when this page talks to the station's server (a signed-in member, not the dev stand-in). */
 export const onStation = (): boolean => !!session && !devPlayer;
 
@@ -79,10 +92,7 @@ export async function stationCall<T>(path: string, init: RequestInit = {}): Prom
   try {
     return await call<T>(path, init, session.token);
   } catch (e) {
-    if (e instanceof ApiError && e.status === 401) {
-      saveJson(SESSION_KEY, null);
-      location.reload();
-    }
+    if (e instanceof ApiError && e.status === 401) sessionEnded();
     throw e;
   }
 }

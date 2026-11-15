@@ -30,6 +30,8 @@ import {
 import { timeAgo } from '../health/format';
 import { whoDid } from '../shared/format';
 import { type GardenFailure, type GardenReply, GardenService, LOCAL_PLAYER } from './garden.service';
+import { type GardenNews, LiveChannel } from './live-channel';
+import { describeNews } from './live-news';
 import type { TileCoord } from './game/tile-manager';
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -43,6 +45,13 @@ export type PlantOutcome = Outcome<{ object: GardenObject }>;
 @Injectable({ providedIn: 'root' })
 export class GardenStore {
   private readonly service = inject(GardenService);
+  private readonly live = inject(LiveChannel);
+  /** The version of the state shown (server gardens only): anything older that arrives late is ignored. */
+  private version = -1;
+  /** Is the live channel up? (`reconnecting` shows in the HUD.) */
+  readonly liveStatus = this.live.status;
+  /** The latest thing someone else in the station did, e.g. "Mom watered the mustard." */
+  readonly news = signal<{ text: string } | null>(null);
 
   readonly catalog = CATALOG;
   /** The station's shared state as last heard (empty until it loads). Everything below reads from it. */
@@ -116,11 +125,26 @@ export class GardenStore {
   }
 
   async init(): Promise<void> {
-    this.apply(await this.service.load());
+    const { state, version } = await this.service.load();
+    this.apply(state, version);
+    // From now on, hear the rest of the station as it happens (reconnecting reloads, to catch up).
+    this.live.start({ garden: (news) => this.heard(news), caughtUp: () => void this.init().catch(() => {}) });
   }
 
-  /** Show the station's state as it now stands (after any change, ours or anyone's). */
-  private apply(state: GardenState): void {
+  /** Someone changed the garden (maybe us, on another device). */
+  private heard(news: GardenNews): void {
+    const text = news.by.id === LOCAL_PLAYER.id ? null : describeNews(news, this.objects(), this.decorations());
+    this.service.heardFrom(news.serverTime);
+    this.apply(news.state, news.version);
+    if (text) this.news.set({ text });
+  }
+
+  /** Show the station's state as it now stands (after any change, ours or anyone's), unless we already show a newer one. */
+  private apply(state: GardenState, version?: number): void {
+    if (version !== undefined) {
+      if (version < this.version) return;
+      this.version = version;
+    }
     this.state.set(state);
     this.now.set(this.service.now());
     if (this.closeupId() && !state.objects.some((o) => o.id === this.closeupId())) this.closeupId.set(null);
@@ -129,7 +153,7 @@ export class GardenStore {
   /** Ask the station; show its latest state whatever it answered. */
   private async send(command: GardenCommand): Promise<GardenReply> {
     const reply = await this.service.run(command);
-    if (reply.state) this.apply(reply.state);
+    if (reply.state) this.apply(reply.state, reply.version);
     return reply;
   }
 
