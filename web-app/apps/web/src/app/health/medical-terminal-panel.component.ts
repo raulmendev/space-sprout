@@ -31,7 +31,9 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
     </div>
 
     @if (tab() === 'sync') {
-      <div class="grid min-h-0 flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <!-- Side by side, the cards fill the screen and the readings scroll inside theirs. Stacked (a
+           narrow terminal), each card keeps its full height and the whole terminal scrolls instead. -->
+      <div class="grid gap-3 short:gap-2 @lg:min-h-0 @lg:flex-1 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div class="card riveted-card flex flex-col gap-2.5 short:gap-2">
           <div class="flex gap-3">
             <!-- The (simulated) wearable, drawn in the illustrated style: thick outline, soft shading. -->
@@ -121,7 +123,7 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
         </section>
       </div>
     } @else {
-      <form novalidate class="grid min-h-0 flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" (submit)="$event.preventDefault(); save()">
+      <form novalidate class="grid gap-3 short:gap-2 @lg:min-h-0 @lg:flex-1 @lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" (submit)="$event.preventDefault(); save()">
         <!-- One tab per crew member, holding the readings they look after: never more than four at once. -->
         <div class="card riveted-card flex min-h-0 flex-col gap-2 short:gap-1">
           <div role="tablist" aria-label="Readings by crew member" class="grid grid-cols-4 gap-1">
@@ -233,7 +235,7 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
       }
     </ng-template>
   `,
-  host: { class: 'console-screen flex min-h-0 flex-1 flex-col gap-3 short:gap-2' },
+  host: { class: 'console-screen flex shrink-0 flex-col gap-3 short:gap-2 @lg:min-h-0 @lg:flex-1 @lg:shrink' },
   styles: `
     /* Screen, tabs and riveted cards come from the shared console classes in styles.css. */
     :host { --stripe: color-mix(in srgb, var(--color-steel) 25%, transparent); } /* the bezel's cream stripes would vanish on the screen */
@@ -284,6 +286,13 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
     /* Rows keep their height: the list scrolls rather than squeezing them. */
     .checklist > .row, .entry-panel > * { flex-shrink: 0; }
     .checklist:focus-visible { outline: 2px solid var(--color-sun); outline-offset: 2px; }
+    /*
+     * Stacked cards (below @lg): the lists show in full and the terminal scrolls. They must not
+     * stay scroll boxes, or a swipe that starts on them is caught and goes nowhere on touch.
+     */
+    @container (width < 32rem) {
+      .entry-panel, .checklist { overflow: visible; overscroll-behavior: auto; }
+    }
 
     .mood {
       --press: color-mix(in srgb, var(--color-bark) 15%, transparent);
