@@ -5,7 +5,7 @@ import { NotesStore } from './notes.store';
 import { GardenStore } from '../garden/garden.store';
 import { NOTE_COLORS } from '../garden/game/notice-board';
 import { timeAgo } from '../health/format';
-import { plural } from '../shared/text';
+import { plural } from '../shared/format';
 
 /** How long "Tap again to take it down" stays armed (same as harvesting a plant). */
 const CONFIRM_MS = 4000;
