@@ -1,12 +1,12 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { canTakeDown, type SocialNote } from '@garden/shared';
 import { LOCAL_PLAYER } from '../garden/garden.service';
-import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, isAstronaut } from '../session/current-user';
+import { ASTRONAUT_USER, FAMILY_USER, authorOf, isAstronaut, perMemberKey } from '../session/current-user';
 import { GardenStore } from '../garden/garden.store';
 import { loadJson, saveJson } from '../shared/storage';
 
-// What you've read is per player; the astronaut keeps the original key.
-const READ_KEY = CURRENT_USER.role === 'FAMILY' ? 'jardin-comunal:notes-read:family:v1' : 'jardin-comunal:notes-read:v1';
+// What you've read is per player.
+const READ_KEY = perMemberKey('notes-read');
 const REMOVED_DEMO_KEY = 'jardin-comunal:notes-removed:v1';
 const FAMILY_ID = FAMILY_USER.id;
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
@@ -39,7 +39,7 @@ export class NotesStore {
     return note.authorId === LOCAL_PLAYER.id;
   }
 
-  /** Who wrote it, for the note's colour and avatar: the astronaut or the family. */
+  /** Whether an astronaut wrote it (for the avatar and the note on the board's picture). */
   fromAstronaut(note: SocialNote): boolean {
     return isAstronaut(note.authorId);
   }
@@ -47,7 +47,12 @@ export class NotesStore {
   /** "You" for your own notes, otherwise who wrote it. */
   author(note: SocialNote): string {
     if (this.isMine(note)) return 'You';
-    return this.fromAstronaut(note) ? ASTRONAUT_USER.displayName : FAMILY_USER.displayName;
+    return authorOf(note.authorId).displayName;
+  }
+
+  /** The note's colour: its author's. */
+  color(note: SocialNote): string {
+    return authorOf(note.authorId).color;
   }
 
   canTakeDown(note: SocialNote): boolean {

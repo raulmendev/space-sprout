@@ -1,7 +1,7 @@
 import type { Point } from '../types/domain';
 import type { TileCoord, TileRect } from './geometry';
 import type { RoomId } from './habitat';
-import { findPath, isWalkable, pathToReach } from './movement';
+import { FOOT, clearOfWalls, findPath, isWalkable, pathToReach, standPoint } from './movement';
 
 /**
  * Free (non-grid) character motion. Positions are continuous points in tile
@@ -9,14 +9,15 @@ import { findPath, isWalkable, pathToReach } from './movement';
  * come from the tile BFS, then get "string-pulled" into straight segments.
  */
 
-/** Half-size of a character's footprint, in tiles. Small enough to pass 1-tile gaps. */
-const FOOT = { hw: 0.28, hh: 0.18 } as const;
-
 export const tileOf = (p: Point): TileCoord => ({ x: Math.floor(p.x), y: Math.floor(p.y) });
 export const tileCenter = (t: TileCoord): Point => ({ x: t.x + 0.5, y: t.y + 0.5 });
 
-/** Can a character's feet be at `p` without overlapping anything solid? */
+/** Route waypoints: where to stand on each tile (BFS only returns tiles that have a spot). */
+const waypoints = (room: RoomId, tiles: TileCoord[]): Point[] => tiles.map((t) => standPoint(room, t) ?? tileCenter(t));
+
+/** Can a character's feet be at `p` without overlapping anything solid, and its sprite clear of the walls? */
 export function canStand(room: RoomId, p: Point): boolean {
+  if (!clearOfWalls(room, p)) return false;
   for (const [dx, dy] of [
     [-FOOT.hw, -FOOT.hh],
     [FOOT.hw, -FOOT.hh],
@@ -89,12 +90,12 @@ function stringPull(room: RoomId, from: Point, points: Point[]): Point[] {
 export function planReach(room: RoomId, from: Point, rect: TileRect): Point[] | null {
   const tiles = pathToReach(room, tileOf(from), rect);
   if (!tiles) return null;
-  return stringPull(room, from, tiles.map(tileCenter));
+  return stringPull(room, from, waypoints(room, tiles));
 }
 
-/** Smooth route to the centre of a tile in the same room (null if unreachable). */
+/** Smooth route to a tile in the same room (null if unreachable). */
 export function planRoute(room: RoomId, from: Point, to: TileCoord): Point[] | null {
   const tiles = findPath(room, tileOf(from), to);
   if (!tiles) return null;
-  return stringPull(room, from, tiles.map(tileCenter));
+  return stringPull(room, from, waypoints(room, tiles));
 }

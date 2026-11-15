@@ -132,6 +132,8 @@ def add_shadow(im: Image.Image, feet: bool = False) -> Image.Image:
     """Draw a contact shadow under a trimmed sprite, in the style of the furniture pack: the same
     dark purple in stepped rings (darkest in the middle), a flat ellipse centred on the sprite's
     bottom edge and drawn behind it. The canvas grows to fit what shows below.
+    The astronaut's shadow is drawn the same way in the game (placeholders.ts groundShadowArt):
+    change both together.
 
     `feet`: centre it on the lowest row the piece spans most of its width (a desk's feet) rather
     than its lowest pixel, so smaller bits that reach lower (a stool in front) stand in it too."""

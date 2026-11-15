@@ -1,20 +1,22 @@
 """
-Import the design team's animated windows for a room into the game.
+Import a room's animated windows (the sky outside) into the game.
 
-    python3 tools/import_windows.py <room> "<pack folder>"
+    python3 tools/import_windows.py <room> "<folder with the delivered windows pack>"
 
-The pack holds transparent overlay frames (*_overlay_00.png, _01, …) drawn over the room's
-picture, and a manifest.json giving where they go on the 2x room (overlay_origin), their size and
-the frame time. This writes apps/web/public/assets/game/habitat/rooms/room-<room>-window-<n>.png
-(kept at 2x), marks them delivered and prints the ROOM_WINDOWS entry for asset-registry.ts.
-Needs Pillow (pip install pillow).
+e.g. `python3 tools/import_windows.py social ~/Downloads/Social_Space_Animated_Windows_2x`.
+
+The pack's manifest.json gives the frames (*window_overlay_NN.png: just the glass, transparent
+elsewhere), where they go on the room picture and how long each one shows. Both manifest layouts
+the design team has sent are read (Social Space's and Medical Bay's field names). The frames must
+be cut from the same room picture the game shows, or the sky won't line up: check one over it.
+The frames are copied as habitat/rooms/room-<room>-window-<n>.png (already 2x: 64 px per tile)
+and marked delivered.
+It prints the ROOM_WINDOWS entry for asset-registry.ts, in game pixels (32 per tile).
 """
 import json
-import re
+import shutil
 import sys
 from pathlib import Path
-
-from PIL import Image
 
 from art import ASSETS, HI_RES, mark_delivered
 
@@ -24,21 +26,22 @@ def main() -> None:
         sys.exit(__doc__)
     room, pack = sys.argv[1].lower(), Path(sys.argv[2]).expanduser()
     spec = json.loads((pack / 'manifest.json').read_text())
-    frames = sorted(p for p in pack.glob('*.png') if re.search(r'_overlay_\d+\.png$', p.name))
+    room_px = spec.get('room_size_px') or spec['room_size']
+    if room_px != [24 * 32 * HI_RES, 16 * 32 * HI_RES]:
+        sys.exit(f'expected a {24 * 32 * HI_RES}x{16 * 32 * HI_RES} room, the pack has {room_px}')
+    frames = sorted(pack.glob('*window_overlay_*.png'))
     if len(frames) != spec['frames']:
-        sys.exit(f"Expected {spec['frames']} *_overlay_NN.png frames in {pack}, found {len(frames)}")
+        sys.exit(f"manifest says {spec['frames']} frames, found {len(frames)}")
     keys = []
-    for i, path in enumerate(frames):
-        im = Image.open(path).convert('RGBA')
-        if list(im.size) != spec['overlay_size']:
-            sys.exit(f"{path.name} is {im.size}, expected {spec['overlay_size']}")
-        key = f'room-{room}-window-{i}'
-        im.save(ASSETS / 'habitat/rooms' / f'{key}.png', optimize=True)
+    for n, frame in enumerate(frames):
+        key = f'room-{room}-window-{n}'
+        shutil.copyfile(frame, ASSETS / 'habitat/rooms' / f'{key}.png')
         keys.append(key)
     mark_delivered(*keys)
-    x, y = (v // HI_RES for v in spec['overlay_origin'])
-    w, h = (v // HI_RES for v in spec['overlay_size'])
-    print(f"{room.upper()}: {{ at: [{x}, {y}], size: [{w}, {h}], frames: {len(keys)}, frameMs: {spec['duration_ms']} }},")
+    x, y = (v // HI_RES for v in spec.get('window_overlay_room_position_px') or spec['overlay_origin'])
+    w, h = (v // HI_RES for v in spec.get('window_overlay_px') or spec['overlay_size'])
+    ms = spec.get('frame_duration_ms') or spec['duration_ms']
+    print(f"roomWindows('{room.upper()}', {{ frames: {len(frames)}, at: [{x}, {y}], size: [{w}, {h}], frameMs: {ms} }});")
 
 
 if __name__ == '__main__':

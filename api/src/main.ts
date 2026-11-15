@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, StandardSchemaValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -9,6 +9,8 @@ async function bootstrap() {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   app.setGlobalPrefix('api');
+  // Validates every @Body/@Query/@Param that declares a `schema` (Zod).
+  app.useGlobalPipes(new StandardSchemaValidationPipe());
   app.enableCors({ origin: config.get('CORS_ORIGINS', { infer: true }) });
   app.enableShutdownHooks();
 

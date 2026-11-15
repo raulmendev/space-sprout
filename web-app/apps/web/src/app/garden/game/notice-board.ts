@@ -1,3 +1,4 @@
+import { ROLE_COLORS } from '@garden/shared';
 import { makeCanvas } from './placeholders';
 
 /**
@@ -30,7 +31,7 @@ const INK = '#4a3222';
 const ALERT = '#d6453d';
 const PARCHMENT = '#f3e2c3';
 const CREAM = '#fbf3e4';
-export const NOTE_COLORS = { astronaut: '#a9dcf2', family: '#ffe27a' } as const;
+export const NOTE_COLORS = { astronaut: ROLE_COLORS.ASTRONAUT, family: ROLE_COLORS.FAMILY } as const;
 
 // ---------------------------------------------------------------- placeholder art
 

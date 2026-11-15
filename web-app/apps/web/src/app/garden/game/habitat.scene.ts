@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
-import { TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
+import { GROUND_SHADOW_TEXTURE, ROOM_WINDOWS, RoomWindows, TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset, roomTextureKey } from './asset-registry';
 import { missingTexture } from './placeholders';
 import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingScale, restingSize } from './tile-manager';
 
@@ -48,6 +48,10 @@ export interface RenderActor {
   anim?: ActorAnim;
   /** Hovers (the crew robots): drifts gently up and down all the time over a small shadow, instead of the walk bob. */
   float?: boolean;
+  /** Stands on the floor (the astronaut): a contact shadow under its feet, like the furniture's. */
+  shadow?: boolean;
+  /** A name tag floating above its head (players). */
+  label?: string;
 }
 
 /** Frames played by the scene's own clock, so they keep going while nothing else changes. */
@@ -66,6 +70,25 @@ const FOOT_OFFSET_PX = 6;
 const ACTOR_DEPTH_BIAS = 0.5;
 /** Hovering robots: always `lift` px up, drifting `amplitude` px more and back every `periodMs`. */
 const FLOAT = { lift: 3, amplitude: 3, periodMs: 1800 } as const;
+/**
+ * Name tags: a pill like the HUD's "Playing as" chip (cream on night blue). Sizes are CSS px,
+ * so they read the same on any screen.
+ */
+const NAME_TAG = {
+  style: { fontFamily: 'Nunito, sans-serif', fontSize: '11px', fontStyle: '800', color: '#fbf3e4' },
+  fill: 0x1d1b3a,
+  alpha: 0.78,
+  padX: 6,
+  padY: 2,
+  /** Between the top of the art (its first visible row) and the pill. */
+  gap: 3,
+} as const;
+
+interface NameTag {
+  box: Phaser.GameObjects.Container;
+  text: Phaser.GameObjects.Text;
+  bg: Phaser.GameObjects.Graphics;
+}
 
 interface FloatState {
   /** Where the feet would be on the floor (px). */
@@ -121,13 +144,22 @@ export class HabitatScene extends Phaser.Scene {
   private readonly sprites = new Map<string, SpriteEntry>();
   private readonly wet = new Map<string, Phaser.GameObjects.Image>();
   private readonly actors = new Map<string, Phaser.GameObjects.Image>();
-  /** The small shadow under each hovering character. */
-  private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse>();
+  /** The shadow under each character: a small oval under a hovering one, the furniture's contact shadow under one standing. */
+  private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse | Phaser.GameObjects.Image>();
+  /** The name tag above each character that has one, drawn above everything in the room. */
+  private readonly labels = new Map<string, NameTag>();
+  /** Per texture: how many rows of transparent padding sit above the art (name tags rest on the art, not the padding). */
+  private readonly artTop = new Map<string, number>();
+  /** World px per CSS px (name tags are scaled by it) and canvas px per CSS px (their text resolution). */
+  private tagScale = 1;
+  private tagResolution = 1;
   /** The latest characters sent, kept for when a room change held them back. */
   private lastActors: readonly RenderActor[] = [];
   private readonly failed = new Set<string>();
   private room: RoomId | null = null;
   private ground: Phaser.GameObjects.Image[] = [];
+  /** The room's animated windows, part of its ground; null when it has none. */
+  private windows: { img: Phaser.GameObjects.Image; anim: RoomWindows } | null = null;
   /** While fading between rooms, the latest state waits here. */
   private queued: HabitatRenderState | null = null;
   private building = false;
@@ -215,10 +247,19 @@ export class HabitatScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ renderer API
 
-  /** The canvas renders `pixelsPerUnit` pixels per world pixel: zoom the camera to fill it with the room. */
-  setResolution(pixelsPerUnit: number): void {
+  /**
+   * The canvas renders `pixelsPerUnit` pixels per world pixel, shown at `cssPerUnit` CSS px each:
+   * zoom the camera to fill it with the room, and keep name tags a fixed, sharp size on screen.
+   */
+  setResolution(pixelsPerUnit: number, cssPerUnit: number): void {
     const cam = this.cameras.main;
     cam.setSize(this.scale.width, this.scale.height).setZoom(pixelsPerUnit).centerOn(WORLD_W / 2, WORLD_H / 2);
+    this.tagScale = 1 / cssPerUnit;
+    this.tagResolution = pixelsPerUnit / cssPerUnit;
+    this.labels.forEach((l) => {
+      l.box.setScale(this.tagScale);
+      l.text.setResolution(this.tagResolution);
+    });
   }
 
   setState(state: HabitatRenderState): void {
@@ -256,8 +297,12 @@ export class HabitatScene extends Phaser.Scene {
     this.actors.clear();
     this.shadows.forEach((s) => s.destroy());
     this.shadows.clear();
+    this.labels.forEach((l) => l.box.destroy());
+    this.labels.clear();
     this.room = state.room;
     this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
+    this.windows = this.drawWindows(state.room);
+    if (this.windows) this.ground.push(this.windows.img);
     this.building = true;
     this.applyState(state);
     this.building = false;
@@ -345,6 +390,7 @@ export class HabitatScene extends Phaser.Scene {
     this.lastActors = actors;
     if (this.queued || !this.room) return; // mid room change: enterRoom draws the latest
     const seen = new Set<string>();
+    const shadowed = new Set<string>();
     const bob = this.reducedMotion ? 0 : Math.abs(Math.sin(this.time.now / 90)) * 2;
     for (const a of actors) {
       seen.add(a.id);
@@ -367,9 +413,19 @@ export class HabitatScene extends Phaser.Scene {
         .setData('anim', a.anim ?? null)
         .setData('float', float);
       if (!a.anim && img.texture.key !== a.texture) img.setTexture(a.texture); // e.g. crew art that turns
-      if (float) this.placeShadow(a.id, img, px, py);
+      if (float || a.shadow) {
+        this.placeShadow(a.id, img, px, py, !float);
+        shadowed.add(a.id);
+      }
       this.showFrame(img);
       this.applyHover(a.id, img);
+      if (a.label) this.placeLabel(a.id, a.label, img);
+    }
+    for (const [id, label] of this.labels) {
+      if (!actors.some((a) => a.id === id && a.label)) {
+        label.box.destroy();
+        this.labels.delete(id);
+      }
     }
     for (const [id, img] of this.actors) {
       if (!seen.has(id)) {
@@ -378,30 +434,100 @@ export class HabitatScene extends Phaser.Scene {
       }
     }
     for (const [id, shadow] of this.shadows) {
-      if (!seen.has(id) || !this.actors.get(id)?.getData('float')) {
+      if (!shadowed.has(id)) {
         shadow.destroy();
         this.shadows.delete(id);
       }
     }
   }
 
-  /** Phaser's per-frame hook: advance every animated character and keep the robots hovering; play the room's windows (still under reduced motion). */
+  /** Phaser's per-frame hook: advance every animated character and keep the robots hovering. */
   override update(): void {
-    if (!this.reducedMotion) this.ground.forEach((g) => this.showFrame(g));
     for (const [id, img] of this.actors) {
       this.showFrame(img);
       this.applyHover(id, img);
+      this.followLabel(id, img);
     }
+    this.animateWindows();
   }
 
-  /** A soft oval on the floor under a hovering character, about half as wide as it. */
-  private placeShadow(id: string, img: Phaser.GameObjects.Image, px: number, py: number): void {
+  /** The sky in the room's windows, over its picture (only when both were delivered). */
+  private drawWindows(room: RoomId): { img: Phaser.GameObjects.Image; anim: RoomWindows } | null {
+    const anim = ROOM_WINDOWS[room];
+    if (!anim || ![roomTextureKey(room), ...anim.frames].every((k) => this.textures.exists(k))) return null;
+    const img = fitToGame(this.add.image(anim.at[0], anim.at[1], anim.frames[0])).setOrigin(0).setDepth(DEPTH.GROUND + 1);
+    return { img, anim };
+  }
+
+  /** Next window frame when its time comes. Reduced motion: the first frame stays. */
+  private animateWindows(): void {
+    if (!this.windows || this.reducedMotion) return;
+    const { img, anim } = this.windows;
+    const key = anim.frames[Math.floor(this.time.now / anim.frameMs) % anim.frames.length];
+    if (img.texture.key !== key) img.setTexture(key);
+  }
+
+  /** The character's name tag: made once, kept on top of everything in the room. */
+  private placeLabel(id: string, name: string, img: Phaser.GameObjects.Image): void {
+    let label = this.labels.get(id);
+    if (!label) {
+      const bg = this.add.graphics();
+      const text = this.add.text(0, 0, name, NAME_TAG.style).setOrigin(0.5, 1).setResolution(this.tagResolution);
+      const box = this.add.container(0, 0, [bg, text]).setScale(this.tagScale).setDepth(DEPTH.INDICATOR - 1);
+      label = { box, text, bg };
+      this.labels.set(id, label);
+      this.drawTag(label);
+    } else if (label.text.text !== name) {
+      label.text.setText(name);
+      this.drawTag(label);
+    }
+    this.followLabel(id, img);
+  }
+
+  /** The pill behind the name, sized to it. The container's origin is the pill's bottom centre. */
+  private drawTag({ text, bg }: NameTag): void {
+    const w = Math.ceil(text.width) + NAME_TAG.padX * 2;
+    const h = Math.ceil(text.height) + NAME_TAG.padY * 2;
+    text.setPosition(0, -NAME_TAG.padY);
+    bg.clear().fillStyle(NAME_TAG.fill, NAME_TAG.alpha).fillRoundedRect(-w / 2, -h, w, h, h / 2);
+  }
+
+  /** Keep a name tag just above the head, through bobs, hovers and frames of different heights. */
+  private followLabel(id: string, img: Phaser.GameObjects.Image): void {
+    const label = this.labels.get(id);
+    if (!label) return;
+    const top = img.y - img.displayHeight * img.originY + this.paddingAbove(img.texture.key) * img.scaleY;
+    label.box.setPosition(img.x, top - NAME_TAG.gap * this.tagScale);
+  }
+
+  /** Rows of transparent padding at the top of a texture, found once. */
+  private paddingAbove(key: string): number {
+    let rows = this.artTop.get(key);
+    if (rows === undefined) {
+      const { width, height } = this.textures.getFrame(key);
+      rows = 0;
+      search: for (; rows < height; rows++) {
+        for (let x = 0; x < width; x++) if ((this.textures.getPixelAlpha(x, rows, key) ?? 0) > 0) break search;
+      }
+      if (rows === height) rows = 0; // blank (not loaded yet): don't cache a wrong answer
+      else this.artTop.set(key, rows);
+    }
+    return rows;
+  }
+
+  /**
+   * The shadow on the floor, just behind the character. Hovering: a soft oval about half as wide as
+   * it. Standing: the furniture's contact shadow under its feet, which stays put through the walk bob.
+   */
+  private placeShadow(id: string, img: Phaser.GameObjects.Image, px: number, py: number, ground: boolean): void {
     let shadow = this.shadows.get(id);
     if (!shadow) {
-      shadow = this.add.ellipse(0, 0, Math.round(img.width * 0.55), 6, 0x000000, 0.22);
+      shadow = ground
+        ? fitToGame(this.add.image(0, 0, GROUND_SHADOW_TEXTURE))
+        : this.add.ellipse(0, 0, Math.round(img.width * 0.55), 6, 0x000000, 0.22);
       this.shadows.set(id, shadow);
     }
-    shadow.setPosition(px, py - 2).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
+    shadow.setPosition(px, py - (ground ? 1 : 2)).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
   }
 
   /** Lift a hovering character for this moment; its shadow shrinks a little as it rises. Reduced motion: it just hovers, still. */

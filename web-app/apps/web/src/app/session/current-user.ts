@@ -1,48 +1,46 @@
-import { type Actor, type CrewId, type CrewMember, type HealthMetric, type User, crewFor, metricsFor } from '@garden/shared';
+import { type Actor, type CrewId, type CrewMember, DEMO_MEMBERS, type HealthMetric, type Member, ROLE_COLORS, type Suit, type User, crewFor, metricsFor } from '@garden/shared';
+import { type PlayerChoice, currentMember, householdMembers, savePlayer, signInAs, stationKey } from './member-session';
 
-/** The two demo accounts. Astronaut and family share one garden, each with their own health record. */
-export const ASTRONAUT_USER: User = { id: 'astronaut-demo', displayName: 'Astronaut', role: 'ASTRONAUT' };
-export const FAMILY_USER: User = { id: 'family-demo', displayName: 'Family', role: 'FAMILY' };
+/** The two demo members (seeded on the server too, station key GARDEN), credited in the demo garden and notes. */
+export const [ASTRONAUT_USER, FAMILY_USER]: readonly User[] = DEMO_MEMBERS;
+
+/** Who this page plays as (main.ts settles it before the game loads); null shows the start menu. */
+const MEMBER = currentMember();
+
+/** The start menu's answers as they stand: the current member, if any. */
+export const SAVED_PROFILE: PlayerChoice | null = MEMBER && {
+  name: MEMBER.displayName,
+  role: MEMBER.role,
+  suit: MEMBER.suit,
+  stationKey: stationKey() ?? '',
+};
+
+/** Nobody playing yet: show the start menu. */
+export const NEEDS_PROFILE = !MEMBER;
 
 /**
- * Who is playing on this page. Until there are accounts it comes from the URL:
- * `?user=family` plays as the family, anything else as the astronaut. Fixed for the
- * page's lifetime, so switching is a reload (or a second tab with the other URL).
+ * The start menu's Start: saved on the server (joining or starting a station as needed),
+ * then a reload into the game as that player, with any dev URL stand-in dropped.
+ * Throws with a message for the menu to show.
  */
-export const CURRENT_USER: User = (() => {
-  try {
-    return new URLSearchParams(location.search).get('user')?.toLowerCase() === 'family' ? FAMILY_USER : ASTRONAUT_USER;
-  } catch {
-    return ASTRONAUT_USER;
-  }
-})();
+export async function saveProfile(p: PlayerChoice): Promise<void> {
+  await savePlayer(p);
+  location.assign(location.pathname);
+}
+
+/** "That's me" in the start menu: sign in as someone already in the station, then reload as them. */
+export async function switchTo(key: string, memberId: string): Promise<void> {
+  await signInAs(key, memberId);
+  location.assign(location.pathname);
+}
+
+/** Who is playing on this page (the astronaut behind the start menu). Fixed for the page's lifetime. */
+export const CURRENT_USER: User = MEMBER ?? ASTRONAUT_USER;
 
 export const ROLE = CURRENT_USER.role;
 
-/** The astronaut's suit colour, from `?suit=green|black|wine` (turquoise otherwise). Art only: nothing else changes. */
-export const SUITS = ['turquoise', 'green', 'black', 'wine'] as const;
-export type Suit = (typeof SUITS)[number];
-export const SUIT: Suit = (() => {
-  try {
-    const asked = new URLSearchParams(location.search).get('suit')?.toLowerCase();
-    return SUITS.find((s) => s === asked) ?? 'turquoise';
-  } catch {
-    return 'turquoise';
-  }
-})();
-
-/** This page's URL with one parameter changed (null removes it), for the menu's switch links. */
-export function urlWith(param: string, value: string | null): string {
-  try {
-    const q = new URLSearchParams(location.search);
-    if (value === null) q.delete(param);
-    else q.set(param, value);
-    const s = q.toString();
-    return s ? `?${s}` : '?';
-  } catch {
-    return '?';
-  }
-}
+/** The suit this page shows. Art only: nothing else changes. */
+export const SUIT: Suit = MEMBER?.suit ?? 'turquoise';
 
 export const IS_FAMILY = ROLE === 'FAMILY';
 
@@ -55,5 +53,16 @@ export const MY_METRICS: readonly HealthMetric[] = metricsFor(ROLE);
 export const MY_CREW: readonly CrewMember[] = crewFor(ROLE);
 export const MY_CREW_BY_ID = Object.fromEntries(MY_CREW.map((c) => [c.id, c])) as Record<CrewId, CrewMember>;
 
-/** Whether a note, plant or purchase came from the astronaut (as opposed to the family). */
-export const isAstronaut = (actorId: string): boolean => actorId === ASTRONAUT_USER.id;
+/** Everyone whose name can appear here: this station, plus the demo members credited in the demo garden. */
+const PEOPLE = new Map<string, Member>([...DEMO_MEMBERS, ...householdMembers()].map((m) => [m.id, m]));
+
+/** Who did something, for names and colours: their member, or a plain family stand-in if they're unknown. */
+export function authorOf(id: string): Pick<Member, 'displayName' | 'role' | 'color'> {
+  return PEOPLE.get(id) ?? { displayName: 'Someone', role: 'FAMILY', color: ROLE_COLORS.FAMILY };
+}
+
+/** Whether a note, plant or purchase came from an astronaut (as opposed to family). */
+export const isAstronaut = (actorId: string): boolean => authorOf(actorId).role === 'ASTRONAUT';
+
+/** A localStorage key private to this player. */
+export const perMemberKey = (name: string): string => `jardin-comunal:${name}:${CURRENT_USER.id}:v1`;

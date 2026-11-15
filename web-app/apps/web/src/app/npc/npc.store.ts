@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
-import type { Dialogue, DialogueTrigger, HealthMetric, NpcId } from '@garden/shared';
-import { dialoguesFor } from './dialogues';
+import type { Dialogue, DialogueTrigger, HealthMetric, NpcId, PetId } from '@garden/shared';
+import { PET_LINES, dialoguesFor } from './dialogues';
 
 /** A line on screen. With `ask`, the bubble offers a quick answer for that reading. */
 export interface Line extends Omit<Dialogue, 'trigger'> {
@@ -20,6 +20,7 @@ export class NpcStore {
   private readonly lastAuto = new Map<DialogueTrigger, number>();
   private readonly counters = new Map<DialogueTrigger, number>();
   private autoCloseTimer?: ReturnType<typeof setTimeout>;
+  private readonly petLines = new Map<PetId, number>();
 
   /** Cooldown for automatic lines (ms). */
   private static readonly AUTO_COOLDOWN = 45_000;
@@ -28,6 +29,13 @@ export class NpcStore {
   talk(): void {
     const greetings = dialoguesFor('GREETING');
     this.show(this.next('GREETING', greetings));
+  }
+
+  /** User went over to a pet: a different reaction each time. */
+  petSays(id: PetId): void {
+    const n = this.petLines.get(id) ?? 0;
+    this.petLines.set(id, n + 1);
+    this.sayAs(id, PET_LINES[id][n % PET_LINES[id].length]);
   }
 
   /** System-initiated line: only if nothing is showing and cooldown passed. */

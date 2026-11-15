@@ -4,8 +4,12 @@ export interface Env {
   /** Direct (unpooled) Neon host for migrations; falls back to DATABASE_URL. */
   DATABASE_URL_UNPOOLED?: string;
   PORT: number;
-  CORS_ORIGINS: string[];
+  /** Who may call the API from a browser: the listed origins, or any local dev server when none are listed. */
+  CORS_ORIGINS: (string | RegExp)[];
 }
+
+/** Any port on this machine (localhost, 127.0.0.1, [::1]), over http or https: every local dev server. */
+const LOCAL_ORIGIN = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
 
 export function validateEnv(raw: Record<string, unknown>): Env {
   const text = (key: string) => {
@@ -27,9 +31,9 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     DATABASE_URL: databaseUrl,
     DATABASE_URL_UNPOOLED: text('DATABASE_URL_UNPOOLED'),
     PORT: port,
-    CORS_ORIGINS: (text('CORS_ORIGINS') ?? 'http://localhost:4200,http://localhost:4201')
-      .split(',')
+    CORS_ORIGINS: text('CORS_ORIGINS')
+      ?.split(',')
       .map((origin) => origin.trim())
-      .filter(Boolean),
+      .filter(Boolean) ?? [LOCAL_ORIGIN],
   };
 }
