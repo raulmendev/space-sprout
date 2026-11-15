@@ -97,6 +97,23 @@ export async function stationCall<T>(path: string, init: RequestInit = {}): Prom
 }
 
 /**
+ * Send a command to the station with an id made once, so the retry after a dropped connection
+ * can't do it twice: the station answers a repeated id from its records. `send` wraps each try
+ * (e.g. to time it). Null when the station stayed out of reach.
+ */
+export async function sendCommand<T>(path: string, command: unknown, send: (request: () => Promise<T>) => Promise<T> = (r) => r()): Promise<T | null> {
+  const body = JSON.stringify({ id: crypto.randomUUID(), command });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await send(() => stationCall<T>(path, { method: 'POST', body }));
+    } catch (e) {
+      if (!isOffline(e)) throw e;
+    }
+  }
+  return null;
+}
+
+/**
  * Dev builds only: `?user=astronaut|family` (with an optional `&suit=`) plays as that demo
  * member with no API and no session, e.g. two players side by side.
  */

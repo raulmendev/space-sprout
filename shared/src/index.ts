@@ -16,6 +16,7 @@ export * from './contracts/store';
 export * from './contracts/notes';
 export * from './contracts/insights';
 export * from './contracts/goals';
+export * from './contracts/health-record';
 export * from './contracts/decor';
 export * from './contracts/potting';
 export * from './contracts/garden';
