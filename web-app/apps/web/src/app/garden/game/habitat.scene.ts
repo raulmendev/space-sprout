@@ -178,14 +178,16 @@ export class HabitatScene extends Phaser.Scene {
 
   preload(): void {
     this.load.on('loaderror', (file: Phaser.Loader.File) => this.failed.add(file.key));
-    for (const key of this.bridge.deliveredKeys) {
-      const asset = getAsset(key);
-      if (asset) this.load.image(key, asset.path);
+    const delivered = new Set(this.bridge.deliveredKeys);
+    for (const asset of allAssets()) {
+      // Not delivered but with a delivered fallback (a prop state drawn as idle): load that picture under its key.
+      const path = delivered.has(asset.key) ? asset.path : asset.fallback && delivered.has(asset.fallback) ? getAsset(asset.fallback)?.path : undefined;
+      if (path) this.load.image(asset.key, path);
     }
   }
 
   create(): void {
-    // Anything not delivered gets its placeholder; delivered-but-broken gets a loud one.
+    // Anything not loaded gets its placeholder; delivered-but-broken gets a loud one.
     for (const asset of allAssets()) {
       if (asset.uiOnly || this.textures.exists(asset.key)) continue;
       if (this.failed.has(asset.key)) {

@@ -71,6 +71,8 @@ interface RegistryEntry extends SpriteAsset {
   placeholder: Placeholder;
   /** Only shown in Angular (e.g. close-up previews); the Phaser scene skips it. */
   uiOnly: boolean;
+  /** Undelivered, it shows this key's delivered art instead of its placeholder (a prop state drawn as idle). */
+  fallback?: string;
 }
 
 const REGISTRY = new Map<string, RegistryEntry>();
@@ -82,9 +84,11 @@ function register(
   origin: [number, number],
   placeholder: Placeholder,
   uiOnly = false,
+  fallback?: string,
 ): void {
   REGISTRY.set(key, {
     uiOnly,
+    fallback,
     key,
     path: `${ASSET_ROOT}/${folder}/${key}.png`,
     width: size[0],
@@ -251,7 +255,7 @@ interface PropVisual {
 
 /** Keyed by HabitatProp.kind. Sprite size may exceed the footprint (e.g. the watering station). */
 const PROP_VISUALS: Record<string, PropVisual> = {
-  // The delivered desks are one picture for every state (tools/import_props.py STATES).
+  // Sizes are the game sizes tools/import_props.py prints: delivered 2x art is drawn at this size (fitToGame).
   MEDICAL_TERMINAL: {
     folder: 'medical/terminal',
     size: [62, 75],
@@ -264,7 +268,6 @@ const PROP_VISUALS: Record<string, PropVisual> = {
     palette: MEDICAL,
     states: { idle: { badge: '' }, new_data: { badge: '•' }, active: { badge: '▸' } },
   },
-  // Sizes below are the game sizes tools/import_props.py prints: delivered 2x art is drawn at this size (fitToGame).
   // Notes are separate sprites pinned on it (see notice-board.ts); unread shows as a floating bubble.
   MESSAGE_BOARD: { folder: 'social/board', size: BOARD_SIZE, palette: SOCIAL },
   SUPPLY_STORE: { folder: 'social/store', size: [75, 96], palette: SOCIAL },
@@ -283,7 +286,7 @@ const PROP_VISUALS: Record<string, PropVisual> = {
   PLANTER_RED_FLOWERS: { folder: 'social/decorations', size: [54, 43], palette: GARDEN },
   VINES_LEFT: { folder: 'social/decorations', size: [69, 79], palette: SOCIAL },
   VINES_RIGHT: { folder: 'social/decorations', size: [70, 76], palette: SOCIAL },
-  // Medical Bay furniture, sized as the import tool prints (one sheet, one scale).
+  // Medical Bay furniture (one sheet, one scale)
   MED_BED: { folder: 'medical/decorations', size: [82, 75], palette: MEDICAL },
   MED_SHELF: { folder: 'medical/decorations', size: [50, 76], palette: MEDICAL },
   MED_LOCKER: { folder: 'medical/decorations', size: [36, 75], palette: MEDICAL },
@@ -300,7 +303,7 @@ const PROP_VISUALS: Record<string, PropVisual> = {
   VINE_PLANTER: { folder: 'garden/decorations', size: [64, 52], palette: GARDEN },
 };
 
-/** State → texture mapping. Unknown or undelivered states fall back to `idle`. */
+/** State → texture mapping. Unknown states use `idle`; a state without its own art is drawn with the idle art. */
 export function propTextureKey(kind: string, state?: string): string {
   const visual = PROP_VISUALS[kind];
   const base = `prop-${kebab(kind)}`;
@@ -317,9 +320,10 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
   const states = v.states ? Object.keys(v.states) : [undefined];
   for (const state of states) {
     const badge = state ? v.states![state].badge : '';
+    const idle = state && state !== 'idle' ? propTextureKey(kind, 'idle') : undefined;
     register(propTextureKey(kind, state), v.folder, v.size, BOTTOM_CENTER, () =>
       labelledBox(v.size[0], v.size[1], v.palette, label, badge || undefined),
-    );
+      false, idle);
   }
 }
 
