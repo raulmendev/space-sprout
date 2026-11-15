@@ -220,6 +220,7 @@ export class HabitatStore {
       moving: this.player.moving(),
       interaction: null,
       anim: this.playerAnim(),
+      shadow: true,
     });
     return actors;
   });

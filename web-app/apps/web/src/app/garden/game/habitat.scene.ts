@@ -48,6 +48,8 @@ export interface RenderActor {
   anim?: ActorAnim;
   /** Hovers (the crew robots): drifts gently up and down all the time over a small shadow, instead of the walk bob. */
   float?: boolean;
+  /** Stands on the floor (the astronaut): a contact shadow under its feet, like the furniture's. */
+  shadow?: boolean;
 }
 
 /** Frames played by the scene's own clock, so they keep going while nothing else changes. */
@@ -66,6 +68,11 @@ const FOOT_OFFSET_PX = 6;
 const ACTOR_DEPTH_BIAS = 0.5;
 /** Hovering robots: always `lift` px up, drifting `amplitude` px more and back every `periodMs`. */
 const FLOAT = { lift: 3, amplitude: 3, periodMs: 1800 } as const;
+/**
+ * Contact shadow under a standing character, matching the furniture pack's (tools/art.py add_shadow):
+ * one dark purple in stepped rings, darkest in the middle. Size in world px.
+ */
+const GROUND_SHADOW = { width: 28, height: 6, color: 0x341f4f, rings: [[1, 32], [0.82, 78], [0.62, 128], [0.42, 169]] } as const;
 
 interface FloatState {
   /** Where the feet would be on the floor (px). */
@@ -123,6 +130,8 @@ export class HabitatScene extends Phaser.Scene {
   private readonly actors = new Map<string, Phaser.GameObjects.Image>();
   /** The small shadow under each hovering character. */
   private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse>();
+  /** The contact shadow under each character that stands on the floor. */
+  private readonly groundShadows = new Map<string, Phaser.GameObjects.Graphics>();
   /** The latest characters sent, kept for when a room change held them back. */
   private lastActors: readonly RenderActor[] = [];
   private readonly failed = new Set<string>();
@@ -256,6 +265,8 @@ export class HabitatScene extends Phaser.Scene {
     this.actors.clear();
     this.shadows.forEach((s) => s.destroy());
     this.shadows.clear();
+    this.groundShadows.forEach((s) => s.destroy());
+    this.groundShadows.clear();
     this.room = state.room;
     this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
     this.building = true;
@@ -368,6 +379,7 @@ export class HabitatScene extends Phaser.Scene {
         .setData('float', float);
       if (!a.anim && img.texture.key !== a.texture) img.setTexture(a.texture); // e.g. crew art that turns
       if (float) this.placeShadow(a.id, img, px, py);
+      if (a.shadow) this.placeGroundShadow(a.id, px, py);
       this.showFrame(img);
       this.applyHover(a.id, img);
     }
@@ -381,6 +393,12 @@ export class HabitatScene extends Phaser.Scene {
       if (!seen.has(id) || !this.actors.get(id)?.getData('float')) {
         shadow.destroy();
         this.shadows.delete(id);
+      }
+    }
+    for (const [id, shadow] of this.groundShadows) {
+      if (!actors.some((a) => a.id === id && a.shadow)) {
+        shadow.destroy();
+        this.groundShadows.delete(id);
       }
     }
   }
@@ -401,6 +419,24 @@ export class HabitatScene extends Phaser.Scene {
       this.shadows.set(id, shadow);
     }
     shadow.setPosition(px, py - 2).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
+  }
+
+  /** The contact shadow, centred under the feet and drawn just behind the character. It stays put during the walk bob. */
+  private placeGroundShadow(id: string, px: number, py: number): void {
+    let shadow = this.groundShadows.get(id);
+    if (!shadow) {
+      shadow = this.add.graphics();
+      const { width, height, color, rings } = GROUND_SHADOW;
+      // Each ring blends over the ones under it, so it adds only what takes the total to its alpha.
+      let under = 0;
+      for (const [scale, alpha] of rings) {
+        const target = alpha / 255;
+        shadow.fillStyle(color, (target - under) / (1 - under)).fillEllipse(0, 0, width * scale, height * scale);
+        under = target;
+      }
+      this.groundShadows.set(id, shadow);
+    }
+    shadow.setPosition(px, py - 1).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
   }
 
   /** Lift a hovering character for this moment; its shadow shrinks a little as it rises. Reduced motion: it just hovers, still. */
