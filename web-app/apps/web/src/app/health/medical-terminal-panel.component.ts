@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { ALL_METRICS, CREW, CrewId, HealthMetric, METRICS, choicesFor, dayOf, validateMeasurement } from '@garden/shared';
+import { CrewId, HealthMetric, METRICS, choicesFor, dayOf, validateMeasurement } from '@garden/shared';
+import { MY_CREW, MY_METRICS, ROLE } from '../session/current-user';
 import { HealthStore } from './health.store';
 import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } from './format';
 
@@ -114,7 +115,7 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
         </section>
       </div>
     } @else {
-      <form class="grid min-h-0 flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" (submit)="$event.preventDefault(); save()">
+      <form novalidate class="grid min-h-0 flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" (submit)="$event.preventDefault(); save()">
         <!-- One tab per crew member, holding the readings they look after: never more than four at once. -->
         <div class="card riveted-card flex min-h-0 flex-col gap-2 short:gap-1">
           <div role="tablist" aria-label="Readings by crew member" class="grid grid-cols-4 gap-1">
@@ -338,18 +339,18 @@ export class MedicalTerminalPanelComponent {
   protected readonly source = SOURCE_LABEL;
   protected readonly sourceShort = SOURCE_SHORT;
   /** Every reading, the crew's included: what you put off with them can be finished here. */
-  protected readonly order = ALL_METRICS;
+  protected readonly order = MY_METRICS;
   /** Only offer "Enter it" for wearable metrics once today's sync has run (before that, Sync is the action). */
   protected readonly syncedToday = computed(() => {
     const at = this.health.lastSyncAt();
     return !!at && dayOf(at) === dayOf(new Date().toISOString());
   });
-  protected readonly allDone = computed(() => ALL_METRICS.every((m) => this.health.answeredToday()[m]));
+  protected readonly allDone = computed(() => MY_METRICS.every((m) => this.health.answeredToday()[m]));
   /** Manual entry, one tab per crew member with the readings they look after. */
-  protected readonly groups = CREW.map((c) => ({ id: c.id, ...CREW_TAB[c.id], name: c.name, metrics: c.metrics }));
-  protected readonly group = signal<CrewId>(CREW[0].id);
+  protected readonly groups = MY_CREW.filter((c) => c.metrics.length).map((c) => ({ id: c.id, ...CREW_TAB[c.id], name: c.name, metrics: c.metrics }));
+  protected readonly group = signal<CrewId>(this.groups[0].id);
   protected readonly currentGroup = computed(() => this.groups.find((g) => g.id === this.group())!);
-  protected choices = choicesFor;
+  protected choices = (m: HealthMetric) => choicesFor(m, ROLE);
   protected def = (m: HealthMetric) => METRICS[m];
   /** A tab whose readings have unsaved values gets a dot. */
   protected hasDraft = (metrics: readonly HealthMetric[]) => metrics.some((m) => (this.draft()[m] ?? '') !== '');

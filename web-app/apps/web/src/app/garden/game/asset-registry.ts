@@ -17,8 +17,10 @@ import {
   TileKind,
   getCatalogItem,
   plantStages,
+  pottedPlantOf,
 } from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
+import { SUIT, type Suit } from '../../session/current-user';
 import { BOARD_SIZE, NOTE_COLORS, NOTE_SIZE, noteBubbleArt, noteStackArt, stickyNoteArt } from './notice-board';
 import {
   ASTRONAUT,
@@ -42,6 +44,8 @@ import {
   wetSoilTile,
   woodPathTile,
   DECOR_ART,
+  potArt,
+  potFrontArt,
 } from './placeholders';
 
 const ASSET_ROOT = 'assets/game';
@@ -238,14 +242,27 @@ const PROP_VISUALS: Record<string, PropVisual> = {
     palette: MEDICAL,
     states: { idle: { badge: '' }, new_data: { badge: '•' }, active: { badge: '▸' } },
   },
-  POTTED_PLANT: { folder: 'medical/terminal', size: [32, 48], palette: GARDEN },
+  // Sizes below are the game sizes tools/import_props.py prints: delivered 2x art is drawn at this size (fitToGame).
+  POTTED_PLANT: { folder: 'medical/terminal', size: [45, 73], palette: GARDEN },
   // Notes are separate sprites pinned on it (see notice-board.ts); unread shows as a floating bubble.
   MESSAGE_BOARD: { folder: 'social/board', size: BOARD_SIZE, palette: SOCIAL },
-  EMOTE_POINT: { folder: 'social/emotes', size: [64, 64], palette: SOCIAL },
-  SOFA: { folder: 'social/decorations', size: [96, 48], palette: SOCIAL },
-  COMM_TERMINAL: { folder: 'social/decorations', size: [64, 64], palette: SOCIAL },
-  SUPPLY_STORE: { folder: 'social/store', size: [64, 64], palette: SOCIAL },
-  // Garden furniture (tools/import_props.py prints these sizes).
+  SUPPLY_STORE: { folder: 'social/store', size: [75, 96], palette: SOCIAL },
+  // The lounge, sized to the astronaut (36x50).
+  COFFEE_TABLE: { folder: 'social/decorations', size: [80, 49], palette: SOCIAL },
+  SOFA: { folder: 'social/decorations', size: [96, 51], palette: SOCIAL },
+  ARMCHAIR_LEFT: { folder: 'social/decorations', size: [29, 40], palette: SOCIAL },
+  ARMCHAIR_RIGHT: { folder: 'social/decorations', size: [30, 40], palette: SOCIAL },
+  POUF_BOTTOM_LEFT: { folder: 'social/decorations', size: [24, 23], palette: SOCIAL },
+  POUF_BOTTOM_RIGHT: { folder: 'social/decorations', size: [24, 23], palette: SOCIAL },
+  FLOOR_LAMP: { folder: 'social/decorations', size: [12, 45], palette: SOCIAL },
+  POT_LAVENDER: { folder: 'social/decorations', size: [27, 38], palette: GARDEN },
+  POT_PINK_FLOWERS: { folder: 'social/decorations', size: [24, 30], palette: GARDEN },
+  POT_MONSTERA: { folder: 'social/decorations', size: [38, 39], palette: GARDEN },
+  PLANTER_LAVENDER: { folder: 'social/decorations', size: [71, 44], palette: GARDEN },
+  PLANTER_RED_FLOWERS: { folder: 'social/decorations', size: [54, 43], palette: GARDEN },
+  VINES_LEFT: { folder: 'social/decorations', size: [69, 79], palette: SOCIAL },
+  VINES_RIGHT: { folder: 'social/decorations', size: [70, 76], palette: SOCIAL },
+  // Garden furniture
   WATERING_CAN: { folder: 'garden/decorations', size: [62, 66], palette: GARDEN },
   GREENHOUSE: { folder: 'garden/decorations', size: [94, 57], palette: GARDEN },
   GARDEN_BENCH: { folder: 'garden/decorations', size: [81, 44], palette: GARDEN },
@@ -278,8 +295,18 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
 
 // ---------------------------------------------------------------- station decorations
 
-/** Map sprite of a placed decoration (a store item id, e.g. 'photo-frame'). */
-export const decorTextureKey = (itemId: string) => `decor-${itemId}`;
+/**
+ * The pot every potted plant stands in, in two layers: the whole pot (behind the plant) and its
+ * front (lip and body, without the opening) drawn over the plant, so the plant sits inside it.
+ */
+export const POT_TEXTURE = 'decor-pot';
+export const POT_FRONT_TEXTURE = 'decor-pot-front';
+export const POT_SIZE: [number, number] = [45, 38];
+register(POT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potArt);
+register(POT_FRONT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potFrontArt);
+
+/** Map sprite of a placed decoration (e.g. 'photo-frame'); potted plants use the pot. */
+export const decorTextureKey = (itemId: string) => (pottedPlantOf(itemId) ? POT_TEXTURE : `decor-${itemId}`);
 for (const [itemId, art] of Object.entries(DECOR_ART)) {
   register(decorTextureKey(itemId), 'social/decorations', art.size, BOTTOM_CENTER, art.draw);
 }
@@ -290,14 +317,36 @@ export const NPC_TEXTURE = 'npc-sprout';
 export const HINT_TEXTURE = 'gui-hint-plus';
 /** The astronaut: four walk frames per direction, a standing pose per direction, and a wave. */
 export type Facing = 'down' | 'up' | 'left' | 'right';
-const PLAYER_SIZE: [number, number] = [36, 50];
-const playerFrames = (anim: string, n: number) => Array.from({ length: n }, (_, i) => `player-astronaut-${anim}-${i + 1}`);
-export const PLAYER_FRAMES = {
-  walk: { down: playerFrames('down', 4), up: playerFrames('up', 4), left: playerFrames('left', 4), right: playerFrames('right', 4) },
+export interface PlayerFrames {
+  walk: Record<Facing, readonly string[]>;
   /** Standing still, facing the way they last walked. */
-  idle: { down: 'player-astronaut-down-idle', up: 'player-astronaut-up-idle', left: 'player-astronaut-left-idle', right: 'player-astronaut-right-idle' },
-  wave: playerFrames('wave', 6),
-} as const satisfies { walk: Record<Facing, readonly string[]>; idle: Record<Facing, string>; wave: readonly string[] };
+  idle: Record<Facing, string>;
+  /** Empty when the suit has no wave drawn: the astronaut just stands. */
+  wave: readonly string[];
+}
+
+/**
+ * Each suit colour is its own set of frames, named by colour (player-astronaut-green-*);
+ * the original turquoise suit keeps the plain names. Pick one with `?suit=green|black|wine`.
+ */
+const SUITS: Record<Suit, { prefix: string; size: [number, number]; wave: boolean }> = {
+  turquoise: { prefix: 'player-astronaut', size: [36, 50], wave: true },
+  green: { prefix: 'player-astronaut-green', size: [40, 50], wave: false },
+  black: { prefix: 'player-astronaut-black', size: [38, 50], wave: false },
+  wine: { prefix: 'player-astronaut-wine', size: [38, 50], wave: false },
+};
+
+function suitFrames(prefix: string, wave: boolean): PlayerFrames {
+  const frames = (anim: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}-${anim}-${i + 1}`);
+  return {
+    walk: { down: frames('down', 4), up: frames('up', 4), left: frames('left', 4), right: frames('right', 4) },
+    idle: { down: `${prefix}-down-idle`, up: `${prefix}-up-idle`, left: `${prefix}-left-idle`, right: `${prefix}-right-idle` },
+    wave: wave ? frames('wave', 6) : [],
+  };
+}
+
+/** The suit this page shows. */
+export const PLAYER_FRAMES: PlayerFrames = suitFrames(SUITS[SUIT].prefix, SUITS[SUIT].wave);
 /** Standing, facing the camera: the astronaut wherever a single picture is needed. */
 export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
 export const THIRST_TEXTURE = 'gui-thirst-bubble';
@@ -306,8 +355,11 @@ export const NOTE_BUBBLE_TEXTURE = 'gui-note-bubble';
 /** Notes pinned on the message board, by who wrote them; `more` stands in for the overflow. */
 export const NOTE_TEXTURES = { astronaut: 'note-astronaut', family: 'note-family', more: 'note-more' } as const;
 register(NPC_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(NPC_SPROUT, 2, 32, 48));
-for (const key of [...Object.values(PLAYER_FRAMES.walk).flat(), ...Object.values(PLAYER_FRAMES.idle), ...PLAYER_FRAMES.wave]) {
-  register(key, 'characters', PLAYER_SIZE, BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, ...PLAYER_SIZE));
+for (const { prefix, size, wave } of Object.values(SUITS)) {
+  const f = suitFrames(prefix, wave);
+  for (const key of [...Object.values(f.walk).flat(), ...Object.values(f.idle), ...f.wave]) {
+    register(key, 'characters', size, BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, ...size));
+  }
 }
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
 register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
@@ -322,8 +374,32 @@ export const crewTextureKey = (id: CrewId) => `npc-${id.toLowerCase()}`;
 for (const [id, look] of Object.entries(CREW_LOOKS) as [CrewId, Parameters<typeof crewGrid>[0]][]) {
   register(crewTextureKey(id), 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(crewGrid(look), 2, 32, 48));
 }
+
+/**
+ * Crew members with delivered art: a standing pose per direction (npc-medic-left) and a happy
+ * one they show while talking to you (npc-medic-happy-left). The rest keep the placeholder,
+ * mirrored to face left or right.
+ */
+const CREW_POSES: Partial<Record<CrewId, [number, number]>> = {
+  MEDIC: [48, 50],
+  SCIENTIST: [48, 50],
+  CHEF: [42, 50],
+  TRAINER: [48, 50],
+};
+const FACINGS: readonly Facing[] = ['down', 'up', 'left', 'right'];
+export const hasCrewPoses = (id: CrewId): boolean => id in CREW_POSES;
+export const crewPoseKey = (id: CrewId, facing: Facing, happy = false) => `npc-${id.toLowerCase()}${happy ? '-happy' : ''}-${facing}`;
+/** The crew member's picture for the speech bubble: facing you, when there's art for it. */
+export const crewPortraitKey = (id: CrewId) => (hasCrewPoses(id) ? crewPoseKey(id, 'down') : crewTextureKey(id));
+for (const [id, size] of Object.entries(CREW_POSES) as [CrewId, [number, number]][]) {
+  for (const facing of FACINGS) {
+    for (const happy of [false, true]) {
+      register(crewPoseKey(id, facing, happy), 'characters', size, BOTTOM_CENTER, () => gridInCanvas(crewGrid(CREW_LOOKS[id]), 2, ...size));
+    }
+  }
+}
 register(TWINKLE_TEXTURE, 'gui/effects', [32, 32], [0.5, 0.5], () => gridToCanvas(TWINKLE));
-register(NOTE_BUBBLE_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, noteBubbleArt);
+register(NOTE_BUBBLE_TEXTURE, 'gui/icons', [20, 19], BOTTOM_CENTER, noteBubbleArt); // tools/import_board.py size
 register(NOTE_TEXTURES.astronaut, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.astronaut));
 register(NOTE_TEXTURES.family, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.family));
 register(NOTE_TEXTURES.more, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], noteStackArt);

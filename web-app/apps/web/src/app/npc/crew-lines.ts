@@ -1,4 +1,4 @@
-import type { CrewId, HealthMetric } from '@garden/shared';
+import type { CrewId, HealthMetric, UserRole } from '@garden/shared';
 
 /**
  * What the crew say. Each speaks in their own voice about the readings that fit
@@ -117,6 +117,31 @@ export const REPLY: Partial<Record<HealthMetric, Record<string, readonly string[
     JUST_RIGHT: ["Great, now you're ready!", 'Perfectly hydrated. Well done!'],
     HIGH: ["Wow! That's plenty. You can ease off a little.", 'Wow, a lot of water! No need to go past 4 litres.'],
   },
+};
+
+/** Replies for the family, at home on Earth, where the station's version doesn't fit (EARTH_BANDS). */
+export const EARTH_REPLY: Partial<Record<HealthMetric, Record<string, readonly string[]>>> = {
+  WATER: {
+    LOW: ['Your plants drink more than that! Grab a glass of water.', 'A bit more water, please. Keep a bottle nearby.'],
+    JUST_RIGHT: ['Nicely hydrated. Well done!', 'Just right! Your body thanks you.'],
+    HIGH: ["Wow, that's plenty! You can ease off a little.", "That's a lot of water! No need to overdo it."],
+  },
+};
+
+/** The reply for an answer, as said to this role. */
+export function replyLines(metric: HealthMetric, band: string, role: UserRole): readonly string[] | undefined {
+  return (role === 'FAMILY' ? EARTH_REPLY[metric]?.[band] : undefined) ?? REPLY[metric]?.[band];
+}
+
+/** Crew with nothing to ask this player (the scientist, for the family): a friendly hello instead. */
+export const NOTHING_TO_ASK: Record<CrewId, readonly string[]> = {
+  MEDIC: ['Hello! Nothing to check with you right now. Take care!'],
+  TRAINER: ['Hey there! Nothing to log with me. Keep moving!'],
+  CHEF: ['Hello, dear! Nothing to ask you today.'],
+  SCIENTIST: [
+    "Hello from the lab! Radiation and cabin air are the station's business, so no scan for you.",
+    "Nice to see you here! My sensors only watch the station's air. You're all set.",
+  ],
 };
 
 /** How the scientist describes each level after his scan. */

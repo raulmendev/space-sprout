@@ -1,4 +1,4 @@
-import type { HealthMeasurement, HealthMetric, MeasurementSource, RewardTransaction } from '../types/domain';
+import type { HealthMeasurement, HealthMetric, MeasurementSource, RewardTransaction, UserRole } from '../types/domain';
 
 /**
  * Health check-in rules shared by the web client and (later) the API.
@@ -119,6 +119,18 @@ export const METRICS: Record<HealthMetric, MetricDefinition> = {
     about: "Carbon dioxide in the cabin air, from the station's sensors. The scrubbers keep it in check.",
   },
 };
+
+/** The same readings told for someone at home on Earth, where the station's version doesn't fit. */
+const EARTH_ABOUT: Partial<Record<HealthMetric, string>> = {
+  SLEEP: 'Hours you slept last night. Your own pattern over the week tells you more than any single night.',
+  ACTIVITY: 'Minutes of exercise today: a brisk walk, a bike ride, sport or the gym.',
+  WATER: 'Litres you drank today, water and other drinks included.',
+};
+
+/** A metric's explanation, as told to this role. */
+export function aboutFor(metric: HealthMetric, role: UserRole = 'ASTRONAUT'): string {
+  return (role === 'FAMILY' ? EARTH_ABOUT[metric] : undefined) ?? METRICS[metric].about;
+}
 
 /** The medical terminal's daily checklist (and the wearable's sync). */
 export const METRIC_ORDER: readonly HealthMetric[] = ['HEART_RATE', 'SLEEP', 'ACTIVITY', 'MOOD', 'WATER', 'RADIATION'];

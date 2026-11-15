@@ -661,3 +661,40 @@ export const DECOR_ART: Record<string, { size: [number, number]; draw: () => HTM
     },
   },
 };
+
+/** The placeholder pot is drawn at this offset inside its 45x38 canvas; its front starts at LIP_BOTTOM. */
+const POT_OFFSET_Y = 6;
+const POT_LIP_BOTTOM = 17;
+
+/** An empty terracotta pot (45x38, until the design art loads). A potted plant stands in it. */
+export function potArt(): HTMLCanvasElement {
+  const [c, ctx] = makeCanvas(45, 38);
+  ctx.translate(6.5, POT_OFFSET_Y);
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.18)';
+  ctx.beginPath();
+  ctx.ellipse(16, 30, 10, 2.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#c96f4a';
+  ctx.beginPath();
+  ctx.moveTo(8, 17);
+  ctx.lineTo(24, 17);
+  ctx.lineTo(22, 30);
+  ctx.lineTo(10, 30);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#a8553a';
+  ctx.fillRect(6, 14, 20, 4);
+  ctx.fillStyle = '#e08b62';
+  ctx.fillRect(7, 14, 18, 1);
+  ctx.strokeStyle = '#6b3524';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(6.5, 14.5, 19, 3);
+  return c;
+}
+
+/** The pot's front (lip and body, without the opening), drawn over the plant so it sits inside the pot. */
+export function potFrontArt(): HTMLCanvasElement {
+  const c = potArt();
+  c.getContext('2d')!.clearRect(0, 0, 45, POT_OFFSET_Y + POT_LIP_BOTTOM);
+  return c;
+}

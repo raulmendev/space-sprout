@@ -1,8 +1,9 @@
 import { Component, ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
-import { GOALS, HABIT_REWARD, HealthMetric, METRICS, clampGoal, dayOf, goalTarget, isGoalMetric } from '@garden/shared';
+import { GOALS, HABIT_REWARD, HealthMetric, METRICS, aboutFor, clampGoal, dayOf, goalTarget, isGoalMetric } from '@garden/shared';
 import { HealthStore } from './health.store';
 import { TrendChartComponent } from './trend-chart.component';
 import { METRIC_ICON, SOURCE_LABEL, comparisonText, dayLabel, formatAmount, formatRange, formatValue } from './format';
+import { ROLE } from '../session/current-user';
 
 const WINDOWS = [7, 30] as const;
 
@@ -79,7 +80,7 @@ const WINDOWS = [7, 30] as const;
         }
       </ul>
     </section>
-    <p class="text-xs text-bark/80 short:hidden">{{ def().about }}</p>
+    <p class="text-xs text-bark/80 short:hidden">{{ about() }}</p>
   `,
   styles: `
     .card { padding: 10px 12px; }
@@ -132,6 +133,7 @@ export class MetricDetailComponent {
   private readonly backBtn = viewChild.required<ElementRef<HTMLButtonElement>>('backBtn');
 
   protected readonly def = computed(() => METRICS[this.metric()]);
+  protected readonly about = computed(() => aboutFor(this.metric(), ROLE));
   protected readonly s = computed(() => this.health.summary(this.metric(), this.days()));
   protected readonly goalMetric = computed(() => (isGoalMetric(this.metric()) ? this.metric() as keyof typeof GOALS : null));
   protected readonly goal = computed(() => {

@@ -5,6 +5,7 @@ import { AssetService } from '../shared/assets.service';
 import { MoodPickerComponent } from '../health/mood-picker.component';
 import { NPC_IDENTITY } from './npc-identity';
 import type { CrewAnswer } from './crew-reminders';
+import { ROLE } from '../session/current-user';
 
 @Component({
   selector: 'app-dialogue-bubble',
@@ -43,6 +44,7 @@ import type { CrewAnswer } from './crew-reminders';
             } @else {
               @let def = metrics[line.ask];
               <form
+                novalidate
                 class="mt-2 flex flex-wrap items-center gap-2"
                 (submit)="$event.preventDefault(); draft() !== '' && !error() && answer.emit({ speaker: line.speaker, metric: line.ask, value: +draft() })"
               >
@@ -107,8 +109,8 @@ export class DialogueBubbleComponent {
   protected readonly identity = NPC_IDENTITY;
   protected readonly metrics = METRICS;
   /** Answer buttons for scale questions other than mood (stress); null when it's typed in. */
-  protected choices = (m: HealthMetric) => (m === 'MOOD' || !choicesFor(m).length ? null : choicesFor(m));
-  protected canSayUnknown = (m: HealthMetric) => unknownRewardFor(m) !== null;
+  protected choices = (m: HealthMetric) => (m === 'MOOD' || !choicesFor(m, ROLE).length ? null : choicesFor(m, ROLE));
+  protected canSayUnknown = (m: HealthMetric) => unknownRewardFor(m, ROLE) !== null;
 
   /** Putting off a crew question gets a goodbye with a reminder; anything else just closes. */
   protected putOff(line: Line): void {
