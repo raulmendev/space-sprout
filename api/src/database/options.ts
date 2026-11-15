@@ -1,4 +1,7 @@
 import type { DataSourceOptions } from 'typeorm';
+import { HouseholdEntity } from '../members/household.entity';
+import { MemberEntity } from '../members/member.entity';
+import { SessionEntity } from '../session/session.entity';
 import { migrations } from './migrations';
 
 /** One set of connection options for the Nest app and the TypeORM CLI. */
@@ -7,7 +10,7 @@ export function dataSourceOptions(url: string): DataSourceOptions {
     type: 'postgres',
     url,
     // Listed explicitly: the API is bundled, so TypeORM can't glob for files.
-    entities: [],
+    entities: [HouseholdEntity, MemberEntity, SessionEntity],
     migrations,
     // The schema only changes through migrations.
     synchronize: false,

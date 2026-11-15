@@ -3,6 +3,7 @@ import { ROOMS, RoomId } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from './habitat.store';
 import { CURRENT_USER, IS_FAMILY } from '../session/current-user';
+import { stationKey } from '../session/member-session';
 
 /**
  * Slim overlay along the top of the screen: rooms, seeds, fullscreen and a small
@@ -68,6 +69,11 @@ import { CURRENT_USER, IS_FAMILY } from '../session/current-user';
               <input type="checkbox" class="accent-leaf-dark" [checked]="habitat.showLayout()" (change)="habitat.showLayout.set(!habitat.showLayout())" />
               Show layout
             </label>
+            @if (stationKey) {
+              <p class="flex items-baseline justify-between gap-2 rounded-md px-2 py-1.5" title="Give this key to family so they can join your station">
+                Station key <span class="select-all font-mono font-extrabold tracking-wider">{{ stationKey }}</span>
+              </p>
+            }
             <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); changePlayer.emit()">Change player</button>
             <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); reset.emit()">Reset demo</button>
           </div>
@@ -90,6 +96,8 @@ export class HudComponent {
   /** Who is playing (start menu profile, or the URL). */
   protected readonly me = CURRENT_USER;
   protected readonly meIcon = IS_FAMILY ? '🏡' : '🧑‍🚀';
+  /** This station's key, to give to family (none when playing from the dev shortcut). */
+  protected readonly stationKey = stationKey();
   private readonly host = inject(ElementRef<HTMLElement>);
   protected readonly isFullscreen = signal(false);
   /** iPhone Safari has no element fullscreen; there, "Add to Home Screen" gives full screen instead. */

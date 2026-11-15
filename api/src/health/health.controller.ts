@@ -1,7 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
+import { Public } from '../session/session.guard';
 import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
 
 @Controller('health')
+@Public()
 export class HealthController {
   constructor(
     private readonly health: HealthCheckService,

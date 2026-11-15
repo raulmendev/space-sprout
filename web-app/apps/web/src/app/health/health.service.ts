@@ -23,7 +23,7 @@ import {
   validateMeasurement,
 } from '@garden/shared';
 import { simulatedValue } from './simulated-wearable';
-import { CURRENT_USER, MY_METRICS, ROLE } from '../session/current-user';
+import { CURRENT_USER, MY_METRICS, ROLE, perMemberKey } from '../session/current-user';
 
 /** "I don't know" answers: nothing measured, but the crew stop asking for the day. */
 export interface UnknownAnswer {
@@ -59,8 +59,8 @@ const GARDEN_ID = 'garden-demo';
  */
 @Injectable({ providedIn: 'root' })
 export class HealthService {
-  // One record per player; the astronaut keeps the original key.
-  private static readonly KEY = ROLE === 'FAMILY' ? 'jardin-comunal:health:family:v1' : 'jardin-comunal:health:v1';
+  // One record per player.
+  private static readonly KEY = perMemberKey('health');
 
   async load(): Promise<HealthSnapshot> {
     try {

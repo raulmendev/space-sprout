@@ -1,7 +1,9 @@
 import { Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { AssetService } from '../shared/assets.service';
 import { suitPortraitKey } from '../garden/game/asset-registry';
-import { NAME_MAX, ROLE, SAVED_PROFILE, SUIT, SUITS, type PlayerProfile, type Suit, saveProfile } from './current-user';
+import { DISPLAY_NAME_MAX, SUITS, type Suit } from '@garden/shared';
+import { ROLE, SAVED_PROFILE, SUIT, saveProfile } from './current-user';
+import type { PlayerChoice } from './member-session';
 
 const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine' };
 
@@ -126,20 +128,25 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
                 class="field font-mono uppercase placeholder:font-sans placeholder:normal-case"
                 autocomplete="off"
                 spellcheck="false"
-                placeholder="Leave blank for now"
+                placeholder="Blank starts a new station"
                 aria-describedby="station-key-hint"
                 [value]="stationKey()"
                 (input)="stationKey.set($any($event.target).value)"
               />
               <span id="station-key-hint" class="flex items-center gap-1.5 text-xs text-bark">
                 <span class="grid size-4 shrink-0 place-items-center rounded-full bg-steel text-[0.65rem] font-black text-cream" aria-hidden="true">i</span>
-                Lets you join the same station as someone else (coming soon).
+                Got a key from family? Type it to join their station.
               </span>
             </label>
           </div>
         </div>
 
-        <button type="submit" class="chunky-btn btn-press start-btn">🚀 Start <span aria-hidden="true">›</span></button>
+        @if (error()) {
+          <p class="text-center text-sm font-bold text-alert" role="alert">{{ error() }}</p>
+        }
+        <button type="submit" class="chunky-btn btn-press start-btn" [disabled]="busy()" [attr.aria-busy]="busy()">
+          @if (busy()) { Boarding… } @else { 🚀 Start <span aria-hidden="true">›</span> }
+        </button>
       </form>
     </dialog>
   `,
@@ -276,7 +283,7 @@ export class StartMenuComponent {
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
 
   protected readonly suits = SUITS;
-  protected readonly nameMax = NAME_MAX;
+  protected readonly nameMax = DISPLAY_NAME_MAX;
   protected readonly roles = [
     { value: 'ASTRONAUT', label: 'Astronaut', icon: '🧑‍🚀' },
     { value: 'FAMILY', label: 'Family', icon: '🏡' },
@@ -284,9 +291,13 @@ export class StartMenuComponent {
 
   // Start from what this page is playing as, so "Change player" only changes what you touch.
   protected readonly name = signal(SAVED_PROFILE?.role === ROLE ? SAVED_PROFILE.name : '');
-  protected readonly role = signal<PlayerProfile['role']>(ROLE);
+  protected readonly role = signal<PlayerChoice['role']>(ROLE);
   protected readonly suit = signal<Suit>(SUIT);
   protected readonly stationKey = signal(SAVED_PROFILE?.stationKey ?? '');
+  /** Waiting for the station to answer Start. */
+  protected readonly busy = signal(false);
+  /** Why Start didn't go through (an unknown key, no connection). */
+  protected readonly error = signal('');
   /** Set once Start is pressed without a name; cleared as soon as one is typed. */
   private readonly triedStart = signal(false);
   protected readonly showNameError = computed(() => this.triedStart() && !this.name().trim());
@@ -409,13 +420,21 @@ export class StartMenuComponent {
     if (!this.canCancel()) e.preventDefault();
   }
 
-  protected start(): void {
+  protected async start(): Promise<void> {
     const name = this.name().trim();
     if (!name) {
       this.triedStart.set(true);
       this.nameInput().nativeElement.focus();
       return;
     }
-    saveProfile({ name, role: this.role(), suit: this.suit(), stationKey: this.stationKey() });
+    if (this.busy()) return;
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      await saveProfile({ name, role: this.role(), suit: this.suit(), stationKey: this.stationKey() });
+    } catch (e) {
+      this.error.set((e as Error).message);
+      this.busy.set(false);
+    }
   }
 }

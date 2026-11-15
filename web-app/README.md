@@ -10,7 +10,11 @@ npm install
 npm run dev:web        # http://localhost:4200
 ```
 
-Requires Node 20+ (tested on Node 24 / npm 11). No environment variables are needed yet.
+Requires Node 20+ (tested on Node 24 / npm 11).
+
+The start menu signs you in through the API, so run it too (`cd ../api && npm run start:dev`, see [`../api/README.md`](../api/README.md)). Its URL is `API_URL` in `apps/web/angular.json` (`define`), `http://localhost:3000/api` for now. The demo station's key is `GARDEN`.
+
+Without the API, dev builds still play from the URL as a demo member, with no session: `?user=astronaut` or `?user=family`, optionally with `&suit=green|black|wine`.
 
 ## Layout
 

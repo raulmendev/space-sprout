@@ -4,7 +4,6 @@ import { NOTE_RULES, POST_IT, owned, type SocialNote } from '@garden/shared';
 import { NotesStore } from './notes.store';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
-import { NOTE_COLORS } from '../garden/game/notice-board';
 import { timeAgo } from '../health/format';
 import { plural } from '../shared/format';
 
@@ -331,7 +330,7 @@ export class MessageBoardPanelComponent {
   }
 
   protected color(note: SocialNote): string {
-    return this.notes.fromAstronaut(note) ? NOTE_COLORS.astronaut : NOTE_COLORS.family;
+    return this.notes.color(note);
   }
 
   /** Esc closes the full-size note, then the text box, before it closes the board itself. */
