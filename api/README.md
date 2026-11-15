@@ -2,7 +2,7 @@
 
 NestJS 12 + TypeORM on Postgres ([Neon](https://neon.tech)). It runs the same game rules as the web app, from `@garden/shared` ([`../shared`](../shared)).
 
-So far: config, the database connection, migrations, a health check, the catalog, and **stations (households), members and sessions** behind the web app's start menu. The garden itself still lives in the browser; it moves here next.
+So far: config, the database connection, migrations, a health check, the catalog, **stations (households), members and sessions** behind the web app's start menu, **each station's shared garden** (seeds, inventory, plants, decorations, notes), changed only by commands, and a **live channel** that sends every change to the rest of the station as it happens. Health check-ins still live in the browser.
 
 ## Run it
 
@@ -30,6 +30,10 @@ Everything is under `/api`.
 | `GET /api/session` 🔒 | Who you are, your station's key and everyone in it: what the game loads at boot. |
 | `DELETE /api/session` 🔒 | Sign this device out. |
 | `PATCH /api/members/me` 🔒 | Change your `displayName`, `role`, `suit` or `color`. |
+| `GET /api/garden` 🔒 | The station's shared state (garden, seeds, inventory, purchases, decorations, notes), its `version` and the server's clock. The first visit plants the starting garden. |
+| `POST /api/garden/commands` 🔒 | `{ id, command }`: one change, e.g. `{ "type": "PLANT", "itemType": "lettuce", "x": 2, "y": 9 }`. The shared rules (`runCommand` in `@garden/shared`) decide; the answer is `{ ok, result \| error, version, state }`, always with the latest state. The station's row is locked while a command runs, and a repeated `id` gets the stored answer instead of running again. |
+
+**Live channel:** a WebSocket at `/api/live` (same port). The client's first message is `{ "type": "AUTH", "token": "…" }` (browsers can't set headers on a WebSocket, and a token in the URL would end up in logs); the server answers `READY`, or `DENIED` and closes with 4401. After every change to a station's garden, everyone connected to that station gets `{ "type": "GARDEN", version, state, serverTime, by, command }`: the whole state, so a missed message can't leave anyone behind (clients ignore versions older than what they show). Broadcasts live in memory, which is right for one API instance; running more would need a shared channel such as Redis. Message shapes: `shared/src/contracts/live.ts`.
 
 🔒 needs `Authorization: Bearer <token>`. The session guard is global: every new route needs a session unless it's marked `@Public()`. Tokens last 30 days and only their SHA-256 is stored. There is no password yet: anyone with a station key can join that station. Bodies are validated with Zod (`@Body({ schema })`, Nest's `StandardSchemaValidationPipe`).
 
@@ -60,3 +64,12 @@ npm run build
 npm run start:prod      # node dist/main.js
 npm run typecheck       # tsc only
 ```
+
+## Deploy (Railway)
+
+The API runs on Railway as the `api` service of the **astro-garden** project (production: `https://api-production-77840255.up.railway.app/api`), in `us-west2` next to the Neon database.
+
+- **Build:** `api/Dockerfile`, from the repo root (it compiles `../shared` into the bundle). `.dockerignore` keeps `web-app/`, `node_modules`, `dist` and `.env` files out of the image.
+- **Settings as code:** `.railway/railway.ts` (builder, Dockerfile path, health check on `/api/health`, region, which paths trigger a deploy). Preview with `railway config plan`, apply with `railway config apply` (run `npm install` in `.railway/` first).
+- **Variables live in Railway, not in the repo:** `DATABASE_URL` (Neon's pooled URL). Set `CORS_ORIGINS` to the web app's URL once it's deployed; until then only local origins can call the API from a browser. `PORT` is Railway's.
+- **Migrations** don't run on deploy. Run them from your machine as before (`npm run migration:run`, direct URL); local and production share the one Neon database for now.

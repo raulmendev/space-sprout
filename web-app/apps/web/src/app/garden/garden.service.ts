@@ -1,327 +1,106 @@
 import { Injectable } from '@angular/core';
 import {
-  Actor,
-  CareAction,
-  CareError,
-  DecorChange,
-  DecorError,
-  GardenObject,
-  PlacedDecor,
-  RoomId,
-  Inventory,
-  PlacementError,
-  PostNoteError,
-  SocialNote,
-  Purchase,
-  PurchaseError,
-  STARTER_INVENTORY,
-  applyCare,
-  canTakeDown,
-  careDay,
-  applyPurchase,
-  checkCare,
-  checkPostNote,
-  noteText,
-  consume,
-  FERTILIZER,
-  POST_IT,
-  getCatalogItem,
-  owned,
-  seedItemId,
-  validatePlacement,
-  placeDecor,
-  moveDecor,
-  putAwayDecor,
-  waterDecor,
-  potPlant,
-  PotError,
+  type Actor,
+  type CommandReply,
+  type CommandResult,
+  type GardenCommand,
+  type GardenError,
+  type GardenState,
+  type GardenView,
+  newGarden,
+  runCommand,
+  toActor,
 } from '@garden/shared';
-import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, asActor } from '../session/current-user';
+import { CURRENT_USER } from '../session/current-user';
+import { isOffline, onStation, stationCall } from '../session/member-session';
+import { loadJson, saveJson } from '../shared/storage';
 
-/** Garden coins earned per actor on one day, for the daily cap. */
-export type GardenEarnings = Record<string, { day: string; amount: number }>;
+/** Why a command didn't go through: the rules said no, or the station couldn't be reached. */
+export type GardenFailure = GardenError | 'OFFLINE';
 
-export interface GardenSnapshot {
-  gardenId: string;
-  balance: number;
-  objects: GardenObject[];
-  earnings?: GardenEarnings;
-  /** Shared household inventory (seed packets, fertilizer, decorations). */
-  inventory: Inventory;
-  /** Recent purchases, newest first. */
-  purchases: Purchase[];
-  /** Notes pinned on the message board from this device, until a server holds them. */
-  notes?: SocialNote[];
-  /** Decorations placed in the station (taken out of the inventory while they're up). */
-  decorations: PlacedDecor[];
+/** A command's answer. A refusal from the station still carries its latest state (and, from the server, its version). */
+export type GardenReply = { state?: GardenState; version?: number } & ({ ok: true; result: CommandResult } | { ok: false; error: GardenFailure });
+
+/** A garden as loaded: the server's carries its version, a local copy has none. */
+export interface LoadedGarden {
+  state: GardenState;
+  version?: number;
 }
 
-export type BuyResult =
-  | { ok: true; balance: number; inventory: Inventory; purchases: Purchase[] }
-  | { ok: false; error: PurchaseError };
-export type PostNoteResult = { ok: true; note: SocialNote; inventory: Inventory } | { ok: false; error: PostNoteError };
-
-export type PlaceResult =
-  | { ok: true; object: GardenObject; inventory: Inventory }
-  | { ok: false; error: PlacementError };
-
-export type PotResult = { ok: true; itemId: string; inventory: Inventory } | { ok: false; error: PotError };
-
-export type DecorResult =
-  | { ok: true; decorations: PlacedDecor[]; inventory: Inventory }
-  | { ok: false; error: DecorError };
-
-export type CareResult =
-  | { ok: true; object: GardenObject | null; balance: number; inventory: Inventory; earned: number; earnedToday: number }
-  | { ok: false; error: CareError | 'NOT_FOUND' };
+/** Who is playing on this page: everything they do is credited to them. */
+export const LOCAL_PLAYER: Actor = toActor(CURRENT_USER);
 
 /**
- * Who is playing on this page: the astronaut, or the family with `?user=family`
- * (see session/current-user.ts). Both act on the same shared garden.
- */
-export const LOCAL_PLAYER: Actor = asActor(CURRENT_USER);
-/** The demo garden's planters, whoever is playing. */
-const ASTRONAUT_DEMO: Actor = asActor(ASTRONAUT_USER);
-const FAMILY_DEMO: Actor = asActor(FAMILY_USER);
-
-export function earnedToday(earnings: GardenEarnings | undefined, actorId: string, now: number): number {
-  const e = earnings?.[actorId];
-  return e && e.day === careDay(now) ? e.amount : 0;
-}
-
-/**
- * Persistence gateway. Milestone 1: localStorage.
- * Phase 2 swaps this for an HTTP implementation with the same shape; the
- * server then becomes the authority for validation and balance.
+ * The station's shared garden. Signed in, it lives on the server: every change is a command
+ * the server checks with the shared rules. Otherwise (the dev `?user=` stand-in, or behind the
+ * start menu) a copy is kept on this device and the same rules run here.
  */
 @Injectable({ providedIn: 'root' })
 export class GardenService {
-  // Bump the version whenever seedGarden() changes, so saved demo gardens are replaced.
-  private static readonly KEY = 'jardin-comunal:garden:v8';
+  private static readonly LOCAL_KEY = 'jardin-comunal:garden:v9';
+  private readonly remote = onStation();
+  /** The station's clock minus this device's, from the last answer (growth and cooldowns run on the station's). */
+  private offsetMs = 0;
 
-  async load(): Promise<GardenSnapshot> {
-    try {
-      const raw = localStorage.getItem(GardenService.KEY);
-      if (raw) {
-        const snap = JSON.parse(raw) as GardenSnapshot;
-        // Gardens saved before the store existed start with the starter inventory.
-        snap.inventory ??= { ...STARTER_INVENTORY };
-        snap.purchases ??= [];
-        snap.decorations ??= [];
-        return snap;
-      }
-    } catch {
-      /* fall through to seed */
-    }
-    const seeded = seedGarden();
-    this.save(seeded);
-    return seeded;
+  /** Only the local copy can be reset (a station's garden is everyone's). */
+  readonly canReset = !this.remote;
+
+  /** Now, by the station's clock. */
+  now(): number {
+    return Date.now() + this.offsetMs;
   }
 
-  async placeObject(itemType: string, x: number, y: number, actor: Actor = LOCAL_PLAYER): Promise<PlaceResult> {
-    const snap = await this.load();
-    const packet = seedItemId(itemType);
-    const error = validatePlacement(itemType, x, y, snap.objects, owned(snap.inventory, packet));
-    if (error) return { ok: false, error };
-    const item = getCatalogItem(itemType)!;
-    const object: GardenObject = {
-      id: crypto.randomUUID(),
-      gardenId: snap.gardenId,
-      type: item.type,
-      itemType,
-      x,
-      y,
-      createdAt: new Date().toISOString(),
-      placedBy: actor.id,
-      placedByName: actor.name,
-    };
-    snap.objects.push(object);
-    snap.inventory = consume(snap.inventory, packet);
-    this.save(snap);
-    return { ok: true, object, inventory: snap.inventory };
+  async load(): Promise<LoadedGarden> {
+    if (!this.remote) return { state: this.localState() };
+    return this.timed(() => stationCall<GardenView>('/garden'));
   }
 
-  /** Buy one of a store item into the shared inventory. */
-  async buy(itemId: string, actor: Actor = LOCAL_PLAYER): Promise<BuyResult> {
-    const snap = await this.load();
-    const result = applyPurchase(snap, itemId, actor, new Date().toISOString());
-    if (!result.ok) return result;
-    this.commit(snap, result.state);
-    return { ok: true, ...result.state };
+  /** A live message carries the server's clock too. */
+  heardFrom(serverTime: string): void {
+    this.offsetMs = Date.parse(serverTime) - Date.now();
   }
 
-  /** Put a decoration from the inventory up in the station. */
-  async placeDecor(itemId: string, room: RoomId, x: number, y: number, actor: Actor = LOCAL_PLAYER): Promise<DecorResult> {
-    const snap = await this.load();
-    return this.commitDecor(snap, placeDecor(snap, itemId, room, x, y, actor, new Date().toISOString(), crypto.randomUUID()));
-  }
-
-  async moveDecor(decorId: string, x: number, y: number): Promise<DecorResult> {
-    const snap = await this.load();
-    return this.commitDecor(snap, moveDecor(snap, decorId, x, y));
-  }
-
-  /** Water a potted plant in the station. */
-  async waterDecor(decorId: string, actor: Actor = LOCAL_PLAYER): Promise<DecorResult> {
-    const snap = await this.load();
-    return this.commitDecor(snap, waterDecor(snap, decorId, actor, new Date().toISOString()));
-  }
-
-  /** Pot a grown plant: it leaves the garden and joins the inventory, using a clay pot. */
-  async potPlant(plantId: string): Promise<PotResult> {
-    const snap = await this.load();
-    const result = potPlant(snap, plantId, Date.now());
-    if (!result.ok) return result;
-    this.commit(snap, result.state);
-    return { ok: true, itemId: result.itemId, inventory: snap.inventory };
-  }
-
-  /** Take a decoration down; it goes back into the inventory. */
-  async putAwayDecor(decorId: string): Promise<DecorResult> {
-    const snap = await this.load();
-    return this.commitDecor(snap, putAwayDecor(snap, decorId));
-  }
-
-  private commitDecor(snap: GardenSnapshot, result: DecorChange): DecorResult {
-    if (!result.ok) return result;
-    this.commit(snap, result.state);
-    return { ok: true, ...result.state };
-  }
-
-  /** Apply a rule's new state to the snapshot and save it. */
-  private commit(snap: GardenSnapshot, state: Partial<GardenSnapshot>): void {
-    Object.assign(snap, state);
-    this.save(snap);
-  }
-
-  /** Add seeds to the balance (health check-in rewards). Returns the new balance. */
-  async credit(amount: number): Promise<number> {
-    const snap = await this.load();
-    snap.balance += Math.max(0, Math.floor(amount));
-    this.save(snap);
-    return snap.balance;
-  }
-
-  /** Pin a note: uses one post-it from the household inventory and stores the note in the same save. */
-  async postNote(content: string, actor: Actor = LOCAL_PLAYER): Promise<PostNoteResult> {
-    const snap = await this.load();
-    const error = checkPostNote(content, owned(snap.inventory, POST_IT));
-    if (error) return { ok: false, error };
-    const note: SocialNote = { id: crypto.randomUUID(), authorId: actor.id, content: noteText(content), createdAt: new Date().toISOString() };
-    snap.inventory = consume(snap.inventory, POST_IT);
-    snap.notes = [...(snap.notes ?? []), note];
-    this.save(snap);
-    return { ok: true, note, inventory: snap.inventory };
-  }
-
-  /** Take one of your own notes off the board (the post-it isn't refunded). */
-  async takeDownNote(noteId: string, actor: Actor = LOCAL_PLAYER): Promise<boolean> {
-    const snap = await this.load();
-    const note = snap.notes?.find((n) => n.id === noteId);
-    if (!note || !canTakeDown(note, actor.id)) return false;
-    snap.notes = snap.notes!.filter((n) => n.id !== noteId);
-    this.save(snap);
-    return true;
-  }
-
-  /** Water, fertilize, prune or harvest a plant. Harvest removes it and frees the plot (`object: null`). */
-  async care(plantId: string, action: CareAction, actor: Actor = LOCAL_PLAYER): Promise<CareResult> {
-    const snap = await this.load();
-    const idx = snap.objects.findIndex((o) => o.id === plantId);
-    if (idx < 0) return { ok: false, error: 'NOT_FOUND' };
-    const now = Date.now();
-    const already = earnedToday(snap.earnings, actor.id, now);
-    const check = checkCare(snap.objects[idx], action, now, { fertilizer: owned(snap.inventory, FERTILIZER), earnedToday: already });
-    if (!check.ok) return { ok: false, error: check.error! };
-
-    let object: GardenObject | null = null;
-    if (action === 'HARVEST') snap.objects.splice(idx, 1);
-    else snap.objects[idx] = object = applyCare(snap.objects[idx], action, now, actor);
-
-    snap.balance += check.reward;
-    if (check.uses) snap.inventory = consume(snap.inventory, check.uses);
-    const total = already + check.reward;
-    snap.earnings = { ...snap.earnings, [actor.id]: { day: careDay(now), amount: total } };
-    this.save(snap);
-    return { ok: true, object, balance: snap.balance, inventory: snap.inventory, earned: check.reward, earnedToday: total };
-  }
-
-  /** Demo helper: wipe local garden back to the seeded state. */
-  reset(): void {
-    try {
-      localStorage.removeItem(GardenService.KEY);
-    } catch {
-      /* ignore */
-    }
-  }
-
-  private save(snap: GardenSnapshot): void {
-    try {
-      localStorage.setItem(GardenService.KEY, JSON.stringify(snap));
-    } catch {
-      /* storage unavailable: state stays in memory for this session */
-    }
-  }
-}
-
-function seedGarden(): GardenSnapshot {
-  const gardenId = 'garden-demo';
-  const ago = (sec: number) => new Date(Date.now() - sec * 1000).toISOString();
-  const longAgo = ago(24 * 3600);
-  const hourAgo = ago(3600);
   /**
-   * `wateredBy` set: watered an hour ago (wet soil). Omitted: thirsty (dry soil).
-   * `prunedBy` set too: every need met, so the plant shines.
+   * Ask the station to do something. The id is made once, so the retry after a dropped
+   * connection can't do it twice: the station answers a repeated id from its records.
    */
-  const mk = (itemType: string, x: number, y: number, by: Actor, wateredBy?: Actor, prunedBy?: Actor): GardenObject => ({
-    id: crypto.randomUUID(),
-    gardenId,
-    type: 'PLANT',
-    itemType,
-    x,
-    y,
-    createdAt: longAgo,
-    placedBy: by.id,
-    placedByName: by.name,
-    ...(wateredBy && {
-      care: {
-        boostMs: 0,
-        lastWateredAt: hourAgo,
-        ...(prunedBy && { lastPrunedAt: hourAgo }),
-        log: [
-          ...(prunedBy ? [{ action: 'PRUNE' as const, by: prunedBy.id, byName: prunedBy.name, at: hourAgo }] : []),
-          { action: 'WATER' as const, by: wateredBy.id, byName: wateredBy.name, at: hourAgo },
-        ],
-      },
-    }),
-  });
-  return {
-    gardenId,
-    balance: 20,
-    inventory: { ...STARTER_INVENTORY },
-    purchases: [],
-    decorations: [],
-    // Every species with delivered art, fully grown, plus one rose bush per growth stage.
-    objects: [
-      // Top field
-      mk('lily', 2, 5, ASTRONAUT_DEMO, FAMILY_DEMO),
-      mk('rose', 5, 5, FAMILY_DEMO, ASTRONAUT_DEMO),
-      mk('pitcher', 8, 5, ASTRONAUT_DEMO, FAMILY_DEMO, FAMILY_DEMO),
-      mk('lettuce', 15, 5, FAMILY_DEMO),
-      mk('fern', 18, 5, ASTRONAUT_DEMO, ASTRONAUT_DEMO),
-      mk('nopal', 21, 5, FAMILY_DEMO, FAMILY_DEMO),
-      // Bottom field
-      mk('cempasuchil', 2, 11, FAMILY_DEMO, ASTRONAUT_DEMO),
-      mk('yellowflower', 5, 11, ASTRONAUT_DEMO, FAMILY_DEMO, ASTRONAUT_DEMO),
-      mk('mustard', 8, 11, FAMILY_DEMO),
-      mk('monstera', 5, 13, ASTRONAUT_DEMO, FAMILY_DEMO, FAMILY_DEMO),
-      mk('tulip', 8, 13, FAMILY_DEMO, ASTRONAUT_DEMO),
-      // Rose bushes planted 0s, 45s, 95s and 160s ago: one per growth stage. They keep growing,
-      // so all four bloom within a few minutes.
-      ...[0, 45, 95, 160].map((sec, i) => ({
-        ...mk('rose', 14 + 2 * i, 12, ASTRONAUT_DEMO, ASTRONAUT_DEMO),
-        createdAt: ago(sec),
-      })),
-    ],
-  };
+  async run(command: GardenCommand): Promise<GardenReply> {
+    if (!this.remote) return this.runLocally(command);
+    const body = JSON.stringify({ id: crypto.randomUUID(), command });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await this.timed(() => stationCall<CommandReply>('/garden/commands', { method: 'POST', body }));
+      } catch (e) {
+        if (!isOffline(e)) throw e;
+      }
+    }
+    return { ok: false, error: 'OFFLINE' };
+  }
+
+  /** Demo: plant the starting garden again (the local copy only). */
+  resetLocal(): void {
+    saveJson(GardenService.LOCAL_KEY, null);
+  }
+
+  /** Every answer carries the server's clock: keep our offset from it current (taken at the round trip's middle). */
+  private async timed<T extends { serverTime: string }>(request: () => Promise<T>): Promise<T> {
+    const sent = Date.now();
+    const reply = await request();
+    this.offsetMs = Date.parse(reply.serverTime) - (sent + Date.now()) / 2;
+    return reply;
+  }
+
+  private runLocally(command: GardenCommand): GardenReply {
+    const outcome = runCommand(this.localState(), command, LOCAL_PLAYER, Date.now(), () => crypto.randomUUID());
+    if (outcome.ok) saveJson(GardenService.LOCAL_KEY, outcome.state);
+    return outcome;
+  }
+
+  private localState(): GardenState {
+    const saved = loadJson<GardenState | null>(GardenService.LOCAL_KEY, null);
+    if (saved) return saved;
+    const fresh = newGarden('garden-demo', LOCAL_PLAYER, Date.now(), () => crypto.randomUUID());
+    saveJson(GardenService.LOCAL_KEY, fresh);
+    return fresh;
+  }
 }

@@ -6,6 +6,7 @@ import {
   HabitBonus,
   HealthMeasurement,
   HealthMetric,
+  MeasurementProvider,
   MeasurementSource,
   MetricSummary,
   NewMeasurement,
@@ -21,6 +22,7 @@ import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
 import { HealthService, UnknownAnswer } from './health.service';
 import { SimulatedWearable, WEARABLE_METRICS } from './simulated-wearable';
+import { HAS_HEALTH_CONNECT, HealthConnectWearable, WearableSyncError } from './health-connect-wearable';
 import { MY_METRICS } from '../session/current-user';
 
 export interface CheckInResult {
@@ -48,8 +50,10 @@ export class HealthStore {
   private readonly garden = inject(GardenStore);
   private readonly habitat = inject(HabitatStore);
 
-  /** Swap for a real device provider later; the rest of the flow stays the same. */
-  readonly wearable = new SimulatedWearable();
+  /** The phone's Health Connect in the Android app; a simulated wearable on the web. */
+  readonly wearable: MeasurementProvider = HAS_HEALTH_CONNECT ? new HealthConnectWearable() : new SimulatedWearable();
+  /** Why the last sync didn't run (no permission, no data…); cleared by the next try. */
+  readonly syncError = signal<string | null>(null);
 
   readonly measurements = signal<HealthMeasurement[]>([]);
   /** "I don't know" answers given to the crew. */
@@ -139,11 +143,16 @@ export class HealthStore {
   async syncWearable(): Promise<void> {
     if (this.syncing()) return;
     this.syncing.set(true);
+    this.syncError.set(null);
     this.setTerminal('syncing');
     try {
       const readings = await this.wearable.read();
       await this.save(readings);
       this.lastSyncAt.set(new Date().toISOString());
+    } catch (e) {
+      this.setTerminal('idle');
+      this.syncError.set(e instanceof WearableSyncError ? e.message : "Couldn't sync. Try again in a moment.");
+      if (!(e instanceof WearableSyncError)) console.error('Wearable sync failed', e);
     } finally {
       this.syncing.set(false);
     }

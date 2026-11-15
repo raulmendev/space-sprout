@@ -12,7 +12,8 @@ import { HabitatStore } from './habitat.store';
  */
 @Component({
   selector: 'app-action-button',
-  host: { class: 'flex flex-col items-center gap-1.5 select-none' },
+  // Fixed width (the label's max): a longer or shorter label must not shift the button.
+  host: { class: 'flex w-[8.5rem] flex-col items-center gap-1.5 select-none [@media(max-height:420px)]:w-[7rem]' },
   template: `
     <span
       class="max-w-[8.5rem] rounded-md px-2 py-0.5 text-center text-xs font-bold leading-tight [@media(max-height:420px)]:max-w-[7rem] [@media(max-height:420px)]:text-[10px]"

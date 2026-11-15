@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Jardín Comunal</string>
+    <string name="title_activity_main">Jardín Comunal</string>
+    <string name="package_name">com.astrogarden.jardincomunal</string>
+    <string name="custom_url_scheme">com.astrogarden.jardincomunal</string>
+</resources>

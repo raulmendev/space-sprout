@@ -1,4 +1,5 @@
 import { Component, ElementRef, Injector, afterNextRender, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { failureText } from '../garden/failure-text';
 import { NgTemplateOutlet } from '@angular/common';
 import { NOTE_RULES, POST_IT, owned, type SocialNote } from '@garden/shared';
 import { NotesStore } from './notes.store';
@@ -345,10 +346,10 @@ export class MessageBoardPanelComponent {
   protected async pin(): Promise<void> {
     if (!this.draft().trim() || this.busy()) return;
     this.busy.set(true);
-    const pinned = await this.notes.post(this.draft());
+    const failed = await this.notes.post(this.draft());
     this.busy.set(false);
-    if (!pinned) {
-      this.message.set('You need a post-it to pin this note.');
+    if (failed) {
+      this.message.set(failureText({ OUT_OF_POST_ITS: 'You need a post-it to pin this note.', EMPTY_NOTE: 'Write something first.' }, failed));
       return;
     }
     this.message.set(`Pinned! ${this.postItsLabel()} left.`);
@@ -378,7 +379,8 @@ export class MessageBoardPanelComponent {
       this.confirmTimer = setTimeout(() => this.confirmTakeDown.set(false), CONFIRM_MS);
       return;
     }
-    if (await this.notes.takeDown(note)) this.message.set('Note taken down.');
+    const failed = await this.notes.takeDown(note);
+    this.message.set(failed ? failureText({ NOT_YOURS: 'Only whoever pinned it can take it down.' }, failed) : 'Note taken down.');
     this.closeReader();
   }
 

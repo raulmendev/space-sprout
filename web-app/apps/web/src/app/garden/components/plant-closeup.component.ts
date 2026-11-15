@@ -1,4 +1,5 @@
 import { Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { CARE_PAST } from '../care-labels';
 import { seeds, whoDid } from '../../shared/format';
 import { plantStages, type CareAction, type CareCheck, type CareEvent, type PlantStage } from '@garden/shared';
 import type { CloseupInfo } from '../garden.store';
@@ -16,7 +17,6 @@ const ACTIONS: { id: CareAction; label: string; icon: string; spot: 'tl' | 'tr' 
   { id: 'FERTILIZE', label: 'Fertilize', icon: '✨', spot: 'bl' },
   { id: 'HARVEST', label: 'Harvest', icon: '🧺', spot: 'br' },
 ];
-const PAST: Record<CareAction, string> = { WATER: 'Watered', FERTILIZE: 'Fertilized', PRUNE: 'Pruned', HARVEST: 'Harvested' };
 const BLOCKED: Record<string, string> = {
   ALREADY_MATURE: 'Complete',
   TOO_YOUNG: 'Too young',
@@ -443,7 +443,7 @@ export class PlantCloseupComponent {
   protected readonly recent = computed(() => this.info().log.slice(0, 3));
 
   protected past(e: CareEvent): string {
-    return PAST[e.action];
+    return CARE_PAST[e.action];
   }
 
   protected who(id: string | undefined, name: string | undefined): string {

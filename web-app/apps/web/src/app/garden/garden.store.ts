@@ -5,15 +5,12 @@ import {
   CATALOG,
   CareAction,
   FERTILIZER,
+  type GardenCommand,
+  type GardenState,
+  earnedToday,
   GARDEN_ROOM,
   GardenObject,
-  Inventory,
-  SocialNote,
-  PlacementError,
-  PlacedDecor,
   RoomId,
-  Purchase,
-  PurchaseError,
   getStoreItem,
   owned,
   seedItemId,
@@ -32,37 +29,50 @@ import {
 } from '@garden/shared';
 import { timeAgo } from '../health/format';
 import { whoDid } from '../shared/format';
-import { CareResult, DecorResult, GardenService, LOCAL_PLAYER, PostNoteResult, PotResult, earnedToday } from './garden.service';
+import { type GardenFailure, type GardenReply, GardenService, LOCAL_PLAYER } from './garden.service';
+import { type GardenNews, LiveChannel } from './live-channel';
+import { describeNews } from './live-news';
 import type { TileCoord } from './game/tile-manager';
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export type CloseupInfo = NonNullable<ReturnType<GardenStore['closeup']>>;
-export type PlantOutcome = { ok: true; object: GardenObject } | { ok: false; error: PlacementError };
+/** How a garden action went: what it made, or why not (see failureText). */
+export type Outcome<T = object> = ({ ok: true } & T) | { ok: false; error: GardenFailure };
+export type PlantOutcome = Outcome<{ object: GardenObject }>;
 
 /** Garden domain state: plants, balance, the shared inventory, growth clock. */
 @Injectable({ providedIn: 'root' })
 export class GardenStore {
   private readonly service = inject(GardenService);
+  private readonly live = inject(LiveChannel);
+  /** The version of the state shown (server gardens only): anything older that arrives late is ignored. */
+  private version = -1;
+  /** The live channel dropped and is being retried (shown in the HUD). */
+  readonly reconnecting = this.live.reconnecting;
+  /** The latest thing someone else in the station did, e.g. "Mom watered the mustard." */
+  readonly news = signal<{ text: string } | null>(null);
 
   readonly catalog = CATALOG;
-  readonly objects = signal<GardenObject[]>([]);
-  readonly balance = signal(0);
+  /** The station's shared state as last heard (empty until it loads). Everything below reads from it. */
+  private readonly state = signal<GardenState | null>(null);
+  readonly objects = computed(() => this.state()?.objects ?? []);
+  readonly balance = computed(() => this.state()?.balance ?? 0);
   /** Shared household inventory: seed packets, fertilizer, decorations. */
-  readonly inventory = signal<Inventory>({});
+  readonly inventory = computed(() => this.state()?.inventory ?? {});
   /** Recent store purchases (anyone in the household), newest first. */
-  readonly purchases = signal<Purchase[]>([]);
-  /** Notes pinned from this device (see NotesStore for the whole board). */
-  readonly notes = signal<SocialNote[]>([]);
+  readonly purchases = computed(() => this.state()?.purchases ?? []);
+  /** Notes pinned on the board (NotesStore adds the demo notes). */
+  readonly notes = computed(() => this.state()?.notes ?? []);
   /** Decorations up in the station (anyone in the household placed them). */
-  readonly decorations = signal<PlacedDecor[]>([]);
+  readonly decorations = computed(() => this.state()?.decorations ?? []);
   /** The purchases as one line: "You: Fertilizer (2 min ago) · Family: Photo frame (1 h ago)". */
   readonly recentPurchases = computed(() =>
     this.purchases()
       .map((p) => `${capitalise(whoDid(p.by, p.byName, LOCAL_PLAYER.id))}: ${getStoreItem(p.itemId)?.name ?? p.itemId} (${timeAgo(p.at)})`)
       .join(' · '),
   );
-  /** Clock used for timestamp-based growth. */
+  /** Clock used for timestamp-based growth: the station's. */
   readonly now = signal(Date.now());
 
   /** Plant shown in the close-up view, if any. */
@@ -98,52 +108,76 @@ export class GardenStore {
     };
   });
 
-  /** Garden coins the local player has earned today (capped daily). */
-  readonly earnedToday = signal(0);
+  /** Garden coins the local player has earned today (capped daily, per UTC day). */
+  readonly earnedToday = computed(() => {
+    const state = this.state();
+    return state ? earnedToday(state, LOCAL_PLAYER.id, this.now()) : 0;
+  });
+  /** Only a local garden can be reset (a station's is everyone's). */
+  readonly canReset = this.service.canReset;
 
   constructor() {
-    setInterval(() => this.now.set(Date.now()), 1000);
+    setInterval(() => this.now.set(this.service.now()), 1000);
+    // Coming back to the tab: catch up with what the rest of the station did meanwhile (a phone's socket
+    // can die quietly while asleep). When the live channel is already reconnecting, its catch-up covers it.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && !this.reconnecting()) void this.reload().catch(() => {});
+    });
   }
 
+  /** First load; from then on, hear the rest of the station as it happens. */
   async init(): Promise<void> {
-    const snap = await this.service.load();
-    this.objects.set(snap.objects);
-    this.balance.set(snap.balance);
-    this.inventory.set(snap.inventory);
-    this.purchases.set(snap.purchases);
-    this.notes.set(snap.notes ?? []);
-    this.decorations.set(snap.decorations);
-    this.earnedToday.set(earnedToday(snap.earnings, LOCAL_PLAYER.id, Date.now()));
+    await this.reload();
+    this.live.start({ garden: (news) => this.heard(news), caughtUp: () => void this.reload().catch(() => {}) });
   }
 
-  async postNote(content: string): Promise<PostNoteResult> {
-    const result = await this.service.postNote(content);
-    if (result.ok) {
-      this.inventory.set(result.inventory);
-      this.notes.update((list) => [...list, result.note]);
+  async reload(): Promise<void> {
+    const { state, version } = await this.service.load();
+    this.apply(state, version);
+  }
+
+  /** Someone changed the garden (maybe us, on another device). Their news is told only if it's new to us. */
+  private heard(news: GardenNews): void {
+    const before = { objects: this.objects(), decorations: this.decorations() };
+    this.service.heardFrom(news.serverTime);
+    if (this.apply(news.state, news.version) && news.by.id !== LOCAL_PLAYER.id) {
+      this.news.set({ text: describeNews(news, before.objects, before.decorations) });
     }
-    return result;
   }
 
-  async takeDownNote(noteId: string): Promise<boolean> {
-    const ok = await this.service.takeDownNote(noteId);
-    if (ok) this.notes.update((list) => list.filter((n) => n.id !== noteId));
-    return ok;
+  /**
+   * Show the station's state as it now stands (after any change, ours or anyone's). A server state
+   * is skipped unless it's newer than the one shown (our own change comes back as a broadcast too).
+   */
+  private apply(state: GardenState, version?: number): boolean {
+    if (version !== undefined) {
+      if (version <= this.version) return false;
+      this.version = version;
+    }
+    this.state.set(state);
+    this.now.set(this.service.now());
+    if (this.closeupId() && !state.objects.some((o) => o.id === this.closeupId())) this.closeupId.set(null);
+    return true;
   }
 
-  async care(plantId: string, action: CareAction): Promise<CareResult> {
-    const result = await this.service.care(plantId, action);
-    if (!result.ok) return result;
-    const updated = result.object;
-    this.objects.update((list) =>
-      updated ? list.map((o) => (o.id === plantId ? updated : o)) : list.filter((o) => o.id !== plantId),
-    );
-    this.balance.set(result.balance);
-    this.inventory.set(result.inventory);
-    this.earnedToday.set(result.earnedToday);
-    this.now.set(Date.now());
-    if (!updated) this.closeupId.set(null);
-    return result;
+  /** Ask the station; show its latest state whatever it answered. */
+  private async send(command: GardenCommand): Promise<GardenReply> {
+    const reply = await this.service.run(command);
+    if (reply.state) this.apply(reply.state, reply.version);
+    return reply;
+  }
+
+  postNote(content: string): Promise<Outcome> {
+    return this.send({ type: 'POST_NOTE', content });
+  }
+
+  takeDownNote(noteId: string): Promise<Outcome> {
+    return this.send({ type: 'TAKE_DOWN_NOTE', noteId });
+  }
+
+  async care(plantId: string, action: CareAction): Promise<Outcome<{ earned: number }>> {
+    const reply = await this.send({ type: 'CARE', plantId, action });
+    return reply.ok ? { ok: true, earned: reply.result.earned ?? 0 } : reply;
   }
 
   plantAt(tile: TileCoord): GardenObject | undefined {
@@ -162,67 +196,49 @@ export class GardenStore {
   async plant(itemType: string, tile: TileCoord): Promise<PlantOutcome> {
     const spot = this.placementFor(itemType, tile);
     if (!spot.ok) return spot;
-    const result = await this.service.placeObject(itemType, spot.x, spot.y);
-    if (!result.ok) return result;
-    this.objects.update((list) => [...list, result.object]);
-    this.inventory.set(result.inventory);
-    return { ok: true, object: result.object };
+    const reply = await this.send({ type: 'PLANT', itemType, x: spot.x, y: spot.y });
+    return reply.ok ? { ok: true, object: reply.result.object! } : reply;
   }
 
-  /** Buy one of a store item into the shared inventory. */
-  async buy(itemId: string): Promise<PurchaseError | null> {
-    const result = await this.service.buy(itemId);
-    if (!result.ok) return result.error;
-    this.balance.set(result.balance);
-    this.inventory.set(result.inventory);
-    this.purchases.set(result.purchases);
-    return null;
+  /** Buy one of a store item into the shared inventory. Null when bought. */
+  async buy(itemId: string): Promise<GardenFailure | null> {
+    const reply = await this.send({ type: 'BUY', itemId });
+    return reply.ok ? null : reply.error;
   }
 
-  placeDecor(itemId: string, room: RoomId, tile: TileCoord): Promise<DecorResult> {
-    return this.applyDecor(this.service.placeDecor(itemId, room, tile.x, tile.y));
+  placeDecor(itemId: string, room: RoomId, tile: TileCoord): Promise<Outcome> {
+    return this.send({ type: 'PLACE_DECOR', itemId, room, x: tile.x, y: tile.y });
   }
 
-  moveDecor(decorId: string, tile: TileCoord): Promise<DecorResult> {
-    return this.applyDecor(this.service.moveDecor(decorId, tile.x, tile.y));
+  moveDecor(decorId: string, tile: TileCoord): Promise<Outcome> {
+    return this.send({ type: 'MOVE_DECOR', decorId, x: tile.x, y: tile.y });
   }
 
-  waterDecor(decorId: string): Promise<DecorResult> {
-    return this.applyDecor(this.service.waterDecor(decorId));
+  waterDecor(decorId: string): Promise<Outcome> {
+    return this.send({ type: 'WATER_DECOR', decorId });
   }
 
   /** Pot a grown plant (it moves from the garden into the inventory). */
-  async potPlant(plantId: string): Promise<PotResult> {
-    const result = await this.service.potPlant(plantId);
-    if (!result.ok) return result;
-    this.objects.update((list) => list.filter((o) => o.id !== plantId));
-    this.inventory.set(result.inventory);
-    if (this.closeupId() === plantId) this.closeupId.set(null);
-    return result;
+  async potPlant(plantId: string): Promise<Outcome<{ itemId: string }>> {
+    const reply = await this.send({ type: 'POT', plantId });
+    return reply.ok ? { ok: true, itemId: reply.result.itemId! } : reply;
   }
 
-  putAwayDecor(decorId: string): Promise<DecorResult> {
-    return this.applyDecor(this.service.putAwayDecor(decorId));
-  }
-
-  private async applyDecor(pending: Promise<DecorResult>): Promise<DecorResult> {
-    const result = await pending;
-    if (result.ok) {
-      this.decorations.set(result.decorations);
-      this.inventory.set(result.inventory);
-    }
-    return result;
+  putAwayDecor(decorId: string): Promise<Outcome> {
+    return this.send({ type: 'PUT_AWAY_DECOR', decorId });
   }
 
   /** Credit seeds earned elsewhere (health check-ins). */
   async credit(amount: number): Promise<void> {
-    if (amount > 0) this.balance.set(await this.service.credit(amount));
+    if (amount > 0) await this.send({ type: 'CREDIT', amount });
   }
 
+  /** Demo: plant the starting garden again (a local garden only; see canReset). */
   async resetDemo(): Promise<void> {
-    this.service.reset();
+    if (!this.canReset) return;
+    this.service.resetLocal();
     this.pickerTile.set(null);
     this.closeupId.set(null);
-    await this.init();
+    await this.reload();
   }
 }
