@@ -75,7 +75,8 @@ export function earnedToday(earnings: GardenEarnings | undefined, actorId: strin
  */
 @Injectable({ providedIn: 'root' })
 export class GardenService {
-  private static readonly KEY = 'jardin-comunal:garden:v4';
+  // Bump the version whenever seedGarden() changes, so saved demo gardens are replaced.
+  private static readonly KEY = 'jardin-comunal:garden:v8';
 
   async load(): Promise<GardenSnapshot> {
     try {
@@ -200,8 +201,9 @@ export class GardenService {
 
 function seedGarden(): GardenSnapshot {
   const gardenId = 'garden-demo';
-  const longAgo = new Date(Date.now() - 24 * 3600_000).toISOString();
-  const hourAgo = new Date(Date.now() - 3600_000).toISOString();
+  const ago = (sec: number) => new Date(Date.now() - sec * 1000).toISOString();
+  const longAgo = ago(24 * 3600);
+  const hourAgo = ago(3600);
   /**
    * `wateredBy` set: watered an hour ago (wet soil). Omitted: thirsty (dry soil).
    * `prunedBy` set too: every need met, so the plant shines.
@@ -233,11 +235,27 @@ function seedGarden(): GardenSnapshot {
     balance: 20,
     inventory: { ...STARTER_INVENTORY },
     purchases: [],
+    // Every species with delivered art, fully grown, plus one rose bush per growth stage.
     objects: [
-      mk('tree', 3, 3, LOCAL_PLAYER, FAMILY_DEMO, FAMILY_DEMO),
-      mk('flower', 7, 5, FAMILY_DEMO),
-      mk('sunflower', 15, 4, FAMILY_DEMO, LOCAL_PLAYER),
-      mk('flower', 19, 11, LOCAL_PLAYER, FAMILY_DEMO),
+      // Top field
+      mk('lily', 2, 5, LOCAL_PLAYER, FAMILY_DEMO),
+      mk('rose', 5, 5, FAMILY_DEMO, LOCAL_PLAYER),
+      mk('pitcher', 8, 5, LOCAL_PLAYER, FAMILY_DEMO, FAMILY_DEMO),
+      mk('lettuce', 15, 5, FAMILY_DEMO),
+      mk('fern', 18, 5, LOCAL_PLAYER, LOCAL_PLAYER),
+      mk('nopal', 21, 5, FAMILY_DEMO, FAMILY_DEMO),
+      // Bottom field
+      mk('cempasuchil', 2, 11, FAMILY_DEMO, LOCAL_PLAYER),
+      mk('yellowflower', 5, 11, LOCAL_PLAYER, FAMILY_DEMO, LOCAL_PLAYER),
+      mk('mustard', 8, 11, FAMILY_DEMO),
+      mk('monstera', 5, 13, LOCAL_PLAYER, FAMILY_DEMO, FAMILY_DEMO),
+      mk('tulip', 8, 13, FAMILY_DEMO, LOCAL_PLAYER),
+      // Rose bushes planted 0s, 45s, 95s and 160s ago: one per growth stage. They keep growing,
+      // so all four bloom within a few minutes.
+      ...[0, 45, 95, 160].map((sec, i) => ({
+        ...mk('rose', 14 + 2 * i, 12, LOCAL_PLAYER, LOCAL_PLAYER),
+        createdAt: ago(sec),
+      })),
     ],
   };
 }

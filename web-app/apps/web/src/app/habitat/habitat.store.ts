@@ -39,8 +39,8 @@ import type { HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from 
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
 
-/** A panel is identified by the station interaction that opens it. */
-export type HabitatPanel = PropInteraction;
+/** A popup: a station's (opened from its prop), or one opened from the top bar (the inventory). */
+export type HabitatPanel = PropInteraction | 'INVENTORY';
 
 /** Something the player can use from where they stand. */
 export interface Reachable {
@@ -237,7 +237,7 @@ export class HabitatStore {
    * Go to a station from inside another panel: close it, walk over (as tapping the station in
    * the room does) and open it, on `tab` if given.
    */
-  visit(panel: HabitatPanel, tab?: string): void {
+  visit(panel: PropInteraction, tab?: string): void {
     const target: HabitatInteraction = { type: panel };
     this.openPanel.set(null);
     this.panelTab.set(tab ?? null);

@@ -1,12 +1,10 @@
 import { Component, DestroyRef, computed, inject, signal, untracked } from '@angular/core';
-import { STORE_ITEMS, STORE_SECTIONS, StoreItem, StoreSection, getStoreItem, owned } from '@garden/shared';
+import { STORE_ITEMS, STORE_SECTIONS, StoreItem, StoreSection, owned } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
-import { LOCAL_PLAYER } from '../garden/garden.service';
 import { AssetService } from '../shared/assets.service';
 import { moreSeeds, seeds } from '../shared/format';
 import { previewTextureKey } from '../garden/game/asset-registry';
-import { timeAgo } from '../health/format';
 
 /**
  * "Purchasing…" lasts at least this long (ms). A local purchase finishes instantly, so without it
@@ -48,8 +46,8 @@ function boughtText(item: StoreItem): string {
       <p class="min-w-0 flex-1 truncate text-sm" role="status" [class.text-alert]="feedback() && !feedback()!.itemId" [class.font-bold]="!!feedback()">
         @if (feedback(); as f) {
           {{ f.itemId ? '✓ ' : '' }}{{ f.text }}
-        } @else if (recent()) {
-          <span class="text-bark/70">Recently: {{ recent() }}</span>
+        } @else if (garden.recentPurchases()) {
+          <span class="text-bark/70">Recently: {{ garden.recentPurchases() }}</span>
         } @else {
           <span class="text-bark/70">Earn more with check-ins at the Medical Terminal.</span>
         }
@@ -176,13 +174,6 @@ export class StorePanelComponent {
   protected readonly items = computed(() => STORE_ITEMS.filter((i) => i.section === this.section()));
   protected readonly sectionTitle = computed(() => STORE_SECTIONS.find((s) => s.id === this.section())!.title);
 
-  /** Recent purchases by anyone in the household: "You: Fertilizer (2 min ago) · Family: Photo frame (1 h ago)". */
-  protected readonly recent = computed(() =>
-    this.garden
-      .purchases()
-      .map((p) => `${p.by === LOCAL_PLAYER.id ? 'You' : p.byName}: ${getStoreItem(p.itemId)?.name ?? p.itemId} (${timeAgo(p.at)})`)
-      .join(' · '),
-  );
 
   constructor() {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.feedbackTimer));

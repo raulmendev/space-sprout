@@ -11,6 +11,7 @@ import {
   PlacementError,
   Purchase,
   PurchaseError,
+  getStoreItem,
   owned,
   seedItemId,
   findPlacement,
@@ -26,6 +27,7 @@ import {
   objectAtTile,
   propAtTile,
 } from '@garden/shared';
+import { timeAgo } from '../health/format';
 import { CareResult, GardenService, LOCAL_PLAYER, PostNoteResult, earnedToday } from './garden.service';
 import type { TileCoord } from './game/tile-manager';
 
@@ -46,6 +48,12 @@ export class GardenStore {
   readonly purchases = signal<Purchase[]>([]);
   /** Notes pinned from this device (see NotesStore for the whole board). */
   readonly notes = signal<SocialNote[]>([]);
+  /** The purchases as one line: "You: Fertilizer (2 min ago) · Family: Photo frame (1 h ago)". */
+  readonly recentPurchases = computed(() =>
+    this.purchases()
+      .map((p) => `${p.by === LOCAL_PLAYER.id ? 'You' : p.byName}: ${getStoreItem(p.itemId)?.name ?? p.itemId} (${timeAgo(p.at)})`)
+      .join(' · '),
+  );
   /** Clock used for timestamp-based growth. */
   readonly now = signal(Date.now());
 

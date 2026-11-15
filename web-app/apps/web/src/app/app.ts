@@ -78,7 +78,10 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 
       <!-- Overlays pinned to the screen edges (in the margins when there are any). -->
       <app-hud class="absolute inset-x-2 top-2 z-30" (reset)="reset()" />
-      <app-tile-info class="absolute left-2 top-14 z-20 max-w-[min(18rem,calc(100%-1rem))]" />
+      <!-- The picker already says what this plot is for; don't let the card cover it. -->
+      @if (!garden.pickerTile()) {
+        <app-tile-info class="absolute left-2 top-14 z-20 max-w-[min(18rem,calc(100%-1rem))]" />
+      }
       @if (notice(); as n) {
         <div class="panel absolute left-1/2 top-14 z-30 -translate-x-1/2 px-3 py-1 text-sm font-bold" role="status">{{ n }}</div>
       }

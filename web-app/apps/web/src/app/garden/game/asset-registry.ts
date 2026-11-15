@@ -128,12 +128,33 @@ interface PlantVisual {
   closeupHasSoil?: boolean;
 }
 
+/** Species with design-team art: 64x64 map sprites at every stage, close-ups with their own soil. */
+function delivered({ sway = true } = {}): PlantVisual {
+  return {
+    mature: [64, 64],
+    growing: [64, 64],
+    matureArt: () => gridInCanvas(MATURE_GRIDS['flower'], 2, 64, 64),
+    sway,
+    closeupHasSoil: true,
+  };
+}
+
 /** Per-species visual traits. Adding a plant = one row here (plus a catalog entry). */
 const PLANT_VISUALS: Record<string, PlantVisual> = {
   flower: { mature: [32, 32], matureArt: () => gridInCanvas(MATURE_GRIDS['flower'], 2, 32, 32), sway: true },
   sunflower: { mature: [64, 64], matureArt: () => gridInCanvas(MATURE_GRIDS['sunflower'], 4, 64, 64), sway: true },
   tree: { mature: [64, 96], matureArt: tallTree, sway: false },
-  mustard: { mature: [64, 64], growing: [64, 64], matureArt: () => gridInCanvas(MATURE_GRIDS['flower'], 2, 64, 64), sway: true, closeupHasSoil: true },
+  mustard: delivered(),
+  lettuce: delivered(),
+  fern: delivered(),
+  nopal: delivered({ sway: false }), // rigid cactus pads
+  lily: delivered(),
+  rose: delivered(),
+  pitcher: delivered(),
+  cempasuchil: delivered(),
+  monstera: delivered(),
+  tulip: delivered(),
+  yellowflower: delivered(),
 };
 
 export function plantTextureKey(itemType: string, stage: PlantStage): string {
