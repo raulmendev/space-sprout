@@ -2,8 +2,10 @@ import { isDevMode } from '@angular/core';
 import { DEMO_MEMBERS, type Member, SUITS, type Suit, type UserRole, normalizeStationKey } from '@garden/shared';
 import { loadJson, saveJson } from '../shared/storage';
 
-/** The API's base URL, set per build in angular.json (`define`). */
-declare const API_URL: string;
+/** A deployed build sets this (angular.json → `define`); see the README. */
+declare const API_URL: string | undefined;
+/** The API: the deployed URL, else port 3000 on whatever host served this page (any local dev server, or a phone on the LAN). */
+const API = typeof API_URL === 'string' ? API_URL : `${location.protocol}//${location.hostname}:3000/api`;
 
 const SESSION_KEY = 'jardin-comunal:session:v1';
 /** How long to wait for the station before giving up (boot waits on the session check). */
@@ -41,11 +43,16 @@ async function call<T>(path: string, init: RequestInit = {}, token?: string): Pr
   const headers = new Headers(init.headers);
   if (init.body) headers.set('content-type', 'application/json');
   if (token) headers.set('authorization', `Bearer ${token}`);
+  const url = `${API}${path}`;
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, { signal: AbortSignal.timeout(TIMEOUT_MS), ...init, headers });
-  } catch {
-    throw new ApiError(0, "Can't reach the station. Check your connection and try again.");
+    res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), ...init, headers });
+  } catch (e) {
+    // Only a failed or timed-out request means the station is out of reach.
+    if (e instanceof TypeError || (e instanceof DOMException && e.name === 'TimeoutError')) {
+      throw new ApiError(0, "Can't reach the station. Check your connection and try again.");
+    }
+    throw e;
   }
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { message?: string | string[] } | null;
