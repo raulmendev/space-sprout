@@ -21,7 +21,7 @@ class HealthPrivacyActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             text = buildString {
                 append("Privacy\n\n")
-                append("Jardín Comunal reads your heart rate, resting heart rate, sleep and exercise from ")
+                append("Jardín Comunal reads your heart rate, resting heart rate, sleep, steps and exercise from ")
                 append("Health Connect when you tap \"Sync now\" at the medical terminal. They become ")
                 append("today's check-in in the game.\n\n")
                 append("Nothing is written to Health Connect. Only you can see your health readings in the game. ")

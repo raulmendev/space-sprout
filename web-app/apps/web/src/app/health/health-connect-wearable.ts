@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { HealthMetric, MeasurementProvider, ReadingInput, validateMeasurement } from '@garden/shared';
+import { HealthMetric, METRICS, MeasurementProvider, ReadingInput, validateMeasurement } from '@garden/shared';
 import { WEARABLE_METRICS, simulatedValue } from './simulated-wearable';
 
 /** What the native plugin (android/…/HealthConnectPlugin.kt) reads. A missing field = no data or no permission. */
@@ -10,6 +10,7 @@ interface HealthConnectToday {
   heartRateLatestTime?: string;
   sleepLast24hMinutes?: number;
   exerciseTodayMinutes?: number;
+  stepsToday?: number;
   granted: string[];
 }
 
@@ -30,7 +31,7 @@ export class WearableSyncError extends Error {}
 
 /**
  * The phone's Health Connect data (whatever the watch or health app wrote there),
- * read the way the AstroConnect app does. Heart rate, sleep and exercise come from
+ * read the way the AstroConnect app does. Heart rate, sleep and activity (steps or exercise) come from
  * the phone; the radiation dosimeter has no Health Connect equivalent, so it stays simulated.
  */
 export class HealthConnectWearable implements MeasurementProvider {
@@ -51,7 +52,7 @@ export class HealthConnectWearable implements MeasurementProvider {
     for (const [metric, value] of Object.entries(fromHealthConnect(today)) as [HealthMetric, number][]) {
       if (WEARABLE_METRICS.includes(metric) && validateMeasurement(metric, value) === null) out.push({ metric, value, source: 'DEVICE' });
     }
-    if (!out.length) throw new WearableSyncError('Health Connect has no heart rate, sleep or exercise for today yet. Sync your watch or health app first.');
+    if (!out.length) throw new WearableSyncError('Health Connect has no heart rate, sleep, steps or exercise for today yet. Sync your watch or health app first.');
     if (WEARABLE_METRICS.includes('RADIATION')) out.push({ metric: 'RADIATION', value: simulatedValue('RADIATION'), source: 'SIMULATED' });
     return out;
   }
@@ -65,6 +66,20 @@ function fromHealthConnect(t: HealthConnectToday): Partial<Record<HealthMetric, 
   if (bpm != null) out.HEART_RATE = Math.round(bpm);
   // Only a real night counts; no sleep recorded comes back empty, not 0 h.
   if (t.sleepLast24hMinutes) out.SLEEP = Math.round(t.sleepLast24hMinutes / 15) / 4;
-  if (t.exerciseTodayMinutes != null) out.ACTIVITY = Math.round(t.exerciseTodayMinutes);
+  const activity = activityMinutes(t);
+  if (activity != null) out.ACTIVITY = activity;
   return out;
+}
+
+/** Steps that make one minute of activity: a brisk walk is about 100 steps a minute. */
+export const STEPS_PER_MINUTE = 100;
+
+/**
+ * The Exercise reading counts minutes, so the day's steps become walking minutes
+ * (3,000 steps = 30 min). Whichever is more counts: the steps, or the workouts logged.
+ */
+export function activityMinutes(t: Pick<HealthConnectToday, 'stepsToday' | 'exerciseTodayMinutes'>): number | undefined {
+  if (t.stepsToday == null && t.exerciseTodayMinutes == null) return undefined;
+  const walked = Math.round((t.stepsToday ?? 0) / STEPS_PER_MINUTE);
+  return Math.min(Math.max(walked, Math.round(t.exerciseTodayMinutes ?? 0)), METRICS.ACTIVITY.max);
 }

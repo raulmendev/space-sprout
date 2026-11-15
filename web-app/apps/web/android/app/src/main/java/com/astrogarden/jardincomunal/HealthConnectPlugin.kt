@@ -8,6 +8,7 @@ import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
@@ -142,6 +143,11 @@ class HealthConnectPlugin : Plugin() {
                     out.put("exerciseTodayMinutes", r[ExerciseSessionRecord.EXERCISE_DURATION_TOTAL]?.toMinutes())
                 }
 
+                if (STEPS in granted) tryRead {
+                    val r = client.aggregate(AggregateRequest(setOf(StepsRecord.COUNT_TOTAL), today))
+                    out.put("stepsToday", r[StepsRecord.COUNT_TOTAL])
+                }
+
                 out.put("granted", JSArray(granted.intersect(PERMISSIONS).map(::shortName)))
                 call.resolve(out)
             } catch (e: CancellationException) {
@@ -178,8 +184,9 @@ class HealthConnectPlugin : Plugin() {
         val RESTING_HEART_RATE = HealthPermission.getReadPermission(RestingHeartRateRecord::class)
         val SLEEP = HealthPermission.getReadPermission(SleepSessionRecord::class)
         val EXERCISE = HealthPermission.getReadPermission(ExerciseSessionRecord::class)
+        val STEPS = HealthPermission.getReadPermission(StepsRecord::class)
 
         /** Must match the <uses-permission> entries in AndroidManifest.xml. */
-        val PERMISSIONS = setOf(HEART_RATE, RESTING_HEART_RATE, SLEEP, EXERCISE)
+        val PERMISSIONS = setOf(HEART_RATE, RESTING_HEART_RATE, SLEEP, EXERCISE, STEPS)
     }
 }
