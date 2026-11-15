@@ -1,4 +1,4 @@
-import type { HealthMeasurement, HealthMetric, MeasurementSource } from '@garden/shared';
+import type { HealthMeasurement, HealthMetric, MeasurementSource, MetricSummary, UsualRange } from '@garden/shared';
 import { METRICS } from '@garden/shared';
 
 /** "2 h ago", "yesterday", "3 days ago". */
@@ -56,4 +56,30 @@ export function formatValue(m: Pick<HealthMeasurement, 'metric' | 'value'>): str
   const def = METRICS[m.metric];
   const v = def.step < 1 ? m.value.toFixed(m.value % 1 ? 2 : 0).replace(/0$/, '') : String(m.value);
   return `${v} ${def.unit}`;
+}
+
+/** A value of `metric` rounded to its step, then formatted ("64 bpm", "7.25 h", "🙂 Good"). */
+export function formatAmount(metric: HealthMetric, value: number): string {
+  const step = METRICS[metric].step;
+  return formatValue({ metric, value: +(Math.round(value / step) * step).toFixed(2) });
+}
+
+/** "61–66 bpm". Mood ranges are left out: a range of faces reads oddly. */
+export function formatRange(metric: HealthMetric, r: UsualRange): string | null {
+  if (METRICS[metric].input === 'scale') return null;
+  const [lo, hi] = [formatAmount(metric, r.lo), formatAmount(metric, r.hi)];
+  return lo === hi ? lo : `${lo.split(' ')[0]}–${hi}`;
+}
+
+/** How the latest day sits against the astronaut's own usual. Neutral words, no verdicts. */
+export function comparisonText(metric: HealthMetric, s: Pick<MetricSummary, 'comparison' | 'usual'>): string {
+  if (!s.comparison || !s.usual) return 'Your usual range appears after a few more days.';
+  const range = formatRange(metric, s.usual);
+  const words = { WITHIN: 'Within your usual', ABOVE: 'Higher than your usual', BELOW: 'Lower than your usual' }[s.comparison];
+  return range ? `${words} (${range})` : words;
+}
+
+/** "Tue, Nov 12". */
+export function dayLabel(day: string): string {
+  return new Date(day + 'T12:00:00Z').toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }

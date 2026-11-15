@@ -77,7 +77,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
                 <span class="row-icon" aria-hidden="true">{{ icon[metric] }}</span>
                 <span class="flex-1 font-semibold">{{ label(metric) }}</span>
                 @if (reading) {
-                  <span class="font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
+                  <span class="whitespace-nowrap font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
                   <span class="w-10 text-[10px] text-bark/60" [title]="source[reading.source]">{{ sourceShort[reading.source] }}</span>
                 } @else {
                   @if (metric !== 'MOOD' && (syncedToday() || !health.wearableMetrics.includes(metric))) {
@@ -90,7 +90,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
           </ul>
           @if (!health.today()['MOOD']) {
             <div class="rounded-lg bg-parchment/40 p-1.5 short:py-1">
-              <p class="px-1 text-xs text-bark/80"><span class="short:hidden">The wearable can't read mood. </span>How are you feeling?</p>
+              <p class="px-1 text-xs text-bark/80 short:hidden">The wearable can't read mood. How are you feeling?</p>
               <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: true }" />
             </div>
           } @else if (allDone()) {
@@ -161,6 +161,9 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
           @if (r.earned > 0) { <span>+{{ r.earned }} seeds<span class="short:hidden"> for checking in</span><span class="hidden short:inline"> earned</span></span> }
           @else if (r.alreadyRewarded) { Saved. Today's seeds for these are already yours }
           @else { Saved. }
+          @for (b of r.bonuses; track b.ref) {
+            <span class="bonus" [title]="b.label + ': +' + b.amount + ' seeds'">{{ b.reason === 'GOAL' ? '🎯' : '🔥' }}<span class="short:hidden"> {{ b.label }}</span> +{{ b.amount }}</span>
+          }
         </p>
       } @else {
         <p class="reward muted"><span class="text-xl short:text-base" aria-hidden="true">🌱</span>Check in to earn seeds</p>
@@ -235,6 +238,8 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       font-weight: 800;
       font-size: 0.9rem;
     }
+    .reward { flex-wrap: wrap; }
+    .bonus { white-space: nowrap; color: var(--color-leaf-dark); }
     .reward.muted {
       border-style: dashed;
       border-color: color-mix(in srgb, var(--color-leaf) 50%, transparent);

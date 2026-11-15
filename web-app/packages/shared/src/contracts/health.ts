@@ -143,11 +143,12 @@ export const dayOf = (iso: string): string => iso.slice(0, 10);
  */
 export function decideReward(
   m: Pick<HealthMeasurement, 'id' | 'metric' | 'measuredAt'>,
-  ledger: readonly Pick<RewardTransaction, 'measurementId' | 'metric' | 'day' | 'amount'>[],
+  ledger: readonly Pick<RewardTransaction, 'measurementId' | 'metric' | 'day' | 'amount' | 'reason'>[],
 ): { outcome: RewardOutcome; amount: number } {
-  if (ledger.some((r) => r.measurementId === m.id)) return { outcome: 'ALREADY_REWARDED', amount: 0 };
+  const checkIns = ledger.filter((r) => (r.reason ?? 'CHECK_IN') === 'CHECK_IN'); // goal and streak bonuses don't count here
+  if (checkIns.some((r) => r.measurementId === m.id)) return { outcome: 'ALREADY_REWARDED', amount: 0 };
   const day = dayOf(m.measuredAt);
-  const today = ledger.filter((r) => r.day === day);
+  const today = checkIns.filter((r) => r.day === day);
   if (today.filter((r) => r.metric === m.metric).length >= CHECK_IN_REWARD.perMetricPerDay) {
     return { outcome: 'METRIC_DONE_TODAY', amount: 0 };
   }

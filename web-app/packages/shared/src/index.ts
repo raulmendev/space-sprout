@@ -11,3 +11,5 @@ export * from './contracts/health';
 export * from './contracts/crew';
 export * from './contracts/store';
 export * from './contracts/notes';
+export * from './contracts/insights';
+export * from './contracts/goals';

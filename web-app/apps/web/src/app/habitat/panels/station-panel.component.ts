@@ -16,7 +16,7 @@ const EMOTES = [
 ];
 
 /** Panels drawn in the steel console frame; their content supplies its own cream screen. */
-const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED', 'MESSAGE_BOARD_SELECTED', 'STORE_SELECTED']);
+const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED', 'HEALTH_INSIGHTS_SELECTED', 'MESSAGE_BOARD_SELECTED', 'STORE_SELECTED']);
 
 /** A more specific subtitle than the room name, where one helps. */
 const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habitat Supplies' };
@@ -45,6 +45,14 @@ const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habi
               <svg class="size-8 shrink-0 short:size-7" viewBox="0 0 32 32" aria-hidden="true">
                 <rect class="ink" x="1.5" y="1.5" width="29" height="29" rx="8" fill="#3fa7e8" stroke-width="3" />
                 <path class="ink" d="M12.5 7h7v5.5H25v7h-5.5V25h-7v-5.5H7v-7h5.5z" fill="#fff" stroke-width="1.5" stroke-linejoin="round" />
+              </svg>
+            }
+            @case ('HEALTH_INSIGHTS_SELECTED') {
+              <!-- Insights badge: a little chart on a screen -->
+              <svg class="size-8 shrink-0 short:size-7" viewBox="0 0 32 32" aria-hidden="true">
+                <rect class="ink" x="1.5" y="1.5" width="29" height="29" rx="8" fill="#5fae5a" stroke-width="3" />
+                <path class="ink" d="M7 21l5-6 4 3 5-7 4 4" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="25" cy="15" r="2.5" fill="#f6c945" class="ink" stroke-width="1.5" />
               </svg>
             }
             @case ('MESSAGE_BOARD_SELECTED') {
