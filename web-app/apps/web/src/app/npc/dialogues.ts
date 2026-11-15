@@ -54,6 +54,13 @@ export const PET_LINES: Record<PetId, readonly string[]> = {
     'Meow? (Miso wants the sunny spot by the window.)',
     '*kneads your space suit like a pillow*',
   ],
+  RADISH: [
+    'Squeak! 🌱',
+    '*wiggles its leaves happily*',
+    '*hops in a little circle*',
+    '*bows so low its leaves flop forward*',
+    '*hides behind a plant pot, then peeks out*',
+  ],
 };
 
 export function dialoguesFor(trigger: DialogueTrigger): Dialogue[] {

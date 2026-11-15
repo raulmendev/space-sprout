@@ -6,6 +6,7 @@ export const NPC_IDENTITY: Record<NpcId, { name: string; role: string | null; te
   SPROUT: { name: 'Sprout', role: null, texture: NPC_TEXTURE },
   DOG: { name: 'Bolita', role: 'Station pup', texture: PET_FRAMES.DOG.idle.down },
   CAT: { name: 'Miso', role: 'Station cat', texture: PET_FRAMES.CAT.idle.down },
+  RADISH: { name: 'Rabanito', role: 'Station radish', texture: PET_FRAMES.RADISH.idle.down },
   ...(Object.fromEntries(CREW.map((c) => [c.id, { name: c.name, role: c.role, texture: crewPortraitKey(c.id) }])) as Record<
     Exclude<NpcId, 'SPROUT' | PetId>,
     { name: string; role: string; texture: string }

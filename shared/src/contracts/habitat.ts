@@ -235,4 +235,5 @@ export const NPC_HOME = { room: 'GARDEN' as RoomId, x: 12, y: 5 };
 export const PET_START = {
   DOG: { room: 'SOCIAL' as RoomId, x: 9.5, y: 13.5 },
   CAT: { room: 'MEDICAL' as RoomId, x: 7.5, y: 13.5 },
+  RADISH: { room: 'GARDEN' as RoomId, x: 7.5, y: 13.5 },
 };

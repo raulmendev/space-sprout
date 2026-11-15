@@ -375,7 +375,7 @@ export const PLAYER_FRAMES: PlayerFrames = suitFrames(SUITS[SUIT].prefix, SUITS[
 /** Standing, facing the camera: the astronaut wherever a single picture is needed. */
 export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
 /** The station pets walk like the astronaut (four frames a direction), no wave. Drawn to one scale. */
-const PET_SIZES: Record<PetId, [number, number]> = { DOG: [38, 34], CAT: [40, 39] };
+const PET_SIZES: Record<PetId, [number, number]> = { DOG: [38, 34], CAT: [40, 39], RADISH: [40, 45] };
 export const PET_FRAMES = Object.fromEntries(
   Object.keys(PET_SIZES).map((id) => [id, suitFrames(`npc-${id.toLowerCase()}`, false)]),
 ) as Record<PetId, PlayerFrames>;
