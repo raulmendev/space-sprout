@@ -161,6 +161,7 @@ function roomWindows(room: RoomId, w: { frames: number; at: [number, number]; si
   ROOM_WINDOWS[room] = { frames, at: w.at, frameMs: w.frameMs };
 }
 roomWindows('SOCIAL', { frames: 8, at: [224, 32], size: [288, 96], frameMs: 170 });
+roomWindows('MEDICAL', { frames: 8, at: [224, 56], size: [320, 56], frameMs: 170 });
 
 // ---------------------------------------------------------------- plants
 
@@ -250,20 +251,20 @@ interface PropVisual {
 
 /** Keyed by HabitatProp.kind. Sprite size may exceed the footprint (e.g. the watering station). */
 const PROP_VISUALS: Record<string, PropVisual> = {
+  // The delivered desks are one picture for every state (tools/import_props.py STATES).
   MEDICAL_TERMINAL: {
     folder: 'medical/terminal',
-    size: [96, 64],
+    size: [62, 75],
     palette: MEDICAL,
     states: { idle: { badge: '' }, syncing: { badge: '↻' }, complete: { badge: '✓' }, attention: { badge: '!', pulse: true } },
   },
   HEALTH_INSIGHTS: {
     folder: 'medical/insights',
-    size: [96, 64],
+    size: [86, 83],
     palette: MEDICAL,
     states: { idle: { badge: '' }, new_data: { badge: '•' }, active: { badge: '▸' } },
   },
   // Sizes below are the game sizes tools/import_props.py prints: delivered 2x art is drawn at this size (fitToGame).
-  POTTED_PLANT: { folder: 'medical/terminal', size: [45, 73], palette: GARDEN },
   // Notes are separate sprites pinned on it (see notice-board.ts); unread shows as a floating bubble.
   MESSAGE_BOARD: { folder: 'social/board', size: BOARD_SIZE, palette: SOCIAL },
   SUPPLY_STORE: { folder: 'social/store', size: [75, 96], palette: SOCIAL },
@@ -282,6 +283,15 @@ const PROP_VISUALS: Record<string, PropVisual> = {
   PLANTER_RED_FLOWERS: { folder: 'social/decorations', size: [54, 43], palette: GARDEN },
   VINES_LEFT: { folder: 'social/decorations', size: [69, 79], palette: SOCIAL },
   VINES_RIGHT: { folder: 'social/decorations', size: [70, 76], palette: SOCIAL },
+  // Medical Bay furniture, sized as the import tool prints (one sheet, one scale).
+  MED_BED: { folder: 'medical/decorations', size: [82, 75], palette: MEDICAL },
+  MED_SHELF: { folder: 'medical/decorations', size: [50, 76], palette: MEDICAL },
+  MED_LOCKER: { folder: 'medical/decorations', size: [36, 75], palette: MEDICAL },
+  MED_SCAN_POD: { folder: 'medical/decorations', size: [53, 78], palette: MEDICAL },
+  MED_CART: { folder: 'medical/decorations', size: [42, 44], palette: MEDICAL },
+  MED_BENCH_BACK: { folder: 'medical/decorations', size: [63, 31], palette: MEDICAL },
+  MED_POT_LEAFY: { folder: 'medical/decorations', size: [36, 39], palette: GARDEN },
+  MED_POT_LAVENDER: { folder: 'medical/decorations', size: [26, 39], palette: GARDEN },
   // Garden furniture
   WATERING_CAN: { folder: 'garden/decorations', size: [62, 70], palette: GARDEN },
   GREENHOUSE: { folder: 'garden/decorations', size: [94, 61], palette: GARDEN },

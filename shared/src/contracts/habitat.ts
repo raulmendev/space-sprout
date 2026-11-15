@@ -192,11 +192,15 @@ export const ROOMS: Record<RoomId, Room> = {
   MEDICAL: {
     id: 'MEDICAL',
     name: 'Medical Station',
+    // Painted room (habitat/rooms/room-medical.png), the same frame as the Social Space: the back
+    // wall comes down to row 3, so the floor starts at row 4. The east door in the picture leads
+    // nowhere yet, so it stays wall. The waiting rug is painted in too (tools/import_room.py
+    // FLOOR): cols 7-13, rows 11-13.
     layout: [
       'XXXXXXXXXXXXXXXXXXXXXXXX', // 0
-      'XVVVVVVVOOVVVVVOOVVEeVVX', // 1
-      'XMMMMMMMMMMMMMMMMMMMMMMX', // 2
-      'XMMMMMMMMMMMMMMMMMMMMMMX', // 3
+      'XVOOVVVVVVVEeVVVVVVVOOVX', // 1
+      'XXXXXXXXXXXXXXXXXXXXXXXX', // 2
+      'XXXXXXXXXXXXXXXXXXXXXXXX', // 3
       'XMMMMMMMMMMMMMMMMMMMMMMX', // 4
       'XMMMMMMMMMMMMMMMMMMMMMMX', // 5
       'XMMMMMMMMMMMMMMMMMMMMMMX', // 6
@@ -204,19 +208,35 @@ export const ROOMS: Record<RoomId, Room> = {
       'KMMMMMMMMMMMMMMMMMMMMMMX', // 8
       'XMMMMMMMMMMMMMMMMMMMMMMX', // 9
       'XMMMMMMMMMMMMMMMMMMMMMMX', // 10
-      'XMMMMMMMMMMMMMMMMMMMMMMX', // 11
-      'XMMMMMMMMMMMMMMMMMMMMMMX', // 12
-      'XMMMMMMMMMMMMMMMMMMMMMMX', // 13
+      'XMMMMMMRRRRRRRMMMMMMMMMX', // 11
+      'XMMMMMMRRRRRRRMMMMMMMMMX', // 12
+      'XMMMMMMRRRRRRRMMMMMMMMMX', // 13
       'XMMMMMMMMMMMMMMMMMMMMMMX', // 14
       'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
     ],
+    // Zoned like the design team's layout: diagnostics on the back wall (terminal left; insights
+    // and the medicine shelf together on the right), a treatment area on the right (bed, scan pod
+    // below), the locker on the left wall and a waiting area at the bottom left: two benches seen
+    // from behind, facing into the room, on a rug with a plant between. The supply cart stands on
+    // the floor cross; plants by the stations, the entrance and the benches.
     props: [
-      { id: 'medical-terminal', kind: 'MEDICAL_TERMINAL', name: 'Medical Terminal', x: 4, y: 2, w: 3, h: 2, interaction: 'MEDICAL_TERMINAL_SELECTED' },
-      { id: 'health-insights', kind: 'HEALTH_INSIGHTS', name: 'Health Insights', x: 10, y: 2, w: 3, h: 2, interaction: 'HEALTH_INSIGHTS_SELECTED' },
-      { id: 'medical-plant', kind: 'POTTED_PLANT', name: 'Potted plant', x: 2, y: 2, w: 1, h: 1 },
-      { id: 'medical-plant-2', kind: 'POTTED_PLANT', name: 'Potted plant', x: 21, y: 13, w: 1, h: 1 },
+      { id: 'medical-terminal', kind: 'MEDICAL_TERMINAL', name: 'Medical Terminal', x: 4, y: 4, w: 2, h: 1, interaction: 'MEDICAL_TERMINAL_SELECTED' },
+      { id: 'health-insights', kind: 'HEALTH_INSIGHTS', name: 'Health Insights', x: 17, y: 4, w: 3, h: 1, interaction: 'HEALTH_INSIGHTS_SELECTED' },
+      { id: 'medicine-shelf', kind: 'MED_SHELF', name: 'Medicine shelf', x: 20, y: 4, w: 2, h: 1 },
+      { id: 'patient-bed', kind: 'MED_BED', name: 'Patient bed', x: 18, y: 9, w: 3, h: 1 },
+      { id: 'supply-cart', kind: 'MED_CART', name: 'Supply cart', x: 11, y: 8, w: 2, h: 1 },
+      { id: 'scan-pod', kind: 'MED_SCAN_POD', name: 'Body scan pod', x: 20, y: 13, w: 2, h: 1 },
+      { id: 'medical-locker', kind: 'MED_LOCKER', name: 'Locker', x: 2, y: 10, w: 2, h: 1 },
+      { id: 'waiting-bench-left', kind: 'MED_BENCH_BACK', name: 'Waiting bench', x: 7, y: 12, w: 3, h: 1 },
+      { id: 'waiting-bench-right', kind: 'MED_BENCH_BACK', name: 'Waiting bench', x: 11, y: 12, w: 3, h: 1 },
+      { id: 'medical-plant', kind: 'MED_POT_LEAFY', name: 'Leafy plant', x: 2, y: 4, w: 1, h: 1 },
+      { id: 'medical-plant-2', kind: 'MED_POT_LAVENDER', name: 'Lavender', x: 2, y: 6, w: 1, h: 1 },
+      { id: 'medical-plant-3', kind: 'MED_POT_LEAFY', name: 'Leafy plant', x: 10, y: 12, w: 1, h: 1 },
+      { id: 'medical-plant-4', kind: 'MED_POT_LAVENDER', name: 'Lavender', x: 21, y: 10, w: 1, h: 1 },
     ],
     doors: sideDoor('W', 'SOCIAL'),
+    // Measured on habitat/rooms/room-medical.png (64 px per tile): the wall outlines.
+    floor: { left: 2.15, top: 4.2, right: 21.9, bottom: 14.35 },
   },
 };
 

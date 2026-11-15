@@ -41,6 +41,11 @@ FLOOR = {
     'social': [
         ('lounge_rug.png', (258, 230, 252, 133)),  # under the lounge: RUG, cols 8-15, rows 7-10
     ],
+    'medical': [
+        # Under the waiting benches, centred on them (x 336) and clear of the bottom wall (y 459);
+        # its own 2.78:1 shape, not stretched. RUG, cols 7-13, rows 11-13.
+        ('Medical_Bay_Waiting_Rug_512x192.png', (208, 354, 255, 92)),
+    ],
 }
 
 
