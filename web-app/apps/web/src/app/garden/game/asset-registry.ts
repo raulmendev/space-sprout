@@ -369,6 +369,7 @@ const CREW_POSES: Partial<Record<CrewId, [number, number]>> = {
   MEDIC: [48, 50],
   SCIENTIST: [48, 50],
   CHEF: [42, 50],
+  TRAINER: [48, 50],
 };
 const FACINGS: readonly Facing[] = ['down', 'up', 'left', 'right'];
 export const hasCrewPoses = (id: CrewId): boolean => id in CREW_POSES;
