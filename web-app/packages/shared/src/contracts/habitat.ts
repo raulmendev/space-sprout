@@ -109,10 +109,15 @@ export const ROOMS: Record<RoomId, Room> = {
       'XGGGGG,GGGGPPGGGG,GGG,GX', // 14
       'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
     ],
+    // A few pieces, with room between them: soil stays free to plant. The back wall's left half
+    // sits under the HUD on phones, so only the low bench goes there. The planter and the arch
+    // close the centre path's two dead ends.
     props: [
-      { id: 'garden-lamp', kind: 'LAMP', name: 'Garden lamp', x: 2, y: 2, w: 1, h: 1 },
-      { id: 'watering-can', kind: 'WATERING_CAN', name: 'Watering can', x: 21, y: 2, w: 1, h: 1 },
-      { id: 'garden-planter', kind: 'PLANTER', name: 'Planter', x: 2, y: 14, w: 1, h: 1 },
+      { id: 'garden-bench', kind: 'GARDEN_BENCH', name: 'Bench', x: 1, y: 2, w: 3, h: 1 },
+      { id: 'vine-planter', kind: 'VINE_PLANTER', name: 'Vine planter', x: 11, y: 2, w: 2, h: 1 },
+      { id: 'greenhouse', kind: 'GREENHOUSE', name: 'Greenhouse', x: 14, y: 2, w: 3, h: 1 },
+      { id: 'watering-can', kind: 'WATERING_CAN', name: 'Watering station', x: 18, y: 2, w: 2, h: 1 },
+      { id: 'vine-arch', kind: 'VINE_ARCH', name: 'Vine arch', x: 11, y: 14, w: 2, h: 1 },
     ],
     doors: sideDoor('E', 'SOCIAL'),
   },

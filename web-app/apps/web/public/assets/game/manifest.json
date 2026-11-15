@@ -86,6 +86,12 @@
     "preview-tulip-mature",
     "preview-tulip-sprout",
     "preview-yellowflower-mature",
-    "prop-message-board"
+    "prop-garden-bench",
+    "prop-greenhouse",
+    "prop-message-board",
+    "prop-vine-arch",
+    "prop-vine-planter",
+    "prop-watering-can",
+    "room-garden"
   ]
 }

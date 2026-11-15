@@ -5,7 +5,19 @@
  * To deliver final art: drop `public/assets/game/<folder>/<key>.png` and add
  * `<key>` to `public/assets/game/manifest.json` → `delivered`. No code changes.
  */
-import { ALL_PROPS, CrewId, PlantStage, TileKind, getCatalogItem, plantStages } from '@garden/shared';
+import {
+  ALL_PROPS,
+  CrewId,
+  PlantStage,
+  ROOMS,
+  ROOM_COLS,
+  ROOM_ROWS,
+  RoomId,
+  TILE_SIZE,
+  TileKind,
+  getCatalogItem,
+  plantStages,
+} from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
 import { BOARD_SIZE, NOTE_COLORS, NOTE_SIZE, noteBubbleArt, noteStackArt, stickyNoteArt } from './notice-board';
 import {
@@ -43,7 +55,8 @@ interface SpriteAsset {
   originY: number;
 }
 
-type Placeholder = () => HTMLCanvasElement | string; // canvas, or a data URL for UI-only assets
+/** Canvas, or a data URL for UI-only assets; null when the fallback isn't a picture (see rooms). */
+type Placeholder = (() => HTMLCanvasElement | string) | null;
 
 interface RegistryEntry extends SpriteAsset {
   placeholder: Placeholder;
@@ -114,6 +127,15 @@ for (const [kind, t] of Object.entries(TILES) as [TileKind, (typeof TILES)[TileK
   for (let v = 0; v < (t.variants ?? 0); v++) register(`tile-${kebab(kind)}-${v}`, t.folder, [32, 32], TERRAIN, () => t.art(v));
 }
 register(WET_SOIL_TEXTURE, 'garden/plots', [32, 32], TERRAIN, () => wetSoilTile(61));
+
+/**
+ * A whole room painted as one picture (tools/import_room.py). It replaces the room's tiles;
+ * no placeholder, so undelivered rooms keep drawing tile by tile.
+ */
+export const roomTextureKey = (room: RoomId) => `room-${room.toLowerCase()}`;
+for (const room of Object.keys(ROOMS) as RoomId[]) {
+  register(roomTextureKey(room), 'habitat/rooms', [ROOM_COLS * TILE_SIZE, ROOM_ROWS * TILE_SIZE], TERRAIN, null);
+}
 
 // ---------------------------------------------------------------- plants
 
@@ -201,7 +223,7 @@ interface PropVisual {
   states?: Record<string, { badge: string; pulse?: boolean }>;
 }
 
-/** Keyed by HabitatProp.kind. Sprite size may exceed the footprint (e.g. lamp). */
+/** Keyed by HabitatProp.kind. Sprite size may exceed the footprint (e.g. the watering station). */
 const PROP_VISUALS: Record<string, PropVisual> = {
   MEDICAL_TERMINAL: {
     folder: 'medical/terminal',
@@ -222,9 +244,12 @@ const PROP_VISUALS: Record<string, PropVisual> = {
   SOFA: { folder: 'social/decorations', size: [96, 48], palette: SOCIAL },
   COMM_TERMINAL: { folder: 'social/decorations', size: [64, 64], palette: SOCIAL },
   SUPPLY_STORE: { folder: 'social/store', size: [64, 64], palette: SOCIAL },
-  LAMP: { folder: 'garden/decorations', size: [32, 64], palette: GARDEN },
-  PLANTER: { folder: 'garden/decorations', size: [32, 32], palette: GARDEN },
-  WATERING_CAN: { folder: 'garden/decorations', size: [32, 32], palette: GARDEN },
+  // Garden furniture (tools/import_props.py prints these sizes).
+  WATERING_CAN: { folder: 'garden/decorations', size: [62, 66], palette: GARDEN },
+  GREENHOUSE: { folder: 'garden/decorations', size: [94, 57], palette: GARDEN },
+  GARDEN_BENCH: { folder: 'garden/decorations', size: [81, 44], palette: GARDEN },
+  VINE_ARCH: { folder: 'garden/decorations', size: [69, 62], palette: GARDEN },
+  VINE_PLANTER: { folder: 'garden/decorations', size: [64, 48], palette: GARDEN },
 };
 
 /** State → texture mapping. Unknown or undelivered states fall back to `idle`. */
@@ -297,7 +322,7 @@ const urlCache = new Map<string, string>();
 export function placeholderUrl(key: string): string {
   let url = urlCache.get(key);
   if (!url) {
-    const out = REGISTRY.get(key)?.placeholder();
+    const out = REGISTRY.get(key)?.placeholder?.();
     url = typeof out === 'string' ? out : (out?.toDataURL() ?? '');
     urlCache.set(key, url);
   }

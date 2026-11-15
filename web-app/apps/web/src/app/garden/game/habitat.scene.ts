@@ -114,8 +114,8 @@ export class HabitatScene extends Phaser.Scene {
         this.textures.addCanvas(asset.key, missingTexture(asset.width, asset.height));
         continue;
       }
-      const out = asset.placeholder();
-      if (typeof out !== 'string') this.textures.addCanvas(asset.key, out);
+      const out = asset.placeholder?.();
+      if (out && typeof out !== 'string') this.textures.addCanvas(asset.key, out);
     }
 
     this.tiles = new TileManager(this);
@@ -237,7 +237,8 @@ export class HabitatScene extends Phaser.Scene {
     for (const t of state.wetTiles) {
       const k = `${t.x},${t.y}`;
       if (!this.wet.has(k)) {
-        this.wet.set(k, this.add.image(t.x * TILE_SIZE, t.y * TILE_SIZE, WET_SOIL_TEXTURE).setOrigin(0).setDepth(DEPTH.GROUND_OVERLAY));
+        // Translucent: it darkens the soil under it, painted room or tiles alike.
+        this.wet.set(k, this.add.image(t.x * TILE_SIZE, t.y * TILE_SIZE, WET_SOIL_TEXTURE).setOrigin(0).setAlpha(0.5).setDepth(DEPTH.GROUND_OVERLAY));
       }
     }
     for (const [k, img] of this.wet) {

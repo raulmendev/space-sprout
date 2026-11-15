@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ROOM_COLS, ROOM_ROWS, RoomId, TILE_SIZE, TileCoord, TileRect, getTileKind } from '@garden/shared';
-import { tileTextureKey } from './asset-registry';
+import { roomTextureKey, tileTextureKey } from './asset-registry';
 
 export type { TileCoord, TileRect };
 
@@ -12,6 +12,9 @@ export class TileManager {
   constructor(private readonly scene: Phaser.Scene) {}
 
   drawGround(room: RoomId, depth: number): Phaser.GameObjects.Image[] {
+    // The room's painted picture, when the design team has delivered one; else tile by tile.
+    const picture = roomTextureKey(room);
+    if (this.scene.textures.exists(picture)) return [this.scene.add.image(0, 0, picture).setOrigin(0).setDepth(depth)];
     const images: Phaser.GameObjects.Image[] = [];
     for (let y = 0; y < ROOM_ROWS; y++) {
       for (let x = 0; x < ROOM_COLS; x++) {
