@@ -2,11 +2,11 @@ import type { Actor } from '../types/domain';
 import { CATALOG } from './catalog';
 
 /**
- * The station store: where seeds go to be spent. Seed packets and fertilizer go
- * into one shared household inventory; planting and fertilizing use them up.
+ * The station store: where seeds go to be spent. Seed packets, fertilizer and post-its go
+ * into one shared household inventory; planting, fertilizing and pinning a note use them up.
  * Decorations are incentives to save toward (owned for now; placing them comes later).
  */
-export type StoreSection = 'GARDEN' | 'DECORATIONS';
+export type StoreSection = 'GARDEN' | 'MESSAGES' | 'DECORATIONS';
 
 export interface StoreItem {
   id: string;
@@ -32,6 +32,8 @@ export interface Purchase {
 }
 
 export const FERTILIZER = 'fertilizer';
+/** One note on the message board. */
+export const POST_IT = 'post-it';
 export const seedItemId = (plant: string) => `seed:${plant}`;
 
 export const STORE_ITEMS: readonly StoreItem[] = [
@@ -45,6 +47,7 @@ export const STORE_ITEMS: readonly StoreItem[] = [
     plant: p.id,
   })),
   { id: FERTILIZER, section: 'GARDEN', name: 'Fertilizer', description: 'One scoop helps a growing plant along.', price: 2, icon: '🧪' },
+  { id: POST_IT, section: 'MESSAGES', name: 'Post-it', description: 'One note for the message board, home and back.', price: 3, icon: '📝' },
   { id: 'photo-frame', section: 'DECORATIONS', name: 'Photo frame', description: 'For a favourite picture from home.', price: 12, icon: '🖼️' },
   { id: 'earth-poster', section: 'DECORATIONS', name: 'Earth poster', description: 'The view from the window, to keep.', price: 10, icon: '🌍' },
   { id: 'fairy-lights', section: 'DECORATIONS', name: 'Fairy lights', description: 'A warm glow for long station nights.', price: 15, icon: '✨' },
@@ -54,11 +57,12 @@ export const STORE_ITEMS: readonly StoreItem[] = [
 
 export const STORE_SECTIONS: readonly { id: StoreSection; title: string; icon: string }[] = [
   { id: 'GARDEN', title: 'Gardening', icon: '🌱' },
+  { id: 'MESSAGES', title: 'Messages', icon: '📝' },
   { id: 'DECORATIONS', title: 'Decorations', icon: '🖼️' },
 ];
 
-/** What a new household starts with, so the garden can be tried before the first check-in. */
-export const STARTER_INVENTORY: Inventory = { [seedItemId('flower')]: 2, [FERTILIZER]: 1 };
+/** What a new household starts with, so the garden and the message board can be tried before the first check-in. */
+export const STARTER_INVENTORY: Inventory = { [seedItemId('flower')]: 2, [FERTILIZER]: 1, [POST_IT]: 1 };
 
 /** Recent purchases kept (and shown in the store). */
 export const PURCHASE_LOG_SIZE = 3;

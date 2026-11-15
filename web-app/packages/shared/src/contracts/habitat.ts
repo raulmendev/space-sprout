@@ -138,7 +138,8 @@ export const ROOMS: Record<RoomId, Room> = {
       'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
     ],
     props: [
-      { id: 'message-board', kind: 'MESSAGE_BOARD', name: 'Message Board', x: 4, y: 2, w: 3, h: 2, interaction: 'MESSAGE_BOARD_SELECTED' },
+      // Top-centre, right of the Earth window: the top-left corner sits under the HUD on phones.
+      { id: 'message-board', kind: 'MESSAGE_BOARD', name: 'Message Board', x: 13, y: 2, w: 4, h: 2, interaction: 'MESSAGE_BOARD_SELECTED' },
       { id: 'emote-point', kind: 'EMOTE_POINT', name: 'Emote corner', x: 8, y: 2, w: 2, h: 2, interaction: 'EMOTE_AREA_SELECTED' },
       { id: 'comm-terminal', kind: 'COMM_TERMINAL', name: 'Earth Link', x: 17, y: 2, w: 2, h: 2, interaction: 'MESSAGE_BOARD_SELECTED' },
       { id: 'sofa', kind: 'SOFA', name: 'Sofa', x: 10, y: 6, w: 3, h: 1 },

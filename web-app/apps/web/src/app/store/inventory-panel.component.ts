@@ -8,6 +8,7 @@ import { previewTextureKey } from '../garden/game/asset-registry';
 const GROUPS: readonly { title: string; hint: string; has: (i: StoreItem) => boolean }[] = [
   { title: 'Seed packets', hint: 'Tap any empty soil in the Garden to plant one.', has: (i) => !!i.plant },
   { title: 'Supplies', hint: "Use from a plant's close-up.", has: (i) => i.section === 'GARDEN' && !i.plant },
+  { title: 'Messages', hint: 'Write one on the Message Board in the Social Space.', has: (i) => i.section === 'MESSAGES' },
   { title: 'Decorations', hint: 'Yours to keep. Placing them in the station comes soon.', has: (i) => i.section === 'DECORATIONS' },
 ];
 

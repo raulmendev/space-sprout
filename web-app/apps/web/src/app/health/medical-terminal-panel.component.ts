@@ -13,17 +13,17 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
   imports: [NgTemplateOutlet],
   template: `
     <div role="tablist" aria-label="How to add readings" class="grid grid-cols-2 gap-2">
-      <button type="button" role="tab" class="tab btn-press" [attr.aria-selected]="tab() === 'sync'" (click)="tab.set('sync')">
+      <button type="button" role="tab" class="console-tab btn-press" [attr.aria-selected]="tab() === 'sync'" (click)="tab.set('sync')">
         <span aria-hidden="true">⌚</span>Wearable sync
       </button>
-      <button type="button" role="tab" class="tab btn-press" [attr.aria-selected]="tab() === 'manual'" (click)="tab.set('manual')">
+      <button type="button" role="tab" class="console-tab btn-press" [attr.aria-selected]="tab() === 'manual'" (click)="tab.set('manual')">
         <span aria-hidden="true">✏️</span>Enter manually
       </button>
     </div>
 
     @if (tab() === 'sync') {
-      <div class="grid gap-3 short:gap-2 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-        <div class="card flex flex-col gap-2.5 short:gap-2">
+      <div class="grid flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+        <div class="card riveted-card flex flex-col gap-2.5 short:gap-2">
           <div class="flex gap-3">
             <!-- The (simulated) wearable, drawn in the illustrated style: thick outline, soft shading. -->
             <div class="watch-tile" aria-hidden="true">
@@ -64,7 +64,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
           <ng-container [ngTemplateOutlet]="privacy" />
         </div>
 
-        <section class="card flex flex-col gap-2 short:gap-1" aria-labelledby="today-title">
+        <section class="card riveted-card flex flex-col gap-2 short:gap-1" aria-labelledby="today-title">
           <h3 id="today-title" class="flex items-center gap-2 font-bold short:text-sm">
             <span aria-hidden="true">📅</span>Today's check-in
             <span class="stripes ml-auto h-3 w-10" aria-hidden="true"></span>
@@ -77,7 +77,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
                 <span class="row-icon" aria-hidden="true">{{ icon[metric] }}</span>
                 <span class="flex-1 font-semibold">{{ label(metric) }}</span>
                 @if (reading) {
-                  <span class="font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
+                  <span class="whitespace-nowrap font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
                   <span class="w-10 text-[10px] text-bark/60" [title]="source[reading.source]">{{ sourceShort[reading.source] }}</span>
                 } @else {
                   @if (metric !== 'MOOD' && (syncedToday() || !health.wearableMetrics.includes(metric))) {
@@ -90,7 +90,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
           </ul>
           @if (!health.today()['MOOD']) {
             <div class="rounded-lg bg-parchment/40 p-1.5 short:py-1">
-              <p class="px-1 text-xs text-bark/80"><span class="short:hidden">The wearable can't read mood. </span>How are you feeling?</p>
+              <p class="px-1 text-xs text-bark/80 short:hidden">The wearable can't read mood. How are you feeling?</p>
               <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: true }" />
             </div>
           } @else if (allDone()) {
@@ -99,8 +99,8 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
         </section>
       </div>
     } @else {
-      <form class="grid gap-3 short:gap-2 @lg:grid-cols-2" (submit)="$event.preventDefault(); save()">
-        <div class="card flex flex-col gap-1.5">
+      <form class="grid flex-1 gap-3 short:gap-2 @lg:grid-cols-2" (submit)="$event.preventDefault(); save()">
+        <div class="card riveted-card flex flex-col gap-1.5">
           @for (m of numberMetrics; track m.id) {
             <label class="row">
               <span class="row-icon" aria-hidden="true">{{ icon[m.id] }}</span>
@@ -108,7 +108,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
               <input
                 type="number"
                 inputmode="decimal"
-                class="w-20 min-w-0 rounded-md border-2 border-bark/30 bg-cream px-2 py-1 text-right focus-visible:outline-2 focus-visible:outline-sun short:w-16 short:py-0.5"
+                class="w-20 min-w-0 rounded-md border-2 border-bark/30 bg-cream px-2 py-1 text-right focus-visible:outline-2 focus-visible:outline-sun short:w-16 short:py-0"
                 [min]="m.min" [max]="m.max" [step]="m.step"
                 [value]="draft()[m.id] ?? ''"
                 (input)="setDraft(m.id, $any($event.target).value)"
@@ -119,9 +119,9 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
             </label>
             @if (errors()[m.id]; as e) { <p [id]="'err-' + m.id" class="-mt-1 text-right text-xs font-bold text-alert">{{ e }}</p> }
           }
-          <p class="text-xs text-bark/70">Fill in any of these; you don't need all of them.</p>
+          <p class="text-xs text-bark/70 short:hidden">Fill in any of these; you don't need all of them.</p>
         </div>
-        <div class="card flex flex-col gap-2">
+        <div class="card riveted-card flex flex-col gap-2">
           <fieldset>
             <legend class="flex items-center gap-2 font-bold"><span aria-hidden="true">{{ icon['MOOD'] }}</span>Mood</legend>
             <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: false }" />
@@ -158,55 +158,25 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       @if (health.lastResult(); as r) {
         <p class="reward" role="status">
           <span class="text-xl short:text-base" aria-hidden="true">🌱</span>
-          @if (r.earned > 0) { <span>+{{ r.earned }} seeds<span class="short:hidden"> for checking in</span><span class="hidden short:inline"> earned</span></span> }
-          @else if (r.alreadyRewarded) { Saved. Today's seeds for these are already yours }
+          @if (r.earned > 0) { <span>+{{ r.earned }} seeds<span class="short:hidden"> for checking in</span>@if (!r.bonuses.length) {<span class="hidden short:inline"> earned</span>}</span> }
+          @else if (r.alreadyRewarded) { <span class="short:hidden">Saved. Today's seeds for these are already yours</span><span class="hidden short:inline">{{ r.bonuses.length ? 'Saved' : 'Saved. Already earned today' }}</span> }
           @else { Saved. }
+          @for (b of r.bonuses; track b.ref) {
+            <span class="bonus short:hidden" [title]="b.label + ': +' + b.amount + ' seeds'">{{ b.reason === 'GOAL' ? '🎯' : '🔥' }} {{ b.label }} +{{ b.amount }}</span>
+          }
+          <!-- Phones: the bonuses as one total, so the banner stays on one line. -->
+          @if (r.bonuses.length) { <span class="bonus hidden short:inline" [title]="bonusList(r.bonuses)">+{{ bonusTotal(r.bonuses) }} bonus</span> }
         </p>
       } @else {
         <p class="reward muted"><span class="text-xl short:text-base" aria-hidden="true">🌱</span>Check in to earn seeds</p>
       }
     </ng-template>
   `,
-  host: { class: 'flex flex-col gap-3 short:gap-2' },
+  host: { class: 'console-screen flex min-h-0 flex-1 flex-col gap-3 short:gap-2' },
   styles: `
-    /* The cream screen set into the station's console bezel. */
-    :host {
-      --line: color-mix(in srgb, var(--color-bark) 22%, transparent);
-      --stripe: color-mix(in srgb, var(--color-steel) 25%, transparent); /* the bezel's cream stripes would vanish on the screen */
-      color: var(--color-bark-dark);
-      background: var(--color-cream);
-      border: 3px solid var(--color-steel-dark);
-      border-radius: 10px;
-      padding: 12px;
-      box-shadow: inset 0 3px 0 rgb(0 0 0 / 0.08);
-    }
-
-    .tab {
-      --press: color-mix(in srgb, var(--color-bark) 30%, transparent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      padding: 0.45rem 0.75rem;
-      background: var(--color-parchment);
-      font-weight: 800;
-    }
-    .tab[aria-selected='true'] { --press: var(--color-bark-dark); background: var(--color-sun); }
-    .tab:hover, .chunky-btn:enabled:hover { filter: brightness(1.04); }
-
-    /* Riveted card: a screw in each corner. */
-    .card {
-      --screw: radial-gradient(circle, color-mix(in srgb, var(--color-bark) 45%, transparent) 45%, transparent 55%);
-      padding: 12px;
-      border: 2px solid var(--line);
-      border-radius: 10px;
-      background:
-        var(--screw) left 4px top 4px / 7px 7px no-repeat,
-        var(--screw) right 4px top 4px / 7px 7px no-repeat,
-        var(--screw) left 4px bottom 4px / 7px 7px no-repeat,
-        var(--screw) right 4px bottom 4px / 7px 7px no-repeat,
-        #fffaf0;
-    }
+    /* Screen, tabs and riveted cards come from the shared console classes in styles.css. */
+    :host { --stripe: color-mix(in srgb, var(--color-steel) 25%, transparent); } /* the bezel's cream stripes would vanish on the screen */
+    .card { padding: 12px; }
 
     /* Illustration colours for the watch art; the outline uses the console ink. */
     .watch-tile {
@@ -224,18 +194,6 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
     .pulse { animation: pulse 0.8s ease-in-out infinite alternate; }
     @keyframes pulse { to { stroke: #fff; } }
 
-    .chunky-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      width: 100%;
-      padding: 0.5rem 0.75rem;
-      background: var(--color-sun);
-      font-weight: 800;
-      font-size: 1.05rem;
-    }
-    .chunky-btn:disabled { opacity: 0.55; }
 
     .row {
       display: flex;
@@ -282,6 +240,8 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       font-weight: 800;
       font-size: 0.9rem;
     }
+    .reward { flex-wrap: wrap; }
+    .bonus { white-space: nowrap; color: var(--color-leaf-dark); }
     .reward.muted {
       border-style: dashed;
       border-color: color-mix(in srgb, var(--color-leaf) 50%, transparent);
@@ -291,21 +251,23 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
 
     /* Same breakpoint as the short: variant in styles.css: compact everything to fit landscape phones. */
     @media (max-height: 500px) {
-      :host { padding: 8px; }
-      .tab { padding: 0.2rem 0.5rem; }
-      .card { padding: 8px 10px; }
+      .card { padding: 6px 10px; }
       .watch-tile { width: 3.5rem; height: 4.5rem; padding: 3px 4px; }
       .chunky-btn { padding: 0.3rem 0.75rem; font-size: 1rem; }
-      .row-icon { min-height: 1.3rem; }
+      .row-icon { min-height: 1.2rem; }
       .row[data-mood-pending] { display: none; }
       .quick .word { display: none; } /* faces only; each button keeps its "Mood: …" label */
       .mood { padding: 0.1rem 0; font-size: 10px; }
-      .reward { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+      /* One line on phones, whatever the result says (screen readers still get all of it). */
+      .reward { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; padding: 0.2rem 0.5rem; font-size: 0.8rem; }
     }
   `,
 })
 export class MedicalTerminalPanelComponent {
   protected readonly health = inject(HealthStore);
+  protected bonusTotal = (bonuses: readonly { amount: number }[]) => bonuses.reduce((sum, b) => sum + b.amount, 0);
+  /** "Sleep goal +2, 3-day streak +3". */
+  protected bonusList = (bonuses: readonly { label: string; amount: number }[]) => bonuses.map((b) => `${b.label} +${b.amount}`).join(', ');
   protected readonly tab = signal<'sync' | 'manual'>('sync');
   protected readonly moods = MOODS;
   protected readonly icon = METRIC_ICON;

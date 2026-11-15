@@ -4,7 +4,6 @@ import {
   HabitatInteraction,
   InsightsDisplayState,
   MedicalTerminalState,
-  MessageBoardState,
   PropInteraction,
   ROOMS,
   TileCoord,
@@ -24,6 +23,8 @@ import {
 import { GardenStore } from '../garden/garden.store';
 import {
   HINT_TEXTURE,
+  NOTE_BUBBLE_TEXTURE,
+  NOTE_TEXTURES,
   PLAYER_TEXTURE,
   THIRST_TEXTURE,
   plantSways,
@@ -34,7 +35,9 @@ import {
 import { PlayerStore } from './player.store';
 import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
-import type { HabitatRenderState, RenderActor, RenderSprite } from '../garden/game/habitat.scene';
+import type { HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
+import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
+import { NotesStore } from '../social/notes.store';
 
 /** A popup: a station's (opened from its prop), or one opened from the top bar (the inventory). */
 export type HabitatPanel = PropInteraction | 'INVENTORY';
@@ -59,6 +62,7 @@ export class HabitatStore {
   private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
   private readonly npcs = inject(NpcActorStore);
+  private readonly notes = inject(NotesStore);
   /** NPCs in the room on screen. Unchanged while only NPCs in other rooms move, so those don't redraw this one. */
   private readonly npcsHere = computed(() => this.npcs.view().filter((c) => c.position.room === this.activeRoom()), {
     equal: (a: readonly NpcView[], b: readonly NpcView[]) => a.length === b.length && a.every((v, i) => v === b[i]),
@@ -71,6 +75,8 @@ export class HabitatStore {
   readonly hover = signal<HabitatInteraction | null>(null);
   readonly selection = signal<HabitatInteraction | null>(null);
   readonly openPanel = signal<HabitatPanel | null>(null);
+  /** A tab the next panel should open on (e.g. the store's Messages tab); that panel takes it once. */
+  readonly panelTab = signal<string | null>(null);
   /** Something is open over the room (a panel, plant close-up or picker), so NPCs shouldn't walk over to chat. */
   readonly busy = computed(() => !!(this.openPanel() || this.garden.closeupId() || this.garden.pickerTile()));
   /** Debug aid for the layout checkpoint: outline zones and footprints. */
@@ -80,8 +86,23 @@ export class HabitatStore {
   readonly propStates = {
     MEDICAL_TERMINAL: signal<MedicalTerminalState>('idle'),
     HEALTH_INSIGHTS: signal<InsightsDisplayState>('idle'),
-    MESSAGE_BOARD: signal<MessageBoardState>('idle'),
   } as const;
+
+  /**
+   * What's pinned on the message board: one note per slot, newest first, coloured by who wrote
+   * it. With more notes than slots, the last slot becomes a "+" stack. Unread → floating bubble.
+   */
+  private readonly boardNotes = computed<Pick<RenderSprite, 'decals' | 'badge' | 'badgeAt'>>(() => {
+    const notes = this.notes.newestFirst();
+    const overflow = notes.length > NOTE_SLOTS.length;
+    const shown = overflow ? notes.slice(0, NOTE_SLOTS.length - 1) : notes;
+    const decals: RenderDecal[] = shown.map((n, i) => ({
+      texture: this.notes.isMine(n) ? NOTE_TEXTURES.astronaut : NOTE_TEXTURES.family,
+      ...NOTE_SLOTS[i],
+    }));
+    if (overflow) decals.push({ texture: NOTE_TEXTURES.more, ...NOTE_SLOTS[shown.length] });
+    return { decals, badge: this.notes.unread() ? NOTE_BUBBLE_TEXTURE : undefined, badgeAt: BUBBLE_AT };
+  });
 
   readonly renderState = computed<HabitatRenderState>(() => {
     const room = this.activeRoom();
@@ -99,6 +120,7 @@ export class HabitatStore {
         h: p.h,
         interaction: propInteraction(p),
         pulse: propPulses(p.kind, state),
+        ...(p.kind === 'MESSAGE_BOARD' ? this.boardNotes() : {}),
       });
     }
 
@@ -210,6 +232,21 @@ export class HabitatStore {
     }
     return null;
   });
+
+  /**
+   * Go to a station from inside another panel: close it, walk over (as tapping the station in
+   * the room does) and open it, on `tab` if given.
+   */
+  visit(panel: PropInteraction, tab?: string): void {
+    const target: HabitatInteraction = { type: panel };
+    this.openPanel.set(null);
+    this.panelTab.set(tab ?? null);
+    this.selection.set(target);
+    const open = () => this.openPanel.set(panel);
+    const rect = this.targetRect(target);
+    if (rect) this.player.approach(rect, open);
+    else open();
+  }
 
   /** Footprint of whatever an interaction refers to (what the player walks up to). */
   targetRect(i: HabitatInteraction | null): TileRect | null {
