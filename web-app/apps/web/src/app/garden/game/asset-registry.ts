@@ -7,7 +7,9 @@
  */
 import {
   ALL_PROPS,
+  CLAY_POT,
   CrewId,
+  FERTILIZER,
   PlantStage,
   ROOMS,
   ROOM_COLS,
@@ -363,6 +365,9 @@ for (const { prefix, size, wave } of Object.values(SUITS)) {
 }
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
 register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
+/** Supply Store items drawn by the design team (cards in the store and inventory; others keep their emoji). */
+export const storeItemTextureKey = (itemId: string) => `store-${itemId}`;
+for (const id of [FERTILIZER, CLAY_POT]) register(storeItemTextureKey(id), 'gui/store', [64, 64], BOTTOM_CENTER, null, true);
 /** Station crew (placeholders until the design team's character art lands). */
 const CREW_LOOKS: Record<CrewId, Parameters<typeof crewGrid>[0]> = {
   MEDIC: { uniform: 'W', badge: 'R', hair: 'b' },

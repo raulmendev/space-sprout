@@ -2,7 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { INVENTORY_ITEM_IDS, describeItem, getCatalogItem, getStoreItem, isDecor, owned, pottedPlantOf } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { AssetService } from '../shared/assets.service';
-import { previewTextureKey } from '../garden/game/asset-registry';
+import { previewTextureKey, storeItemTextureKey } from '../garden/game/asset-registry';
 import { DECOR_ROOM_NAMES, DecorStore } from '../decor/decor.store';
 import { HabitatStore } from '../habitat/habitat.store';
 
@@ -61,6 +61,8 @@ const GROUPS: readonly Group[] = [
                   <span class="sprite" aria-hidden="true">
                     @if (row.item.plant) {
                       <img [src]="assets.url(preview(row.item.plant))" alt="" [class.pixelated]="!assets.has(preview(row.item.plant))" />
+                    } @else if (assets.has(art(row.id))) {
+                      <img [src]="assets.url(art(row.id))" alt="" class="pixelated" />
                     } @else {
                       <span class="icon">{{ row.item.icon }}</span>
                     }
@@ -152,4 +154,5 @@ export class InventoryPanelComponent {
 
 
   protected preview = (plant: string) => previewTextureKey(plant, 'MATURE');
+  protected art = storeItemTextureKey;
 }

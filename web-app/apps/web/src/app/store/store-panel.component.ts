@@ -4,7 +4,7 @@ import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
 import { AssetService } from '../shared/assets.service';
 import { moreSeeds, seeds } from '../shared/format';
-import { previewTextureKey } from '../garden/game/asset-registry';
+import { previewTextureKey, storeItemTextureKey } from '../garden/game/asset-registry';
 
 /**
  * "Purchasing…" lasts at least this long (ms). A local purchase finishes instantly, so without it
@@ -70,6 +70,8 @@ function boughtText(item: StoreItem): string {
           <span class="sprite" aria-hidden="true">
             @if (item.plant) {
               <img [src]="assets.url(preview(item.plant))" alt="" [class.pixelated]="!assets.has(preview(item.plant))" />
+            } @else if (assets.has(art(item.id))) {
+              <img [src]="assets.url(art(item.id))" alt="" class="pixelated" />
             } @else {
               <span class="icon">{{ item.icon }}</span>
             }
@@ -185,6 +187,7 @@ export class StorePanelComponent {
 
   protected count = (id: string) => owned(this.garden.inventory(), id);
   protected preview = (plant: string) => previewTextureKey(plant, 'MATURE');
+  protected art = storeItemTextureKey;
   protected moreSeeds = moreSeeds;
 
   protected buyLabel(item: StoreItem, missing: number): string {
