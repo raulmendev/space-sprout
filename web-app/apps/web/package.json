@@ -7,7 +7,9 @@
     "build": "ng build",
     "build:android": "ng build --define \"API_URL='https://api-production-77840255.up.railway.app/api'\" && cap sync android",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "build:cloudflare": "ng build --define \"API_URL='https://api-production-77840255.up.railway.app/api'\"",
+    "deploy:cloudflare": "npm run build:cloudflare && npx wrangler deploy"
   },
   "private": true,
   "packageManager": "npm@11.12.1",

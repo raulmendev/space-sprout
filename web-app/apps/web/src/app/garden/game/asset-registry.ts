@@ -74,6 +74,8 @@ interface RegistryEntry extends SpriteAsset {
   uiOnly: boolean;
   /** Undelivered, it shows this key's delivered art instead of its placeholder (a prop state drawn as idle). */
   fallback?: string;
+  /** Light effects over the art, drawn only over the real picture (never over a placeholder). */
+  fx?: readonly PropFx[];
 }
 
 const REGISTRY = new Map<string, RegistryEntry>();
@@ -85,11 +87,11 @@ function register(
   origin: [number, number],
   placeholder: Placeholder,
   uiOnly = false,
-  fallback?: string,
+  extra: Pick<RegistryEntry, 'fallback' | 'fx'> = {},
 ): void {
   REGISTRY.set(key, {
     uiOnly,
-    fallback,
+    ...extra,
     key,
     path: `${ASSET_ROOT}/${folder}/${key}.png`,
     width: size[0],
@@ -252,7 +254,28 @@ interface PropVisual {
   palette: Palette;
   /** Visual states: a badge glyph (never colour alone) and whether it pulses for attention. */
   states?: Record<string, { badge: string; pulse?: boolean }>;
+  /** Rocks gently like a grown plant (potted plants that are part of the room). */
+  sway?: boolean;
+  /** Light effects drawn over the still art (screens, glass), until the design team sends frames. Not on a prop that sways or pulses: they'd slide off it. */
+  fx?: readonly PropFx[];
 }
+
+/** An area of a prop's art, in game px from its top-left at its registered size. */
+type FxRect = readonly [x: number, y: number, w: number, h: number];
+
+/**
+ * A light effect over a prop's art, added on top (it only brightens):
+ * - `glow`: the area brightens and dims again, `restMs` apart (a screen breathing, a heartbeat).
+ *   `ellipse` makes it a soft oval (a bulb, a lantern's light); it may reach past the art.
+ * - `sweep`: a bright band crosses the area (a monitor redrawing, a scanner): `right` and `down`
+ *   start over at the far side; `updown` goes back and forth.
+ */
+export type PropFx =
+  | { type: 'glow'; rect: FxRect; color: number; alpha: number; inMs: number; restMs: number; ellipse?: boolean }
+  | { type: 'sweep'; rect: FxRect; color: number; alpha: number; dir: 'right' | 'down' | 'updown'; ms: number };
+
+const CYAN = 0x7ff3ff;
+const WARM = 0xffb45c;
 
 /** Keyed by HabitatProp.kind. Sprite size may exceed the footprint (e.g. the watering station). */
 const PROP_VISUALS: Record<string, PropVisual> = {
@@ -262,27 +285,64 @@ const PROP_VISUALS: Record<string, PropVisual> = {
     size: [62, 75],
     palette: MEDICAL,
     states: { idle: { badge: '' }, syncing: { badge: '↻' }, complete: { badge: '✓' }, attention: { badge: '!', pulse: true } },
+    fx: [
+      // The big heart-rate screen beats, and its trace redraws left to right; the small monitor breathes.
+      { type: 'glow', rect: [13, 14, 37, 19], color: CYAN, alpha: 0.22, inMs: 140, restMs: 760 },
+      { type: 'sweep', rect: [14, 15, 35, 17], color: CYAN, alpha: 0.35, dir: 'right', ms: 1800 },
+      { type: 'glow', rect: [6, 37, 12, 8], color: CYAN, alpha: 0.25, inMs: 900, restMs: 300 },
+    ],
   },
   HEALTH_INSIGHTS: {
     folder: 'medical/insights',
     size: [86, 83],
     palette: MEDICAL,
     states: { idle: { badge: '' }, new_data: { badge: '•' }, active: { badge: '▸' } },
+    fx: [
+      // The body chart refreshes top to bottom; the sample tube and the DNA screen breathe out of step.
+      { type: 'glow', rect: [19, 15, 46, 28], color: CYAN, alpha: 0.07, inMs: 1400, restMs: 200 },
+      { type: 'sweep', rect: [19, 15, 46, 28], color: CYAN, alpha: 0.3, dir: 'down', ms: 2600 },
+      { type: 'glow', rect: [7, 29, 9, 18], color: CYAN, alpha: 0.3, inMs: 1100, restMs: 400 },
+      { type: 'glow', rect: [72, 24, 11, 9], color: CYAN, alpha: 0.3, inMs: 600, restMs: 1500 },
+    ],
   },
   // Notes are separate sprites pinned on it (see notice-board.ts); unread shows as a floating bubble.
   MESSAGE_BOARD: { folder: 'social/board', size: BOARD_SIZE, palette: SOCIAL },
-  SUPPLY_STORE: { folder: 'social/store', size: [75, 96], palette: SOCIAL },
+  SUPPLY_STORE: {
+    folder: 'social/store',
+    size: [75, 96],
+    palette: SOCIAL,
+    fx: [
+      // The cart sign and the side strips glow warm; the counter screen breathes and a light crosses it.
+      { type: 'glow', rect: [28, 6, 23, 14], color: WARM, alpha: 0.3, inMs: 1300, restMs: 300 },
+      { type: 'glow', rect: [8, 36, 3, 13], color: WARM, alpha: 0.35, inMs: 1700, restMs: 0 },
+      { type: 'glow', rect: [67, 36, 3, 13], color: WARM, alpha: 0.35, inMs: 1700, restMs: 0 },
+      { type: 'glow', rect: [27, 60, 22, 10], color: CYAN, alpha: 0.15, inMs: 1000, restMs: 600 },
+      { type: 'sweep', rect: [27, 61, 22, 8], color: CYAN, alpha: 0.3, dir: 'right', ms: 2400 },
+    ],
+  },
   // The lounge, sized to the astronaut (36x50).
-  COFFEE_TABLE: { folder: 'social/decorations', size: [80, 49], palette: SOCIAL },
+  // The lantern on it flickers softly.
+  COFFEE_TABLE: {
+    folder: 'social/decorations',
+    size: [80, 49],
+    palette: SOCIAL,
+    fx: [{ type: 'glow', rect: [47, 4, 20, 22], color: WARM, alpha: 0.4, inMs: 260, restMs: 180, ellipse: true }],
+  },
   SOFA: { folder: 'social/decorations', size: [96, 51], palette: SOCIAL },
   ARMCHAIR_LEFT: { folder: 'social/decorations', size: [29, 40], palette: SOCIAL },
   ARMCHAIR_RIGHT: { folder: 'social/decorations', size: [30, 40], palette: SOCIAL },
   POUF_BOTTOM_LEFT: { folder: 'social/decorations', size: [24, 23], palette: SOCIAL },
   POUF_BOTTOM_RIGHT: { folder: 'social/decorations', size: [24, 23], palette: SOCIAL },
-  FLOOR_LAMP: { folder: 'social/decorations', size: [12, 45], palette: SOCIAL },
-  POT_LAVENDER: { folder: 'social/decorations', size: [27, 38], palette: GARDEN },
-  POT_PINK_FLOWERS: { folder: 'social/decorations', size: [24, 30], palette: GARDEN },
-  POT_MONSTERA: { folder: 'social/decorations', size: [38, 39], palette: GARDEN },
+  // Its bulb glows, and its light spills a little past it.
+  FLOOR_LAMP: {
+    folder: 'social/decorations',
+    size: [12, 45],
+    palette: SOCIAL,
+    fx: [{ type: 'glow', rect: [-8, -7, 28, 23], color: WARM, alpha: 0.45, inMs: 2000, restMs: 200, ellipse: true }],
+  },
+  POT_LAVENDER: { folder: 'social/decorations', size: [27, 38], palette: GARDEN, sway: true },
+  POT_PINK_FLOWERS: { folder: 'social/decorations', size: [24, 30], palette: GARDEN, sway: true },
+  POT_MONSTERA: { folder: 'social/decorations', size: [38, 39], palette: GARDEN, sway: true },
   PLANTER_LAVENDER: { folder: 'social/decorations', size: [71, 44], palette: GARDEN },
   PLANTER_RED_FLOWERS: { folder: 'social/decorations', size: [54, 43], palette: GARDEN },
   VINES_LEFT: { folder: 'social/decorations', size: [69, 79], palette: SOCIAL },
@@ -291,11 +351,21 @@ const PROP_VISUALS: Record<string, PropVisual> = {
   MED_BED: { folder: 'medical/decorations', size: [82, 75], palette: MEDICAL },
   MED_SHELF: { folder: 'medical/decorations', size: [50, 76], palette: MEDICAL },
   MED_LOCKER: { folder: 'medical/decorations', size: [36, 75], palette: MEDICAL },
-  MED_SCAN_POD: { folder: 'medical/decorations', size: [53, 78], palette: MEDICAL },
+  MED_SCAN_POD: {
+    folder: 'medical/decorations',
+    size: [53, 78],
+    palette: MEDICAL,
+    fx: [
+      // A band of light scans the glass up and down; the side screen blinks.
+      { type: 'glow', rect: [8, 14, 28, 48], color: CYAN, alpha: 0.07, inMs: 1600, restMs: 0 },
+      { type: 'sweep', rect: [9, 16, 26, 44], color: CYAN, alpha: 0.6, dir: 'updown', ms: 2200 },
+      { type: 'glow', rect: [38, 33, 11, 12], color: CYAN, alpha: 0.3, inMs: 500, restMs: 900 },
+    ],
+  },
   MED_CART: { folder: 'medical/decorations', size: [42, 44], palette: MEDICAL },
   MED_BENCH_BACK: { folder: 'medical/decorations', size: [63, 31], palette: MEDICAL },
-  MED_POT_LEAFY: { folder: 'medical/decorations', size: [36, 39], palette: GARDEN },
-  MED_POT_LAVENDER: { folder: 'medical/decorations', size: [26, 39], palette: GARDEN },
+  MED_POT_LEAFY: { folder: 'medical/decorations', size: [36, 39], palette: GARDEN, sway: true },
+  MED_POT_LAVENDER: { folder: 'medical/decorations', size: [26, 39], palette: GARDEN, sway: true },
   // Garden furniture
   WATERING_CAN: { folder: 'garden/decorations', size: [62, 70], palette: GARDEN },
   GREENHOUSE: { folder: 'garden/decorations', size: [94, 61], palette: GARDEN },
@@ -316,6 +386,11 @@ export function propPulses(kind: string, state?: string): boolean {
   return !!(state && PROP_VISUALS[kind]?.states?.[state]?.pulse);
 }
 
+/** Whether a room prop rocks gently, like a plant. */
+export function propSways(kind: string): boolean {
+  return !!PROP_VISUALS[kind]?.sway;
+}
+
 for (const [kind, v] of Object.entries(PROP_VISUALS)) {
   const label = ALL_PROPS.find((p) => p.kind === kind)?.name ?? kind;
   const states = v.states ? Object.keys(v.states) : [undefined];
@@ -324,7 +399,7 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
     const idle = state && state !== 'idle' ? propTextureKey(kind, 'idle') : undefined;
     register(propTextureKey(kind, state), v.folder, v.size, BOTTOM_CENTER, () =>
       labelledBox(v.size[0], v.size[1], v.palette, label, badge || undefined),
-      false, idle);
+      false, { fallback: idle, fx: v.fx });
   }
 }
 

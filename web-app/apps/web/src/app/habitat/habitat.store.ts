@@ -49,6 +49,7 @@ import {
   plantSways,
   plantTextureKey,
   propPulses,
+  propSways,
   propTextureKey,
 } from '../garden/game/asset-registry';
 import { PlayerStore, WAVE_MS } from './player.store';
@@ -160,6 +161,7 @@ export class HabitatStore {
         h: p.h,
         interaction: propInteraction(p),
         pulse: propPulses(p.kind, state),
+        sway: propSways(p.kind),
         ...(p.kind === 'MESSAGE_BOARD' ? this.boardNotes() : {}),
       });
     }
