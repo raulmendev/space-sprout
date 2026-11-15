@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { HealthMetric, METRICS, METRIC_ORDER, dayOf, validateMeasurement } from '@garden/shared';
+import { ALL_METRICS, HealthMetric, METRICS, choicesFor, dayOf, validateMeasurement } from '@garden/shared';
 import { HealthStore } from './health.store';
 import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } from './format';
 
@@ -79,6 +79,12 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
                 @if (reading) {
                   <span class="whitespace-nowrap font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
                   <span class="w-10 text-[10px] text-bark/60" [title]="source[reading.source]">{{ sourceShort[reading.source] }}</span>
+                } @else if (health.answeredToday()[metric]) {
+                  <!-- Told a crew member "I don't know": answered, but nothing measured. -->
+                  <span class="whitespace-nowrap font-bold text-bark/70">? Don't know</span>
+                  @if (syncedToday() || !health.wearableMetrics.includes(metric)) {
+                    <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it</button>
+                  }
                 } @else {
                   @if (metric !== 'MOOD' && (syncedToday() || !health.wearableMetrics.includes(metric))) {
                     <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it</button>
@@ -126,6 +132,22 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
             <legend class="flex items-center gap-2 font-bold"><span aria-hidden="true">{{ icon['MOOD'] }}</span>Mood</legend>
             <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: false }" />
           </fieldset>
+          <!-- Other scales (stress): a word per step, tapped to toggle like the mood faces. -->
+          @for (c of choiceMetrics; track c.metric) {
+            <fieldset>
+              <legend class="flex items-center gap-2 font-bold"><span aria-hidden="true">{{ icon[c.metric] }}</span>{{ label(c.metric) }}</legend>
+              <div class="mt-1 grid grid-cols-5 gap-1">
+                @for (o of c.options; track o.id) {
+                  <button
+                    type="button"
+                    class="mood btn-press"
+                    [attr.aria-pressed]="draft()[c.metric] === '' + o.value"
+                    (click)="toggleChoice(c.metric, o.value!)"
+                  ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ o.icon }}</span><span class="word">{{ o.label }}</span></button>
+                }
+              </div>
+            </fieldset>
+          }
           <button type="submit" class="chunky-btn btn-press" [disabled]="!canSave()">Save check-in</button>
           <ng-container [ngTemplateOutlet]="reward" />
           <ng-container [ngTemplateOutlet]="privacy" />
@@ -273,14 +295,20 @@ export class MedicalTerminalPanelComponent {
   protected readonly icon = METRIC_ICON;
   protected readonly source = SOURCE_LABEL;
   protected readonly sourceShort = SOURCE_SHORT;
-  protected readonly order = METRIC_ORDER;
+  /** Every reading, the crew's included: what you put off with them can be finished here. */
+  protected readonly order = ALL_METRICS;
   /** Only offer "Enter it" for wearable metrics once today's sync has run (before that, Sync is the action). */
   protected readonly syncedToday = computed(() => {
     const at = this.health.lastSyncAt();
     return !!at && dayOf(at) === dayOf(new Date().toISOString());
   });
-  protected readonly allDone = computed(() => METRIC_ORDER.every((m) => this.health.today()[m]));
-  protected readonly numberMetrics = METRIC_ORDER.filter((m) => METRICS[m].input === 'number').map((m) => METRICS[m]);
+  protected readonly allDone = computed(() => ALL_METRICS.every((m) => this.health.answeredToday()[m]));
+  protected readonly numberMetrics = ALL_METRICS.filter((m) => METRICS[m].input === 'number').map((m) => METRICS[m]);
+  /** Scale readings other than mood (which has its faces). */
+  protected readonly choiceMetrics = ALL_METRICS.filter((m) => m !== 'MOOD' && choicesFor(m).length).map((metric) => ({
+    metric,
+    options: choicesFor(metric),
+  }));
   protected readonly draft = signal<Partial<Record<HealthMetric, string>>>({});
 
   protected readonly errors = computed(() => {
@@ -302,7 +330,11 @@ export class MedicalTerminalPanelComponent {
   }
 
   protected toggleMood(value: number): void {
-    this.setDraft('MOOD', this.draft()['MOOD'] === String(value) ? '' : String(value));
+    this.toggleChoice('MOOD', value);
+  }
+
+  protected toggleChoice(metric: HealthMetric, value: number): void {
+    this.setDraft(metric, this.draft()[metric] === String(value) ? '' : String(value));
   }
 
   protected async save(): Promise<void> {
