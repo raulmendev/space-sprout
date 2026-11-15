@@ -238,21 +238,24 @@ const PROP_VISUALS: Record<string, PropVisual> = {
     palette: MEDICAL,
     states: { idle: { badge: '' }, new_data: { badge: '•' }, active: { badge: '▸' } },
   },
-  // Sizes below are what tools/import_props.py prints; they only size the placeholder.
+  // Sizes below are the game sizes tools/import_props.py prints: delivered 2x art is drawn at this size (fitToGame).
   POTTED_PLANT: { folder: 'medical/terminal', size: [45, 73], palette: GARDEN },
   // Notes are separate sprites pinned on it (see notice-board.ts); unread shows as a floating bubble.
   MESSAGE_BOARD: { folder: 'social/board', size: BOARD_SIZE, palette: SOCIAL },
-  COMM_TERMINAL: { folder: 'social/decorations', size: [90, 66], palette: SOCIAL },
-  SUPPLY_STORE: { folder: 'social/store', size: [105, 70], palette: SOCIAL },
+  SUPPLY_STORE: { folder: 'social/store', size: [75, 96], palette: SOCIAL },
   // The lounge, sized to the astronaut (36x50).
   COFFEE_TABLE: { folder: 'social/decorations', size: [80, 49], palette: SOCIAL },
-  SOFA: { folder: 'social/decorations', size: [96, 50], palette: SOCIAL },
-  ARMCHAIR_LEFT: { folder: 'social/decorations', size: [28, 38], palette: SOCIAL },
-  ARMCHAIR_RIGHT: { folder: 'social/decorations', size: [28, 38], palette: SOCIAL },
-  POUF_BOTTOM_LEFT: { folder: 'social/decorations', size: [24, 21], palette: SOCIAL },
-  POUF_BOTTOM_RIGHT: { folder: 'social/decorations', size: [24, 21], palette: SOCIAL },
+  SOFA: { folder: 'social/decorations', size: [96, 51], palette: SOCIAL },
+  ARMCHAIR_LEFT: { folder: 'social/decorations', size: [29, 40], palette: SOCIAL },
+  ARMCHAIR_RIGHT: { folder: 'social/decorations', size: [30, 40], palette: SOCIAL },
+  POUF_BOTTOM_LEFT: { folder: 'social/decorations', size: [24, 23], palette: SOCIAL },
+  POUF_BOTTOM_RIGHT: { folder: 'social/decorations', size: [24, 23], palette: SOCIAL },
   FLOOR_LAMP: { folder: 'social/decorations', size: [12, 45], palette: SOCIAL },
-  FLOWER_PLANTER: { folder: 'social/decorations', size: [73, 47], palette: SOCIAL },
+  POT_LAVENDER: { folder: 'social/decorations', size: [27, 38], palette: GARDEN },
+  POT_PINK_FLOWERS: { folder: 'social/decorations', size: [24, 30], palette: GARDEN },
+  POT_MONSTERA: { folder: 'social/decorations', size: [38, 39], palette: GARDEN },
+  PLANTER_LAVENDER: { folder: 'social/decorations', size: [71, 44], palette: GARDEN },
+  PLANTER_RED_FLOWERS: { folder: 'social/decorations', size: [54, 43], palette: GARDEN },
   VINES_LEFT: { folder: 'social/decorations', size: [69, 79], palette: SOCIAL },
   VINES_RIGHT: { folder: 'social/decorations', size: [70, 76], palette: SOCIAL },
   // Garden furniture

@@ -16,40 +16,44 @@ from pathlib import Path
 
 from PIL import Image
 
-from art import ASSETS, drop_glow, game_size, largest_part, mark_delivered, save_scaled, trim
+from art import ASSETS, add_shadow, clear_background, drop_glow, drop_strays, game_size, mark_delivered, save_scaled, seat_shadows, trim
 
-# delivered file name → (HabitatProp.kind, asset folder, scale). Packs drawn at 64 px per tile
-# import at half; the Social Space sketch cut-outs were at game scale, sized to the room's mockup.
-PROPS = {
-    'r07_02_sign_watering.png': ('WATERING_CAN', 'garden/decorations', 0.5),
-    'r08_06_greenhouse.png': ('GREENHOUSE', 'garden/decorations', 0.5),
-    'r08_09_bench.png': ('GARDEN_BENCH', 'garden/decorations', 0.5),
-    'r08_08_vine_arch.png': ('VINE_ARCH', 'garden/decorations', 0.5),
-    'r08_04_planter_vines.png': ('VINE_PLANTER', 'garden/decorations', 0.5),
-    # Social Space sprites (2x pack). The art fills about two thirds of its canvas, so the
-    # stations and the planter are scaled up to the size their canvas was meant to be.
-    'earth_link_192x160.png': ('COMM_TERMINAL', 'social/decorations', 0.75),
-    'supply_store_256x160.png': ('SUPPLY_STORE', 'social/store', 0.75),
-    'floor_lamp_64x192.png': ('FLOOR_LAMP', 'social/decorations', 0.5),
-    'front_flower_planter_192x128.png': ('FLOWER_PLANTER', 'social/decorations', 0.65),
-    'vines_top_left_192x192.png': ('VINES_LEFT', 'social/decorations', 0.5),
-    'vines_top_right_192x192.png': ('VINES_RIGHT', 'social/decorations', 0.5),
-    # Lounge set (chair & pouf pack), sized to the astronaut (36x50): an armchair about 80% of
-    # their height, a pouf knee-high.
-    'armchair_left.png': ('ARMCHAIR_LEFT', 'social/decorations', 0.15),
-    'armchair_right.png': ('ARMCHAIR_RIGHT', 'social/decorations', 0.15),
-    'pouf_bottom_left.png': ('POUF_BOTTOM_LEFT', 'social/decorations', 0.15),
-    'pouf_bottom_right.png': ('POUF_BOTTOM_RIGHT', 'social/decorations', 0.15),
-    # Sofa pack: the sofa behind the coffee table (with its throw, as in the target mockup).
-    'sofa_with_blanket.png': ('SOFA', 'social/decorations', 0.105),
+# Cleanup steps a sprite can ask for (applied in this order, around drop_strays and trim):
+#   glow    clear the soft glow painted around it (it reads as haze on the floor)
+#   seat    pull a contact shadow exported apart from the piece up under its feet
+#   shadow  draw a contact shadow to match the furniture pack's (for art delivered without one)
+#
+# delivered file name → (HabitatProp.kind, asset folder, scale, cleanup steps). Packs drawn at
+# 64 px per tile import at half; concept-art packs are scaled to the astronaut (36x50).
+PROPS: dict[str, tuple[str, str, float, set[str]]] = {
+    'r07_02_sign_watering.png': ('WATERING_CAN', 'garden/decorations', 0.5, set()),
+    'r08_06_greenhouse.png': ('GREENHOUSE', 'garden/decorations', 0.5, set()),
+    'r08_09_bench.png': ('GARDEN_BENCH', 'garden/decorations', 0.5, set()),
+    'r08_08_vine_arch.png': ('VINE_ARCH', 'garden/decorations', 0.5, set()),
+    'r08_04_planter_vines.png': ('VINE_PLANTER', 'garden/decorations', 0.5, set()),
+    # Social Space 2x pack
+    'floor_lamp_64x192.png': ('FLOOR_LAMP', 'social/decorations', 0.5, set()),
+    'vines_top_left_192x192.png': ('VINES_LEFT', 'social/decorations', 0.5, set()),
+    'vines_top_right_192x192.png': ('VINES_RIGHT', 'social/decorations', 0.5, set()),
+    # Planters & pots pack: a pot about knee-to-waist high on the astronaut.
+    'pot_lavender.png': ('POT_LAVENDER', 'social/decorations', 0.13, {'shadow'}),
+    'pot_pink_flowers.png': ('POT_PINK_FLOWERS', 'social/decorations', 0.13, {'shadow'}),
+    'pot_monstera.png': ('POT_MONSTERA', 'social/decorations', 0.13, {'shadow'}),
+    'planter_lavender.png': ('PLANTER_LAVENDER', 'social/decorations', 0.13, {'shadow'}),
+    'planter_red_flowers.png': ('PLANTER_RED_FLOWERS', 'social/decorations', 0.13, {'shadow'}),
+    # Supply kiosk: stands on the floor at the top right, about as tall as the board.
+    'supply_kiosk.png': ('SUPPLY_STORE', 'social/store', 0.08, set()),
+    # Furniture-with-shadows pack: an armchair about 80% of the astronaut's height, a pouf knee-high.
+    'armchair_left.png': ('ARMCHAIR_LEFT', 'social/decorations', 0.15, {'seat'}),
+    'armchair_right.png': ('ARMCHAIR_RIGHT', 'social/decorations', 0.15, {'seat'}),
+    'pouf_bottom_left.png': ('POUF_BOTTOM_LEFT', 'social/decorations', 0.15, {'seat'}),
+    'pouf_bottom_right.png': ('POUF_BOTTOM_RIGHT', 'social/decorations', 0.15, {'seat'}),
+    'sofa_with_blanket.png': ('SOFA', 'social/decorations', 0.105, {'seat'}),
     # Table & rug pack: the decorated coffee table, about two astronauts wide.
-    'coffee_table_decorated.png': ('COFFEE_TABLE', 'social/decorations', 0.175),
-    # Social Space sketch cut-outs (game scale, sized to the room's mockup)
-    'planta_maceta.png': ('POTTED_PLANT', 'medical/terminal', 0.6),
+    'coffee_table_decorated.png': ('COFFEE_TABLE', 'social/decorations', 0.175, {'glow'}),
+    # First Social Space zip (sketch cut-outs at game scale); used in the Medical Station.
+    'planta_maceta.png': ('POTTED_PLANT', 'medical/terminal', 0.6, set()),
 }
-
-# Sprites exported with a soft glow painted around them (it reads as haze on the floor).
-GLOW_HALO = {'coffee_table_decorated.png'}
 
 
 def main() -> None:
@@ -57,13 +61,20 @@ def main() -> None:
         sys.exit(__doc__)
     found = {p.name: p for p in Path(sys.argv[1]).expanduser().rglob('*.png')}
     keys = []
-    for name, (kind, folder, scale) in PROPS.items():
+    for name, (kind, folder, scale, steps) in PROPS.items():
         if name not in found:
-            continue  # props from another pack
+            continue  # from another pack: run the tool on each pack's folder
         im = Image.open(found[name])
-        if name in GLOW_HALO:
+        if im.mode == 'RGB':  # no alpha: a flat background to clear
+            im = clear_background(im)
+        if 'glow' in steps:
             im = drop_glow(im)
-        im = trim(largest_part(im))
+        im = drop_strays(im)
+        if 'seat' in steps:
+            im = seat_shadows(im)
+        im = trim(im)
+        if 'shadow' in steps:
+            im = add_shadow(im)
         size = game_size(im, scale)
         key = 'prop-' + kind.lower().replace('_', '-')  # propTextureKey(kind)
         save_scaled(im, size, ASSETS / folder / f'{key}.png')

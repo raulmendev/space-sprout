@@ -21,10 +21,10 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from art import ASSETS, largest_part, mark_delivered, save_scaled, trim
+from art import ASSETS, HI_RES, drop_strays, mark_delivered, save_scaled, trim
 
 SIZE = (768, 512)  # ROOM_COLS x ROOM_ROWS x TILE_SIZE (habitat.ts)
-SOURCE_SIZE = (SIZE[0] * 2, SIZE[1] * 2)  # as delivered: 64 px per game tile
+SOURCE_SIZE = (SIZE[0] * HI_RES, SIZE[1] * HI_RES)  # as delivered: 64 px per game tile
 
 # Our UI baked into a delivered picture, in SOURCE_SIZE pixels:
 # (box, x-offset of the clean patch beside it in the same rows).
@@ -39,7 +39,7 @@ BAKED_UI = {
 # room's layout (habitat.ts) so they behave as that floor.
 FLOOR = {
     'social': [
-        ('lounge_rug.png', (258, 262, 252, 133)),  # under the lounge: RUG, cols 8-15, rows 8-11
+        ('lounge_rug.png', (258, 230, 252, 133)),  # under the lounge: RUG, cols 8-15, rows 7-10
     ],
 }
 
@@ -50,8 +50,8 @@ def lay_floor(im: Image.Image, pieces, folder: Path | None) -> Image.Image:
         found = next(folder.rglob(name), None) if folder else None
         if not found:
             sys.exit(f'{name} is needed for this room: pass the folder that has it as the third argument')
-        piece = trim(largest_part(Image.open(found))).resize((w * 2, h * 2), Image.LANCZOS)
-        im.alpha_composite(piece, (x * 2, y * 2))
+        piece = trim(drop_strays(Image.open(found))).resize((w * HI_RES, h * HI_RES), Image.LANCZOS)
+        im.alpha_composite(piece, (x * HI_RES, y * HI_RES))
     return im.convert('RGB')
 
 

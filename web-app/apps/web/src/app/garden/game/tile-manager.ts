@@ -7,24 +7,37 @@ export type { TileCoord, TileRect };
 export const WORLD_W = ROOM_COLS * TILE_SIZE;
 export const WORLD_H = ROOM_ROWS * TILE_SIZE;
 
+/** Scale per texture key, worked out once (texture sizes don't change after loading). */
+const fitScales = new Map<string, number>();
+
 /**
- * Show an image at its game size (its registered width). Hi-res art (delivered at 2x, 64 px per
- * tile) is scaled down with smooth filtering, so a canvas rendering at the screen's resolution
- * keeps its detail; everything else (pixel placeholders, 1x art) stays 1:1 and crisp.
+ * The scale that shows a texture at its game size (its registered width). Hi-res art (delivered
+ * at 2x, 64 px per tile) is scaled down with smooth filtering, so a canvas rendering at the
+ * screen's resolution keeps its detail; everything else (pixel placeholders, 1x art) stays 1:1
+ * and crisp. Tweens that pop or squash a sprite scale relative to this.
  */
-export function fitToGame<T extends Phaser.GameObjects.Image>(img: T): T {
-  const width = getAsset(img.texture.key)?.width;
-  const source = img.texture.source[0].width;
-  const hiRes = !!width && source >= width * 1.5;
-  if (hiRes) img.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
-  const scale = hiRes ? width / source : 1;
-  return img.setScale(scale).setData('fit', scale); // the resting scale, whatever a tween is doing
+export function restingScale(img: Phaser.GameObjects.Image): number {
+  const key = img.texture.key;
+  let scale = fitScales.get(key);
+  if (scale === undefined) {
+    const width = getAsset(key)?.width;
+    const source = img.texture.source[0].width;
+    scale = width && source >= width * 1.5 ? width / source : 1;
+    if (scale !== 1) img.texture.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    fitScales.set(key, scale);
+  }
+  return scale;
 }
 
-/** Size in world pixels at rest (tweens that squash or pop a sprite don't change it). */
+/** Show an image at its game size (see restingScale). */
+export function fitToGame<T extends Phaser.GameObjects.Image>(img: T): T {
+  return img.setScale(restingScale(img));
+}
+
+/** Size in world pixels at rest. */
 export function restingSize(img: Phaser.GameObjects.Image): { w: number; h: number } {
-  const fit = (img.getData('fit') as number | undefined) ?? 1;
-  return { w: img.width * fit, h: img.height * fit };
+  const s = restingScale(img);
+  return { w: img.width * s, h: img.height * s };
 }
 
 /** Draws a room's static ground layer and converts between pixel and tile space. */

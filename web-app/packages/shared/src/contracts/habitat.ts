@@ -126,7 +126,7 @@ export const ROOMS: Record<RoomId, Room> = {
     name: 'Social Space',
     // Painted room (habitat/rooms/room-social.png): its back wall comes down to row 3, so the
     // floor starts at row 4. The lounge rug is painted in too (tools/import_room.py FLOOR):
-    // cols 8-15, rows 8-11.
+    // cols 8-15, rows 7-10.
     layout: [
       'XXXXXXXXXXXXXXXXXXXXXXXX', // 0
       'XVOOVVVVVVVEeVVVVVVVOOVX', // 1
@@ -135,40 +135,39 @@ export const ROOMS: Record<RoomId, Room> = {
       'XCCCCCCCCCCCCCCCCCCCCCCX', // 4
       'XCCCCCCCCCCCCCCCCCCCCCCX', // 5
       'XCCCCCCCCCCCCCCCCCCCCCCX', // 6
-      'KCCCCCCCCCCCCCCCCCCCCCCK', // 7
+      'KCCCCCCCRRRRRRRRCCCCCCCK', // 7
       'KCCCCCCCRRRRRRRRCCCCCCCK', // 8
       'XCCCCCCCRRRRRRRRCCCCCCCX', // 9
       'XCCCCCCCRRRRRRRRCCCCCCCX', // 10
-      'XCCCCCCCRRRRRRRRCCCCCCCX', // 11
+      'XCCCCCCCCCCCCCCCCCCCCCCX', // 11
       'XCCCCCCCCCCCCCCCCCCCCCCX', // 12
       'XCCCCCCCCCCCCCCCCCCCCCCX', // 13
       'XCCCCCCCCCCCCCCCCCCCCCCX', // 14
       'XXXXXXXXXXXXXXXXXXXXXXXX', // 15
     ],
-    // Earth Link and the store mounted on the wall panels either side of the Earth window; the
-    // board stands below the window (clear of it) between two plants; a lounge in the middle;
-    // vines in the top corners and planters in the front ones.
+    // The board stands against the back wall at the top left and the supply kiosk at the top
+    // right, each with a pot beside it; a lounge in the middle; vines in
+    // the top corners and planters in the front ones.
     props: [
       { id: 'vines-left', kind: 'VINES_LEFT', name: 'Hanging vines', x: 0, y: 3, w: 2, h: 1 },
-      { id: 'comm-terminal', kind: 'COMM_TERMINAL', name: 'Earth Link', x: 3, y: 3, w: 3, h: 1, interaction: 'MESSAGE_BOARD_SELECTED' },
-      { id: 'supply-store', kind: 'SUPPLY_STORE', name: 'Supply Store', x: 18, y: 3, w: 3, h: 1, interaction: 'STORE_SELECTED' },
+      { id: 'message-board', kind: 'MESSAGE_BOARD', name: 'Message Board', x: 2, y: 4, w: 4, h: 1, interaction: 'MESSAGE_BOARD_SELECTED' },
+      { id: 'supply-store', kind: 'SUPPLY_STORE', name: 'Supply Store', x: 18, y: 4, w: 3, h: 1, interaction: 'STORE_SELECTED' },
       { id: 'vines-right', kind: 'VINES_RIGHT', name: 'Hanging vines', x: 22, y: 3, w: 2, h: 1 },
-      { id: 'social-plant-1', kind: 'POTTED_PLANT', name: 'Potted plant', x: 8, y: 6, w: 1, h: 1 },
-      { id: 'message-board', kind: 'MESSAGE_BOARD', name: 'Message Board', x: 10, y: 6, w: 4, h: 1, interaction: 'MESSAGE_BOARD_SELECTED' },
-      { id: 'social-plant-2', kind: 'POTTED_PLANT', name: 'Potted plant', x: 15, y: 6, w: 1, h: 1 },
+      { id: 'social-plant-1', kind: 'POT_PINK_FLOWERS', name: 'Flower pot', x: 6, y: 4, w: 1, h: 1 },
+      { id: 'social-plant-2', kind: 'POT_LAVENDER', name: 'Lavender', x: 17, y: 4, w: 1, h: 1 },
       // The lounge, laid out as the target mockup at player scale: the sofa behind the coffee
       // table (lamp on its left, plant on its right), an armchair on each side, two poufs in
       // front, all on the rug.
-      { id: 'floor-lamp', kind: 'FLOOR_LAMP', name: 'Floor lamp', x: 9, y: 8, w: 1, h: 1 },
-      { id: 'sofa', kind: 'SOFA', name: 'Sofa', x: 10, y: 8, w: 4, h: 1 },
-      { id: 'lounge-plant', kind: 'POTTED_PLANT', name: 'Potted plant', x: 15, y: 8, w: 1, h: 1 },
-      { id: 'armchair-left', kind: 'ARMCHAIR_LEFT', name: 'Armchair', x: 9, y: 10, w: 2, h: 1 },
-      { id: 'coffee-table', kind: 'COFFEE_TABLE', name: 'Coffee table', x: 11, y: 10, w: 2, h: 1 },
-      { id: 'armchair-right', kind: 'ARMCHAIR_RIGHT', name: 'Armchair', x: 13, y: 10, w: 2, h: 1 },
-      { id: 'pouf-left', kind: 'POUF_BOTTOM_LEFT', name: 'Pouf', x: 10, y: 11, w: 2, h: 1 },
-      { id: 'pouf-right', kind: 'POUF_BOTTOM_RIGHT', name: 'Pouf', x: 12, y: 11, w: 2, h: 1 },
-      { id: 'social-planter-1', kind: 'FLOWER_PLANTER', name: 'Flower planter', x: 2, y: 14, w: 3, h: 1 },
-      { id: 'social-planter-2', kind: 'FLOWER_PLANTER', name: 'Flower planter', x: 19, y: 14, w: 3, h: 1 },
+      { id: 'floor-lamp', kind: 'FLOOR_LAMP', name: 'Floor lamp', x: 9, y: 7, w: 1, h: 1 },
+      { id: 'sofa', kind: 'SOFA', name: 'Sofa', x: 10, y: 7, w: 4, h: 1 },
+      { id: 'lounge-plant', kind: 'POT_MONSTERA', name: 'Monstera', x: 15, y: 7, w: 1, h: 1 },
+      { id: 'armchair-left', kind: 'ARMCHAIR_LEFT', name: 'Armchair', x: 9, y: 9, w: 1, h: 1 },
+      { id: 'coffee-table', kind: 'COFFEE_TABLE', name: 'Coffee table', x: 11, y: 9, w: 2, h: 1 },
+      { id: 'armchair-right', kind: 'ARMCHAIR_RIGHT', name: 'Armchair', x: 14, y: 9, w: 1, h: 1 },
+      { id: 'pouf-left', kind: 'POUF_BOTTOM_LEFT', name: 'Pouf', x: 10, y: 10, w: 2, h: 1 },
+      { id: 'pouf-right', kind: 'POUF_BOTTOM_RIGHT', name: 'Pouf', x: 12, y: 10, w: 2, h: 1 },
+      { id: 'social-planter-1', kind: 'PLANTER_LAVENDER', name: 'Lavender planter', x: 2, y: 14, w: 3, h: 1 },
+      { id: 'social-planter-2', kind: 'PLANTER_RED_FLOWERS', name: 'Flower planter', x: 19, y: 14, w: 3, h: 1 },
     ],
     doors: [...sideDoor('W', 'GARDEN'), ...sideDoor('E', 'MEDICAL')],
   },

@@ -73,7 +73,8 @@ export function createHabitatRenderer(parent: HTMLElement, deliveredKeys: readon
     flashTile: (t) => scene?.flashTile(t), // a pre-boot error flash isn't worth replaying
     setZoom: (z) => {
       const res = Math.min(MAX_RESOLUTION, z * devicePixelRatio);
-      game.scale.resize(Math.round(WORLD_W * res), Math.round(WORLD_H * res));
+      const w = Math.round(WORLD_W * res), h = Math.round(WORLD_H * res);
+      if (w !== game.scale.width || h !== game.scale.height) game.scale.resize(w, h); // skip reallocating the same size
       game.scale.setZoom(z / res); // shown at WORLD_W * z CSS pixels
       runLatest('resolution', (s) => s.setResolution(res));
     },

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
 import { TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
 import { missingTexture } from './placeholders';
-import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingSize } from './tile-manager';
+import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingScale, restingSize } from './tile-manager';
 
 /** One sprite to draw. Computed by Angular; the scene applies no rules. */
 export interface RenderSprite extends TileRect {
@@ -307,7 +307,7 @@ export class HabitatScene extends Phaser.Scene {
     entry.tweens.forEach((t) => t.remove());
     entry.tweens = [];
     fitToGame(img.setAngle(0));
-    const s = img.scaleX;
+    const s = restingScale(img);
     if (data.sway) {
       entry.tweens.push(this.tweens.add({ targets: img, angle: { from: -1.5, to: 1.5 }, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: Math.random() * 1500 }));
     }
@@ -390,11 +390,7 @@ export class HabitatScene extends Phaser.Scene {
     badge.setData('interaction', data.interaction);
     if (data.interaction) badge.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
     entry.badge = badge;
-    if (!this.reducedMotion && !this.building) { // no pop for bubbles already there when entering a room
-      const s = badge.scale;
-      badge.setScale(s * 0.3);
-      this.tweens.add({ targets: badge, scale: s, duration: 280, ease: 'Back.out' });
-    }
+    if (!this.reducedMotion && !this.building) this.popIn(badge, 0.3, 280); // not for bubbles already there when entering a room
     this.bobBadge(entry, y);
   }
 
@@ -480,11 +476,7 @@ export class HabitatScene extends Phaser.Scene {
         .setDepth(img.depth + 0.5 + i * 0.01);
       entry.decals.push(decal);
       const isNew = i >= before.length || before[i].texture !== d.texture;
-      if (prev && isNew && !this.building && !this.reducedMotion) {
-        const s = decal.scale;
-        decal.setScale(s * 0.2);
-        this.tweens.add({ targets: decal, scale: s, duration: 260, ease: 'Back.out', delay: (i - before.length) * 60 });
-      }
+      if (prev && isNew && !this.building && !this.reducedMotion) this.popIn(decal, 0.2, 260, (i - before.length) * 60);
     });
   }
 
@@ -551,15 +543,20 @@ export class HabitatScene extends Phaser.Scene {
 
   private pop(img: Phaser.GameObjects.Image): void {
     if (this.reducedMotion || this.building) return; // no pop for things already in a room we enter
-    const s = img.scale;
-    img.setScale(s * 0.2);
-    this.tweens.add({ targets: img, scale: s, duration: 320, ease: 'Back.out' });
+    this.popIn(img, 0.2, 320);
     this.sparkle(img.x, img.y - TILE_SIZE / 2);
+  }
+
+  /** Grow from `from` times its resting size back to it, with a little overshoot. */
+  private popIn(img: Phaser.GameObjects.Image, from: number, duration: number, delay = 0): void {
+    const s = restingScale(img);
+    img.setScale(s * from);
+    this.tweens.add({ targets: img, scale: s, duration, delay, ease: 'Back.out' });
   }
 
   private grow(img: Phaser.GameObjects.Image): void {
     if (this.reducedMotion) return;
-    const s = img.scaleX;
+    const s = restingScale(img);
     this.tweens.add({ targets: img, scaleX: s * 1.15, scaleY: s * 0.85, duration: 120, yoyo: true, ease: 'Quad.out' });
     this.sparkle(img.x, img.y - TILE_SIZE / 2);
   }
