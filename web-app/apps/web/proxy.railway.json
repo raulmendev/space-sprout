@@ -1,0 +1,8 @@
+{
+  "/api": {
+    "target": "https://api-production-77840255.up.railway.app",
+    "secure": true,
+    "changeOrigin": true,
+    "ws": true
+  }
+}

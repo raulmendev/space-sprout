@@ -5,7 +5,7 @@ import { Component, computed, input } from '@angular/core';
  * index.html shows the same markup before Angular starts, so the hand-over doesn't jump:
  * change both together. The look is global (styles.css, "Loading screen") since
  * index.html needs it before Angular loads.
- * PLACEHOLDER: the ISS (assets/loading/iss.svg) stands in for the animated logo.
+ * The station (assets/loading/station.webp) stands in for the animated logo, if that arrives.
  */
 @Component({
   selector: 'app-loading-screen',
@@ -18,7 +18,7 @@ import { Component, computed, input } from '@angular/core';
     <div class="boot-stars" aria-hidden="true"></div>
     <div class="boot-earth" aria-hidden="true"></div>
     <div class="boot-body">
-      <img class="boot-iss" src="assets/loading/iss.svg" alt="" width="384" height="176" />
+      <img class="boot-station" src="assets/loading/station.webp" alt="" width="384" height="157" />
       <p class="boot-title">Jardín Comunal</p>
       <div class="boot-bar" [class.waiting]="!percent()" aria-hidden="true">
         <div class="boot-fill" [style.width.%]="percent() || null"></div>

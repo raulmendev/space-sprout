@@ -5,10 +5,13 @@ import { HabitatStore } from './habitat.store';
  * Low-opacity "use" button opposite the pad. It lights up when something usable
  * is within reach and says what it will do; E / Space do the same on a keyboard.
  *
- * Fires on pointerdown, not click: on phones one thumb is usually still on the
- * pad, and browsers often don't synthesise a click for a tap while another
- * finger is down. Keyboard activation (Enter/Space on the focused button) still
- * arrives as a click with no pointer, and is handled there.
+ * Fires when the finger lifts (pointerup), not on click: on phones one thumb is
+ * usually still on the pad, and browsers often don't synthesise a click for a tap
+ * while another finger is down. Not on pointerdown either: a popup opened then would
+ * get the lift as a tap on its backdrop and close at once (a flash). The press is
+ * captured, so the lift comes back to the button wherever the finger ends up.
+ * Keyboard activation (Enter/Space on the focused button) still arrives as a click
+ * with no pointer, and is handled there.
  */
 @Component({
   selector: 'app-action-button',
@@ -28,6 +31,8 @@ import { HabitatStore } from './habitat.store';
       [attr.aria-label]="target()?.label ?? 'Nothing to use nearby'"
       [title]="(target()?.label ?? 'Nothing to use nearby') + ' (E or Space)'"
       (pointerdown)="press($event)"
+      (pointerup)="release($event)"
+      (pointercancel)="pressed = null"
       (click)="keyboardClick($event)"
     >A</button>
   `,
@@ -36,13 +41,23 @@ export class ActionButtonComponent {
   protected readonly target = inject(HabitatStore).reachable;
   readonly act = output<void>();
 
+  /** The pointer pressing the button, until it lifts. */
+  protected pressed: number | null = null;
+
   protected press(e: PointerEvent): void {
     if (e.button > 0) return; // ignore right/middle mouse buttons
     e.preventDefault(); // keep focus where it is; don't start a text selection
+    this.pressed = e.pointerId;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  protected release(e: PointerEvent): void {
+    if (e.pointerId !== this.pressed) return;
+    this.pressed = null;
     if (this.target()) this.act.emit();
   }
 
-  /** Only keyboard activation lands here (pointer presses were handled on pointerdown). */
+  /** Only keyboard activation lands here (pointer presses were handled on pointerup). */
   protected keyboardClick(e: MouseEvent): void {
     if (e.detail === 0 && this.target()) this.act.emit();
   }

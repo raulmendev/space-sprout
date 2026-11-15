@@ -4,6 +4,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:railway": "ng serve --proxy-config proxy.railway.json --define \"API_URL='/api'\"",
     "build": "ng build",
     "build:android": "ng build --define \"API_URL='https://api-production-77840255.up.railway.app/api'\" && cap sync android",
     "watch": "ng build --watch --configuration development",
