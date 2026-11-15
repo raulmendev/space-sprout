@@ -2,7 +2,6 @@ import { Component, computed, inject } from '@angular/core';
 import { INVENTORY_ITEM_IDS, describeItem, getCatalogItem, getStoreItem, isDecor, owned, pottedPlantOf } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { AssetService } from '../shared/assets.service';
-import { previewTextureKey, storeItemTextureKey } from '../garden/game/asset-registry';
 import { DECOR_ROOM_NAMES, DecorStore } from '../decor/decor.store';
 import { HabitatStore } from '../habitat/habitat.store';
 
@@ -59,10 +58,8 @@ const GROUPS: readonly Group[] = [
               @for (row of g.items; track row.id) {
                 <li class="riveted-card flex items-center gap-2.5 px-3 py-2 short:py-1.5">
                   <span class="sprite" aria-hidden="true">
-                    @if (row.item.plant) {
-                      <img [src]="assets.url(preview(row.item.plant))" alt="" [class.pixelated]="!assets.has(preview(row.item.plant))" />
-                    } @else if (assets.has(art(row.id))) {
-                      <img [src]="assets.url(art(row.id))" alt="" class="pixelated" />
+                    @if (assets.itemSprite(row.id, row.item.plant); as sprite) {
+                      <img [src]="sprite.url" alt="" [class.pixelated]="sprite.pixelated" />
                     } @else {
                       <span class="icon">{{ row.item.icon }}</span>
                     }
@@ -151,8 +148,4 @@ export class InventoryPanelComponent {
     this.habitat.openPanel.set(null);
     this.decor.start(itemId);
   }
-
-
-  protected preview = (plant: string) => previewTextureKey(plant, 'MATURE');
-  protected art = storeItemTextureKey;
 }
