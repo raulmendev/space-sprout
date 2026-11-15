@@ -1,6 +1,6 @@
 import type { GardenObject } from '../types/domain';
 import { footprintOf, getCatalogItem } from './catalog';
-import { TileRect, footprintTiles, rectContains } from './geometry';
+import { TileRect, anchorsCovering, footprintTiles, rectContains } from './geometry';
 import { GARDEN_ROOM, RoomId, getTileKind, propAtTile } from './habitat';
 
 export type PlacementError =
@@ -69,14 +69,10 @@ export function findPlacement(
 ): { ok: true; x: number; y: number } | { ok: false; error: PlacementError } {
   const f = footprintOf(itemType);
   let firstError: PlacementError | null = null;
-  for (let dy = 0; dy < f.h; dy++) {
-    for (let dx = 0; dx < f.w; dx++) {
-      const err = spatialError(itemType, x - dx, y - dy, objects);
-      if (!err) {
-        return seedsOwned < 1 ? { ok: false, error: 'NO_SEEDS' } : { ok: true, x: x - dx, y: y - dy };
-      }
-      firstError ??= err;
-    }
+  for (const at of anchorsCovering({ x, y }, f.w, f.h)) {
+    const err = spatialError(itemType, at.x, at.y, objects);
+    if (!err) return seedsOwned < 1 ? { ok: false, error: 'NO_SEEDS' } : { ok: true, ...at };
+    firstError ??= err;
   }
   return { ok: false, error: firstError ?? 'NOT_PLANTABLE' };
 }

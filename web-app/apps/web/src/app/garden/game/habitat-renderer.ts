@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { HabitatInteraction } from '@garden/shared';
-import { HabitatRenderState, HabitatScene, RenderActor } from './habitat.scene';
+import { GhostSprite, HabitatRenderState, HabitatScene, RenderActor } from './habitat.scene';
 import { TileCoord, TileRect, WORLD_H, WORLD_W } from './tile-manager';
 
 /** The small surface Angular talks to. State flows in; interactions flow out. */
@@ -10,7 +10,8 @@ export interface HabitatRenderer {
   setHover(rect: TileRect | null): void;
   setSelection(rect: TileRect | null): void;
   setFocus(rect: TileRect | null): void;
-  setGhost(ghost: (TileCoord & { texture: string }) | null): void;
+  setGhost(ghost: GhostSprite | null): void;
+  setSpots(tiles: readonly TileCoord[] | null): void;
   flashTile(tile: TileCoord): void;
   setZoom(zoom: number): void;
   destroy(): void;
@@ -59,6 +60,7 @@ export function createHabitatRenderer(parent: HTMLElement, deliveredKeys: readon
     setSelection: (r) => runLatest('selection', (s) => s.setSelection(r)),
     setFocus: (r) => runLatest('focus', (s) => s.setFocus(r)),
     setGhost: (g) => runLatest('ghost', (s) => s.setGhost(g)),
+    setSpots: (t) => runLatest('spots', (s) => s.setSpots(t)),
     flashTile: (t) => scene?.flashTile(t), // a pre-boot error flash isn't worth replaying
     setZoom: (z) => game.scale.setZoom(z),
     destroy: () => game.destroy(true),

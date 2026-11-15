@@ -3,7 +3,11 @@ import {
   Actor,
   CareAction,
   CareError,
+  DecorChange,
+  DecorError,
   GardenObject,
+  PlacedDecor,
+  RoomId,
   Inventory,
   PlacementError,
   PostNoteError,
@@ -25,6 +29,9 @@ import {
   owned,
   seedItemId,
   validatePlacement,
+  placeDecor,
+  moveDecor,
+  putAwayDecor,
 } from '@garden/shared';
 
 /** Garden coins earned per actor on one day, for the daily cap. */
@@ -41,6 +48,8 @@ export interface GardenSnapshot {
   purchases: Purchase[];
   /** Notes pinned on the message board from this device, until a server holds them. */
   notes?: SocialNote[];
+  /** Decorations placed in the station (taken out of the inventory while they're up). */
+  decorations: PlacedDecor[];
 }
 
 export type BuyResult =
@@ -51,6 +60,10 @@ export type PostNoteResult = { ok: true; note: SocialNote; inventory: Inventory 
 export type PlaceResult =
   | { ok: true; object: GardenObject; inventory: Inventory }
   | { ok: false; error: PlacementError };
+
+export type DecorResult =
+  | { ok: true; decorations: PlacedDecor[]; inventory: Inventory }
+  | { ok: false; error: DecorError };
 
 export type CareResult =
   | { ok: true; object: GardenObject | null; balance: number; inventory: Inventory; earned: number; earnedToday: number }
@@ -86,6 +99,7 @@ export class GardenService {
         // Gardens saved before the store existed start with the starter inventory.
         snap.inventory ??= { ...STARTER_INVENTORY };
         snap.purchases ??= [];
+        snap.decorations ??= [];
         return snap;
       }
     } catch {
@@ -123,6 +137,30 @@ export class GardenService {
   async buy(itemId: string, actor: Actor = LOCAL_PLAYER): Promise<BuyResult> {
     const snap = await this.load();
     const result = applyPurchase(snap, itemId, actor, new Date().toISOString());
+    if (!result.ok) return result;
+    Object.assign(snap, result.state);
+    this.save(snap);
+    return { ok: true, ...result.state };
+  }
+
+  /** Put a decoration from the inventory up in the station. */
+  async placeDecor(itemId: string, room: RoomId, x: number, y: number, actor: Actor = LOCAL_PLAYER): Promise<DecorResult> {
+    const snap = await this.load();
+    return this.commitDecor(snap, placeDecor(snap, itemId, room, x, y, actor, new Date().toISOString(), crypto.randomUUID()));
+  }
+
+  async moveDecor(decorId: string, x: number, y: number): Promise<DecorResult> {
+    const snap = await this.load();
+    return this.commitDecor(snap, moveDecor(snap, decorId, x, y));
+  }
+
+  /** Take a decoration down; it goes back into the inventory. */
+  async putAwayDecor(decorId: string): Promise<DecorResult> {
+    const snap = await this.load();
+    return this.commitDecor(snap, putAwayDecor(snap, decorId));
+  }
+
+  private commitDecor(snap: GardenSnapshot, result: DecorChange): DecorResult {
     if (!result.ok) return result;
     Object.assign(snap, result.state);
     this.save(snap);
@@ -235,6 +273,7 @@ function seedGarden(): GardenSnapshot {
     balance: 20,
     inventory: { ...STARTER_INVENTORY },
     purchases: [],
+    decorations: [],
     // Every species with delivered art, fully grown, plus one rose bush per growth stage.
     objects: [
       // Top field

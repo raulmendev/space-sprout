@@ -18,6 +18,14 @@ export function* footprintTiles(r: TileRect): Generator<TileCoord> {
   for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) yield { x, y };
 }
 
+/**
+ * Top-left anchors whose w×h footprint covers `tile`, in preference order: the tile itself first,
+ * then shifting left, then up. Lets a 2x2 thing be placed by tapping any tile it would cover.
+ */
+export function* anchorsCovering(tile: TileCoord, w: number, h: number): Generator<TileCoord> {
+  for (let dy = 0; dy < h; dy++) for (let dx = 0; dx < w; dx++) yield { x: tile.x - dx, y: tile.y - dy };
+}
+
 /** Tiles between a point and a rect (0 when inside), counting diagonals as 1. */
 export function chebyshev(t: TileCoord, r: TileRect): number {
   const dx = Math.max(r.x - t.x, 0, t.x - (r.x + r.w - 1));

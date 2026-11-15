@@ -19,6 +19,8 @@ export interface RenderSprite extends TileRect {
   badgeAt?: { dx: number; dy: number };
   /** Soft twinkles around the sprite (a plant with every need met). */
   shine?: boolean;
+  /** Lies flat on the floor (a rug): drawn under characters and everything standing. */
+  flat?: boolean;
   /** Small images pinned on the sprite (notes on the message board). Taps go through to the sprite. */
   decals?: readonly RenderDecal[];
 }
@@ -46,6 +48,12 @@ export interface RenderActor {
 const FOOT_OFFSET_PX = 6;
 /** Characters draw in front of props/plants whose base is on the same line. */
 const ACTOR_DEPTH_BIAS = 0.5;
+
+/** A translucent preview sprite over a footprint, raised `lift` px (the "+" hint floats a little). */
+export interface GhostSprite extends TileRect {
+  texture: string;
+  lift: number;
+}
 
 export interface HabitatRenderState {
   /** The room to show. Changing it rebuilds the scene behind a short fade. */
@@ -91,6 +99,8 @@ export class HabitatScene extends Phaser.Scene {
   private selection!: Phaser.GameObjects.Rectangle;
   private focus!: Phaser.GameObjects.Rectangle;
   private ghost!: Phaser.GameObjects.Image;
+  /** While placing a decoration: the tiles it can go on, lit up. Taps then always mean "this tile". */
+  private spots: Phaser.GameObjects.Rectangle[] | null = null;
   private lastHover = '';
   private readonly reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -136,7 +146,7 @@ export class HabitatScene extends Phaser.Scene {
       const key = target ? hoverKey(target) : '';
       if (key === this.lastHover) return;
       this.lastHover = key;
-      this.input.setDefaultCursor(target && target.type !== 'TILE_SELECTED' ? 'pointer' : 'default');
+      this.input.setDefaultCursor(this.spots ? 'crosshair' : target && target.type !== 'TILE_SELECTED' ? 'pointer' : 'default');
       this.bridge.onHover(target);
     });
     this.input.on('gameout', () => {
@@ -153,6 +163,10 @@ export class HabitatScene extends Phaser.Scene {
 
   /** Topmost interactive sprite under the pointer, else the tile. */
   private pick(p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]): HabitatInteraction | null {
+    if (this.spots) {
+      const t = this.tiles.toTile(p.worldX, p.worldY);
+      return t ? { type: 'TILE_SELECTED', ...t } : null;
+    }
     let top: Phaser.GameObjects.Image | null = null;
     for (const o of over as Phaser.GameObjects.Image[]) {
       if (o.getData('interaction') && (!top || o.depth > top.depth)) top = o;
@@ -256,7 +270,7 @@ export class HabitatScene extends Phaser.Scene {
     img
       .setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1)
       .setPosition(px, py)
-      .setDepth(DEPTH.WORLD + py);
+      .setDepth(data.flat ? DEPTH.GROUND_OVERLAY + 2 : DEPTH.WORLD + py);
     img.setData('interaction', data.interaction);
     if (data.interaction && !img.input) img.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
     if (!data.interaction && img.input) img.disableInteractive();
@@ -453,12 +467,27 @@ export class HabitatScene extends Phaser.Scene {
     this.placeRect(this.selection, rect);
   }
 
-  /** Translucent hint over a tile (e.g. "+" on an empty plot). */
-  setGhost(ghost: (TileCoord & { texture: string }) | null): void {
+  /** Translucent preview over a footprint ("+" on an empty plot, a decoration being placed), raised `lift` px. */
+  setGhost(ghost: GhostSprite | null): void {
     this.ghost.setVisible(!!ghost);
     if (!ghost) return;
-    const { px, py } = this.tiles.anchor({ ...ghost, w: 1, h: 1 });
-    this.ghost.setTexture(ghost.texture).setPosition(px, py - 4);
+    const { px, py } = this.tiles.anchor(ghost);
+    this.ghost.setTexture(ghost.texture).setPosition(px, py - ghost.lift);
+  }
+
+  /** Light up where a decoration can go (null: stop placing). */
+  setSpots(tiles: readonly TileCoord[] | null): void {
+    this.spots?.forEach((r) => r.destroy());
+    this.spots = tiles
+      ? tiles.map((t) =>
+          this.add
+            .rectangle(t.x * TILE_SIZE + 1, t.y * TILE_SIZE + 1, TILE_SIZE - 2, TILE_SIZE - 2, 0x9cf29c, 0.3)
+            .setOrigin(0)
+            .setStrokeStyle(1, 0xd8ffd0, 0.8)
+            .setDepth(DEPTH.GROUND_OVERLAY + 1), // on the floor and wall, under people and furniture
+        )
+      : null;
+    this.input.setDefaultCursor(tiles ? 'crosshair' : 'default');
   }
 
   /** Short invalid-action feedback on a tile. */
