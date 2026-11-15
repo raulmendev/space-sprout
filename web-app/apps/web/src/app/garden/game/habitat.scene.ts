@@ -50,6 +50,8 @@ export interface RenderActor {
   float?: boolean;
   /** Stands on the floor (the astronaut): a contact shadow under its feet, like the furniture's. */
   shadow?: boolean;
+  /** A name tag floating above its head (players). */
+  label?: string;
 }
 
 /** Frames played by the scene's own clock, so they keep going while nothing else changes. */
@@ -68,6 +70,25 @@ const FOOT_OFFSET_PX = 6;
 const ACTOR_DEPTH_BIAS = 0.5;
 /** Hovering robots: always `lift` px up, drifting `amplitude` px more and back every `periodMs`. */
 const FLOAT = { lift: 3, amplitude: 3, periodMs: 1800 } as const;
+/**
+ * Name tags: a pill like the HUD's "Playing as" chip (cream on night blue). Sizes are CSS px,
+ * so they read the same on any screen.
+ */
+const NAME_TAG = {
+  style: { fontFamily: 'Nunito, sans-serif', fontSize: '11px', fontStyle: '800', color: '#fbf3e4' },
+  fill: 0x1d1b3a,
+  alpha: 0.78,
+  padX: 6,
+  padY: 2,
+  /** Between the top of the art (its first visible row) and the pill. */
+  gap: 3,
+} as const;
+
+interface NameTag {
+  box: Phaser.GameObjects.Container;
+  text: Phaser.GameObjects.Text;
+  bg: Phaser.GameObjects.Graphics;
+}
 
 interface FloatState {
   /** Where the feet would be on the floor (px). */
@@ -125,6 +146,13 @@ export class HabitatScene extends Phaser.Scene {
   private readonly actors = new Map<string, Phaser.GameObjects.Image>();
   /** The shadow under each character: a small oval under a hovering one, the furniture's contact shadow under one standing. */
   private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse | Phaser.GameObjects.Image>();
+  /** The name tag above each character that has one, drawn above everything in the room. */
+  private readonly labels = new Map<string, NameTag>();
+  /** Per texture: how many rows of transparent padding sit above the art (name tags rest on the art, not the padding). */
+  private readonly artTop = new Map<string, number>();
+  /** World px per CSS px (name tags are scaled by it) and canvas px per CSS px (their text resolution). */
+  private tagScale = 1;
+  private tagResolution = 1;
   /** The latest characters sent, kept for when a room change held them back. */
   private lastActors: readonly RenderActor[] = [];
   private readonly failed = new Set<string>();
@@ -217,10 +245,19 @@ export class HabitatScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ renderer API
 
-  /** The canvas renders `pixelsPerUnit` pixels per world pixel: zoom the camera to fill it with the room. */
-  setResolution(pixelsPerUnit: number): void {
+  /**
+   * The canvas renders `pixelsPerUnit` pixels per world pixel, shown at `cssPerUnit` CSS px each:
+   * zoom the camera to fill it with the room, and keep name tags a fixed, sharp size on screen.
+   */
+  setResolution(pixelsPerUnit: number, cssPerUnit: number): void {
     const cam = this.cameras.main;
     cam.setSize(this.scale.width, this.scale.height).setZoom(pixelsPerUnit).centerOn(WORLD_W / 2, WORLD_H / 2);
+    this.tagScale = 1 / cssPerUnit;
+    this.tagResolution = pixelsPerUnit / cssPerUnit;
+    this.labels.forEach((l) => {
+      l.box.setScale(this.tagScale);
+      l.text.setResolution(this.tagResolution);
+    });
   }
 
   setState(state: HabitatRenderState): void {
@@ -258,6 +295,8 @@ export class HabitatScene extends Phaser.Scene {
     this.actors.clear();
     this.shadows.forEach((s) => s.destroy());
     this.shadows.clear();
+    this.labels.forEach((l) => l.box.destroy());
+    this.labels.clear();
     this.room = state.room;
     this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
     this.building = true;
@@ -376,6 +415,13 @@ export class HabitatScene extends Phaser.Scene {
       }
       this.showFrame(img);
       this.applyHover(a.id, img);
+      if (a.label) this.placeLabel(a.id, a.label, img);
+    }
+    for (const [id, label] of this.labels) {
+      if (!actors.some((a) => a.id === id && a.label)) {
+        label.box.destroy();
+        this.labels.delete(id);
+      }
     }
     for (const [id, img] of this.actors) {
       if (!seen.has(id)) {
@@ -396,7 +442,56 @@ export class HabitatScene extends Phaser.Scene {
     for (const [id, img] of this.actors) {
       this.showFrame(img);
       this.applyHover(id, img);
+      this.followLabel(id, img);
     }
+  }
+
+  /** The character's name tag: made once, kept on top of everything in the room. */
+  private placeLabel(id: string, name: string, img: Phaser.GameObjects.Image): void {
+    let label = this.labels.get(id);
+    if (!label) {
+      const bg = this.add.graphics();
+      const text = this.add.text(0, 0, name, NAME_TAG.style).setOrigin(0.5, 1).setResolution(this.tagResolution);
+      const box = this.add.container(0, 0, [bg, text]).setScale(this.tagScale).setDepth(DEPTH.INDICATOR - 1);
+      label = { box, text, bg };
+      this.labels.set(id, label);
+      this.drawTag(label);
+    } else if (label.text.text !== name) {
+      label.text.setText(name);
+      this.drawTag(label);
+    }
+    this.followLabel(id, img);
+  }
+
+  /** The pill behind the name, sized to it. The container's origin is the pill's bottom centre. */
+  private drawTag({ text, bg }: NameTag): void {
+    const w = Math.ceil(text.width) + NAME_TAG.padX * 2;
+    const h = Math.ceil(text.height) + NAME_TAG.padY * 2;
+    text.setPosition(0, -NAME_TAG.padY);
+    bg.clear().fillStyle(NAME_TAG.fill, NAME_TAG.alpha).fillRoundedRect(-w / 2, -h, w, h, h / 2);
+  }
+
+  /** Keep a name tag just above the head, through bobs, hovers and frames of different heights. */
+  private followLabel(id: string, img: Phaser.GameObjects.Image): void {
+    const label = this.labels.get(id);
+    if (!label) return;
+    const top = img.y - img.displayHeight * img.originY + this.paddingAbove(img.texture.key) * img.scaleY;
+    label.box.setPosition(img.x, top - NAME_TAG.gap * this.tagScale);
+  }
+
+  /** Rows of transparent padding at the top of a texture, found once. */
+  private paddingAbove(key: string): number {
+    let rows = this.artTop.get(key);
+    if (rows === undefined) {
+      const { width, height } = this.textures.getFrame(key);
+      rows = 0;
+      search: for (; rows < height; rows++) {
+        for (let x = 0; x < width; x++) if ((this.textures.getPixelAlpha(x, rows, key) ?? 0) > 0) break search;
+      }
+      if (rows === height) rows = 0; // blank (not loaded yet): don't cache a wrong answer
+      else this.artTop.set(key, rows);
+    }
+    return rows;
   }
 
   /**
