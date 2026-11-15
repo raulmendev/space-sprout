@@ -146,12 +146,15 @@ export interface NewMeasurement {
   source: MeasurementSource;
 }
 
-/** Anything that can produce readings: a simulated wearable today, a real device later. */
+/** A reading as a device sends it. The time is the station's: a reading is always "now". */
+export type ReadingInput = Omit<NewMeasurement, 'measuredAt'>;
+
+/** Anything that can produce readings: a simulated wearable, or the phone's Health Connect. */
 export interface MeasurementProvider {
   id: string;
   label: string;
   isSimulated: boolean;
-  read(): Promise<NewMeasurement[]>;
+  read(): Promise<ReadingInput[]>;
 }
 
 export function validateMeasurement(metric: HealthMetric, value: number): string | null {

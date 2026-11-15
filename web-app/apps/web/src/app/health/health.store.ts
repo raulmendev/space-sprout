@@ -3,37 +3,36 @@ import {
   GOAL_METRICS,
   GoalMetric,
   Goals,
-  HabitBonus,
   HealthMeasurement,
   HealthMetric,
   MeasurementProvider,
   MeasurementSource,
   MetricSummary,
-  NewMeasurement,
-  RewardOutcome,
+  type HealthResult,
+  type ReadingInput,
+  type HealthCommand,
+  type HealthView,
+  type UnknownAnswer,
   checkInStreak,
   dayOf,
   goalMet,
   goalTarget,
   nextMilestone,
+  seedsOf,
   summarize,
 } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
-import { HealthService, UnknownAnswer } from './health.service';
+import { HealthService, HealthUnreachable } from './health.service';
 import { SimulatedWearable, WEARABLE_METRICS } from './simulated-wearable';
 import { HAS_HEALTH_CONNECT, HealthConnectWearable, WearableSyncError } from './health-connect-wearable';
 import { MY_METRICS } from '../session/current-user';
 
-export interface CheckInResult {
-  readings: HealthMeasurement[];
-  /** Seeds for the check-in itself. */
-  earned: number;
-  /** Goal and streak bonuses on top. */
-  bonuses: HabitBonus[];
+/** A check-in's seeds (`earned`) and goal/streak bonuses, for the terminal. */
+export type CheckInResult = Pick<HealthResult, 'earned' | 'bonuses'> & {
   /** True when nothing earned only because today's seeds were already given. */
   alreadyRewarded: boolean;
-}
+};
 
 /** Days each insight card covers (the detail view can widen it). */
 export const CARD_WINDOW_DAYS = 7;
@@ -132,11 +131,9 @@ export class HealthStore {
   }
 
   async init(): Promise<void> {
-    const snap = await this.service.load();
-    this.measurements.set(snap.measurements);
-    this.unknowns.set(snap.unknowns ?? []);
-    this.goals.set(snap.goals ?? {});
-    const synced = snap.measurements.filter((m) => m.source !== 'MANUAL').map((m) => m.measuredAt).sort();
+    const view = await this.service.load();
+    this.show(view);
+    const synced = view.measurements.filter((m) => m.source !== 'MANUAL').map((m) => m.measuredAt).sort();
     this.lastSyncAt.set(synced.at(-1) ?? null);
   }
 
@@ -147,8 +144,7 @@ export class HealthStore {
     this.setTerminal('syncing');
     try {
       const readings = await this.wearable.read();
-      await this.save(readings);
-      this.lastSyncAt.set(new Date().toISOString());
+      if (await this.save(readings)) this.lastSyncAt.set(new Date().toISOString());
     } catch (e) {
       this.setTerminal('idle');
       this.syncError.set(e instanceof WearableSyncError ? e.message : "Couldn't sync. Try again in a moment.");
@@ -160,24 +156,14 @@ export class HealthStore {
 
   /** Check-in with any subset of metrics (typed in, or read by a crew instrument). Resolves to the seeds it earned. */
   async submitManual(values: Partial<Record<HealthMetric, number>>, source: MeasurementSource = 'MANUAL'): Promise<number> {
-    const measuredAt = new Date().toISOString();
-    const readings: NewMeasurement[] = MY_METRICS.filter((m) => values[m] !== undefined).map((metric) => ({
-      metric,
-      value: values[metric]!,
-      measuredAt,
-      source,
-    }));
+    const readings: ReadingInput[] = MY_METRICS.filter((m) => values[m] !== undefined).map((metric) => ({ metric, value: values[metric]!, source }));
     if (!readings.length) return 0;
-    await this.save(readings);
-    return this.lastResult()?.earned ?? 0;
+    return (await this.save(readings))?.earned ?? 0;
   }
 
   /** "I don't know" to a crew question. Resolves to the seeds it earned. */
   async answerUnknown(metric: HealthMetric): Promise<number> {
-    const { earned, unknowns } = await this.service.recordUnknown(metric);
-    this.unknowns.set(unknowns);
-    await this.garden.credit(earned);
-    return earned;
+    return (await this.ask({ type: 'UNKNOWN', metric }))?.earned ?? 0;
   }
 
   /** One metric over the last `windowDays` days (cards use a week; the detail view a week or a month). */
@@ -186,7 +172,7 @@ export class HealthStore {
   }
 
   async setGoal(metric: GoalMetric, value: number): Promise<void> {
-    this.goals.set(await this.service.setGoal(metric, value));
+    await this.ask({ type: 'GOAL', metric, value });
   }
 
   async reset(): Promise<void> {
@@ -196,18 +182,41 @@ export class HealthStore {
     await this.init();
   }
 
-  private async save(readings: NewMeasurement[]): Promise<void> {
-    const result = await this.service.record(readings);
-    await this.garden.credit(result.earned + result.bonuses.reduce((sum, b) => sum + b.amount, 0));
-    this.measurements.update((list) => [...list, ...result.saved]);
-    this.lastResult.set({
-      readings: result.saved,
-      earned: result.earned,
-      bonuses: result.bonuses,
-      alreadyRewarded: result.earned === 0 && result.outcomes.some((o: RewardOutcome) => o !== 'REWARDED'),
-    });
+  /**
+   * Send a command to the player's record and show what came back: the record, and the garden with
+   * the seeds it paid. Null when the station couldn't be reached (said at the terminal).
+   */
+  private async ask(command: HealthCommand): Promise<HealthResult | null> {
+    this.syncError.set(null);
+    try {
+      const reply = await this.service.run(command);
+      this.show(reply.view);
+      await this.garden.rewarded(seedsOf(reply.result), reply.garden);
+      return reply.result;
+    } catch (e) {
+      this.syncError.set(e instanceof HealthUnreachable ? e.message : "Couldn't save that. Try again in a moment.");
+      if (!(e instanceof HealthUnreachable)) console.error('Health command failed', e);
+      return null;
+    }
+  }
+
+  private show(view: HealthView): void {
+    this.measurements.set(view.measurements);
+    this.unknowns.set(view.unknowns);
+    this.goals.set(view.goals);
+  }
+
+  /** Store readings (stamped with the station's time) and show the check-in's result; null if they didn't reach it. */
+  private async save(readings: readonly ReadingInput[]): Promise<HealthResult | null> {
+    const result = await this.ask({ type: 'READINGS', readings });
+    if (!result) {
+      this.setTerminal('idle');
+      return null;
+    }
+    this.lastResult.set({ earned: result.earned, bonuses: result.bonuses, alreadyRewarded: result.earned === 0 && result.saved.length > 0 });
     if (result.saved.length) this.unseen.set(true);
     this.setTerminal('complete');
+    return result;
   }
 
   private setTerminal(state: 'idle' | 'syncing' | 'complete'): void {

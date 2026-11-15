@@ -33,7 +33,7 @@ export function describeNews({ by, command }: GardenNews, objects: readonly Gard
         return 'pinned a note on the board 📌';
       case 'TAKE_DOWN_NOTE':
         return 'took a note down';
-      case 'CREDIT':
+      case 'REWARD':
         return `earned ${seeds(command.amount)} 🌱 with a health check-in`;
     }
   })();
