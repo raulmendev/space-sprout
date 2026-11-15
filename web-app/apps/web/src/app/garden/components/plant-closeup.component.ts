@@ -20,7 +20,7 @@ const BLOCKED: Record<string, string> = {
   ALREADY_MATURE: 'Complete',
   TOO_YOUNG: 'Too young',
   NOT_MATURE: 'Not ready',
-  INSUFFICIENT_FUNDS: 'Need seeds',
+  NO_FERTILIZER: 'Get at store',
 };
 
 const STAGE_LABELS: Record<PlantStage, string> = { SEED: 'Seed', SPROUT: 'Sprout', GROWING: 'Growing', BUD: 'Bud', MATURE: 'Grown' };
@@ -385,7 +385,7 @@ export class PlantCloseupComponent {
   protected hint(action: CareAction, c: CareCheck): string {
     if (c.error === 'COOLDOWN') return 'In ' + this.duration(c.readyInMs ?? 0);
     if (c.error) return BLOCKED[c.error] ?? 'Unavailable';
-    if (c.cost) return `−${seeds(c.cost)}`;
+    if (c.uses) return `${this.info().fertilizer} left`;
     if (c.reward) return `+${seeds(c.reward)}`;
     return 'Ready';
   }

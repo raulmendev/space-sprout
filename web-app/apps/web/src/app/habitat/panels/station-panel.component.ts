@@ -3,6 +3,7 @@ import { ALL_PROPS, ROOMS } from '@garden/shared';
 import type { HabitatPanel } from '../habitat.store';
 import { MedicalTerminalPanelComponent } from '../../health/medical-terminal-panel.component';
 import { HealthInsightsPanelComponent } from '../../health/health-insights-panel.component';
+import { StorePanelComponent } from '../../store/store-panel.component';
 
 const EMOTES = [
   { glyph: '❤️', label: 'Love' },
@@ -22,7 +23,7 @@ const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SEL
  */
 @Component({
   selector: 'app-station-panel',
-  imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent],
+  imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent, StorePanelComponent],
   host: { '(document:keydown.escape)': 'closed.emit()' },
   template: `
     <section
@@ -67,6 +68,9 @@ const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SEL
         @case ('MESSAGE_BOARD_SELECTED') {
           <p class="text-sm">Notes between orbit and home. Up to 280 characters, delivered whenever each side is online.</p>
           <div class="grid h-24 place-items-center rounded-md border-2 border-dashed border-bark/30 text-sm text-bark/70">No notes yet</div>
+        }
+        @case ('STORE_SELECTED') {
+          <app-store-panel />
         }
         @case ('EMOTE_AREA_SELECTED') {
           <ul class="grid grid-cols-3 gap-2">

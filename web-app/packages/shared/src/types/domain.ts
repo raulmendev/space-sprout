@@ -142,13 +142,14 @@ export type HabitatInteraction =
   | { type: 'HEALTH_INSIGHTS_SELECTED' }
   | { type: 'MESSAGE_BOARD_SELECTED' }
   | { type: 'EMOTE_AREA_SELECTED' }
+  | { type: 'STORE_SELECTED' }
   | { type: 'TILE_SELECTED'; x: number; y: number }
   | { type: 'PROP_SELECTED'; propId: string }
   | { type: 'NPC_SELECTED'; npcId: NpcId };
 
 export type PropInteraction = Extract<
   HabitatInteraction,
-  { type: 'MEDICAL_TERMINAL_SELECTED' | 'HEALTH_INSIGHTS_SELECTED' | 'MESSAGE_BOARD_SELECTED' | 'EMOTE_AREA_SELECTED' }
+  { type: 'MEDICAL_TERMINAL_SELECTED' | 'HEALTH_INSIGHTS_SELECTED' | 'MESSAGE_BOARD_SELECTED' | 'EMOTE_AREA_SELECTED' | 'STORE_SELECTED' }
 >['type'];
 
 export type MedicalTerminalState = 'idle' | 'syncing' | 'complete' | 'attention';

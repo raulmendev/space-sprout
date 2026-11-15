@@ -8,7 +8,8 @@ export type PlacementError =
   | 'OUT_OF_BOUNDS'
   | 'NOT_PLANTABLE'
   | 'TILE_OCCUPIED'
-  | 'INSUFFICIENT_FUNDS';
+  /** No packet of this seed in the household inventory (buy one at the store). */
+  | 'NO_SEEDS';
 
 export type Placed = Pick<GardenObject, 'x' | 'y' | 'itemType'>;
 
@@ -50,11 +51,9 @@ export function validatePlacement(
   x: number,
   y: number,
   objects: readonly Placed[],
-  balance: number,
+  seedsOwned: number,
 ): PlacementError | null {
-  const err = spatialError(itemType, x, y, objects);
-  if (err) return err;
-  return balance < getCatalogItem(itemType)!.price ? 'INSUFFICIENT_FUNDS' : null;
+  return spatialError(itemType, x, y, objects) ?? (seedsOwned < 1 ? 'NO_SEEDS' : null);
 }
 
 /**
@@ -66,7 +65,7 @@ export function findPlacement(
   x: number,
   y: number,
   objects: readonly Placed[],
-  balance: number,
+  seedsOwned: number,
 ): { ok: true; x: number; y: number } | { ok: false; error: PlacementError } {
   const f = footprintOf(itemType);
   let firstError: PlacementError | null = null;
@@ -74,9 +73,7 @@ export function findPlacement(
     for (let dx = 0; dx < f.w; dx++) {
       const err = spatialError(itemType, x - dx, y - dy, objects);
       if (!err) {
-        return balance < getCatalogItem(itemType)!.price
-          ? { ok: false, error: 'INSUFFICIENT_FUNDS' }
-          : { ok: true, x: x - dx, y: y - dy };
+        return seedsOwned < 1 ? { ok: false, error: 'NO_SEEDS' } : { ok: true, x: x - dx, y: y - dy };
       }
       firstError ??= err;
     }
