@@ -367,6 +367,7 @@ for (const [id, look] of Object.entries(CREW_LOOKS) as [CrewId, Parameters<typeo
  */
 const CREW_POSES: Partial<Record<CrewId, [number, number]>> = {
   MEDIC: [48, 50],
+  SCIENTIST: [48, 50],
 };
 const FACINGS: readonly Facing[] = ['down', 'up', 'left', 'right'];
 export const hasCrewPoses = (id: CrewId): boolean => id in CREW_POSES;
