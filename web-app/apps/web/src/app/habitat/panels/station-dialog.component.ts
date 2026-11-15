@@ -28,6 +28,9 @@ import { StationPanelComponent } from './station-panel.component';
     }
     /* Centre over the room view (falls back to the viewport centre without an anchor). */
     dialog:modal {
+      /* A flex column, so a panel can shrink to the height left and scroll inside (see station-panel). */
+      display: flex;
+      flex-direction: column;
       margin: 0;
       inset: auto;
       position: fixed;

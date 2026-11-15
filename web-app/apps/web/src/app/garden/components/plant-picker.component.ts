@@ -1,5 +1,5 @@
 import { Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, input, output, untracked, viewChild } from '@angular/core';
-import { PlacementError, ROOM_COLS, footprintOf } from '@garden/shared';
+import { PlacementError, ROOM_COLS, footprintOf, owned, seedItemId } from '@garden/shared';
 import { colPct, rowPct } from '../../habitat/tile-percent';
 import { GardenStore } from '../garden.store';
 import { AssetService } from '../../shared/assets.service';
@@ -8,13 +8,13 @@ import type { TileCoord } from '../game/tile-manager';
 
 /** Why an option is disabled, phrased from the item's own footprint. */
 function reason(error: PlacementError, itemType: string): string {
-  if (error === 'INSUFFICIENT_FUNDS') return 'Not enough seeds';
+  if (error === 'NO_SEEDS') return 'Get at the store';
   if (error === 'UNKNOWN_ITEM') return 'Unavailable';
   const f = footprintOf(itemType);
   return f.w * f.h > 1 ? `Needs ${f.w}×${f.h} free soil` : 'No room here';
 }
 
-/** Small popover anchored to an empty plot: the plot itself is the "shop". */
+/** Small popover anchored to an empty plot: plant one of the seed packets the household owns. */
 @Component({
   selector: 'app-plant-picker',
   host: { '(document:keydown.escape)': 'closed.emit()' },
@@ -29,14 +29,14 @@ function reason(error: PlacementError, itemType: string): string {
         <button
           type="button"
           role="menuitem"
-          class="flex w-16 flex-col items-center rounded-md px-0.5 py-0.5 enabled:hover:bg-sun/60 focus-visible:outline-2 focus-visible:outline-sun disabled:opacity-45"
+          class="flex w-20 flex-col items-center rounded-md px-1 py-1 short:w-16 short:px-0.5 short:py-0.5 enabled:hover:bg-sun/60 focus-visible:outline-2 focus-visible:outline-sun disabled:opacity-45"
           [disabled]="!!opt.reason"
-          [attr.aria-label]="opt.item.name + ', ' + opt.item.price + ' seeds' + (opt.reason ? ', ' + opt.reason : '')"
+          [attr.aria-label]="opt.item.name + ', ' + opt.packets + ' owned' + (opt.reason ? ', ' + opt.reason : '')"
           [title]="opt.reason ?? opt.item.name"
           (click)="picked.emit(opt.item.id)"
         >
-          <img [src]="assets.url(preview(opt.item.id))" alt="" class="pixelated size-12 short:size-10" />
-          <span class="text-xs font-extrabold">🌱 {{ opt.item.price }}</span>
+          <img [src]="assets.url(preview(opt.item.id))" alt="" class="pixelated size-16 short:size-10" />
+          <span class="text-xs font-extrabold">× {{ opt.packets }}</span>
           @if (opt.reason) { <span class="text-[10px] leading-tight">{{ opt.reason }}</span> }
         </button>
       }
@@ -55,11 +55,11 @@ export class PlantPickerComponent {
   readonly closed = output<void>();
   protected preview = (id: string) => previewTextureKey(id, 'MATURE');
 
-  /** Each plant, and why it can't go here (if it can't). Re-evaluated as balance changes. */
+  /** Each plant, how many packets are owned, and why it can't go here (if it can't). */
   protected readonly options = computed(() =>
     this.store.catalog.map((item) => {
       const spot = this.store.placementFor(item.id, this.tile());
-      return { item, reason: spot.ok ? null : reason(spot.error, item.id) };
+      return { item, packets: owned(this.store.inventory(), seedItemId(item.id)), reason: spot.ok ? null : reason(spot.error, item.id) };
     }),
   );
 

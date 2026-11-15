@@ -1,4 +1,5 @@
 import { Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { seeds } from '../../shared/format';
 import { plantStages, type CareAction, type CareCheck, type CareEvent, type PlantStage } from '@garden/shared';
 import type { CloseupInfo } from '../garden.store';
 import { CLOSEUP_GEOMETRY as G } from '../game/closeup-art';
@@ -20,13 +21,12 @@ const BLOCKED: Record<string, string> = {
   ALREADY_MATURE: 'Complete',
   TOO_YOUNG: 'Too young',
   NOT_MATURE: 'Not ready',
-  INSUFFICIENT_FUNDS: 'Need seeds',
+  NO_FERTILIZER: 'Get at store',
 };
 
 const STAGE_LABELS: Record<PlantStage, string> = { SEED: 'Seed', SPROUT: 'Sprout', GROWING: 'Growing', BUD: 'Bud', MATURE: 'Grown' };
 const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', GROWING: '🌿', BUD: '🌷', MATURE: '🌼' };
 
-const seeds = (n: number) => `${n} seed${n === 1 ? '' : 's'}`;
 
 /**
  * Close-up of one plant, game style: the plant centre stage with the four care actions
@@ -398,7 +398,7 @@ export class PlantCloseupComponent {
   protected hint(action: CareAction, c: CareCheck): string {
     if (c.error === 'COOLDOWN') return 'In ' + this.duration(c.readyInMs ?? 0);
     if (c.error) return BLOCKED[c.error] ?? 'Unavailable';
-    if (c.cost) return `−${seeds(c.cost)}`;
+    if (c.uses) return `${this.info().fertilizer} left`;
     if (c.reward) return `+${seeds(c.reward)}`;
     return 'Ready';
   }

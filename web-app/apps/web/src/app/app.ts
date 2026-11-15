@@ -21,13 +21,13 @@ import { StationDialogComponent } from './habitat/panels/station-dialog.componen
 import type { TileCoord } from './garden/game/tile-manager';
 
 const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND', string>> = {
-  INSUFFICIENT_FUNDS: 'Not enough seeds yet. Healthy habits earn more!',
+  NO_FERTILIZER: 'Out of fertilizer. The Supply Store has more.',
   COOLDOWN: 'It needs a little rest first.',
   NOT_FOUND: 'That plant is gone.',
 };
 
 const GENTLE_ERRORS: Record<PlacementError, string> = {
-  INSUFFICIENT_FUNDS: 'Not quite enough seeds for that one yet.',
+  NO_SEEDS: 'No packets of that one. The Supply Store has more.',
   TILE_OCCUPIED: 'That needs a bit more room.',
   NOT_PLANTABLE: 'That needs a bit more soil.',
   OUT_OF_BOUNDS: "That's outside the garden.",
@@ -194,6 +194,7 @@ export class App {
       case 'HEALTH_INSIGHTS_SELECTED':
       case 'MESSAGE_BOARD_SELECTED':
       case 'EMOTE_AREA_SELECTED':
+      case 'STORE_SELECTED':
         this.habitat.openPanel.set(i.type);
         break;
       case 'NPC_SELECTED':
