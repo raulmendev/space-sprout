@@ -14,6 +14,8 @@ Requires Node 20+ (tested on Node 24 / npm 11). No environment variables are nee
 
 ## Layout
 
+The game rules live outside this folder, in [`../shared`](../shared) (`@garden/shared`), so the API in [`../api`](../api) runs the same ones.
+
 ```text
 apps/web/                      Angular 22 + Phaser 3.90 + Tailwind 4
   src/app/habitat/             habitat + player stores, canvas host, panels
@@ -21,7 +23,6 @@ apps/web/                      Angular 22 + Phaser 3.90 + Tailwind 4
   src/app/garden/game/         Phaser scene, renderer adapter, asset registry, placeholders
   src/app/npc/                 Sprout's dialogue
   public/assets/game/          final art drops in here (see below)
-packages/shared/               domain types, habitat layout, catalog, growth/placement/movement rules
 ```
 
 Phaser renders and reports interactions (`HabitatInteraction`); it holds no authoritative state. Angular owns state and panels. Game rules live in `@garden/shared` so the API can enforce the same ones.
@@ -34,7 +35,7 @@ Phaser renders and reports interactions (`HabitatInteraction`); it holds no auth
 - **Phones are landscape-only:** held upright, a touch phone shows "Turn your phone sideways" instead of a squeezed room. Popups size themselves to the room view and switch to two columns when there's width (container queries); on short screens spacing tightens and the explanation texts in Health Insights hide.
 - **Phones:** safe-area insets, `100dvh`, and a web app manifest (`display: fullscreen`, landscape), so "Add to Home Screen" runs without browser bars, including on iPhone, where the fullscreen button isn't available.
 - The Garden has two large walkable soil fields (180 plots) around a centre path; plants block their own footprint. Tick **Show layout** to see the active room's object footprints and doors.
-- Rooms (layout, props, doors) are data in `packages/shared/src/contracts/habitat.ts`. A position anywhere in the habitat is `{ room, x, y }`.
+- Rooms (layout, props, doors) are data in `../shared/src/contracts/habitat.ts`. A position anywhere in the habitat is `{ room, x, y }`.
 
 ## Interaction
 
@@ -51,7 +52,7 @@ The thing you tap is the thing you act on. No modes, and no instructions to read
 ## Health check-ins (astronaut)
 
 - **Medical Terminal:** sync the (simulated) wearable or enter readings manually: heart rate, sleep, exercise minutes and mood (1–5). Any subset is fine. Simulated data is always labelled as such; the wearable sits behind a `MeasurementProvider` interface so a real device can replace it.
-- **Rewards:** each check-in earns seeds, 3 per metric, once per metric per day, 12 a day at most. Rules live in `packages/shared/src/contracts/health.ts` (`decideReward`), keyed by measurement id so nothing is rewarded twice; the API will run the same function server-side. Going over the cap is never a penalty: the reading is still saved.
+- **Rewards:** each check-in earns seeds, 3 per metric, once per metric per day, 12 a day at most. Rules live in `../shared/src/contracts/health.ts` (`decideReward`), keyed by measurement id so nothing is rewarded twice; the API will run the same function server-side. Going over the cap is never a penalty: the reading is still saved.
 - **Health Insights:** latest value, unit, time, source and an SVG trend of the last 7 readings per metric, with a neutral explanation. No thresholds, no diagnosis.
 - **Station states:** the terminal shows syncing/complete; the insights display shows "new data" until you look.
 - For now readings are stored in this browser only (seeded with a week of labelled simulated history for the demo). Private to the astronaut; family access comes with the backend.
@@ -90,5 +91,5 @@ No code changes are needed. Keys, folders, sizes and anchors are defined in `app
 
 ## Demo notes
 
-- Growth is sped up for demos (wildflower: sprout at 20s, mature at 1m). See `packages/shared/src/contracts/catalog.ts`.
+- Growth is sped up for demos (wildflower: sprout at 20s, mature at 1m). See `../shared/src/contracts/catalog.ts`.
 - "reset demo" restores the seeded garden and player position.

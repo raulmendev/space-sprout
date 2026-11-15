@@ -8,7 +8,7 @@ one (so its feet sit on its footprint), halves it with LANCZOS as the room pictu
 apps/web/public/assets/game/garden/decorations/prop-<kind>.png and marks it delivered.
 
 A new prop also needs a row in PROP_VISUALS (asset-registry.ts; its size only sizes the
-placeholder) and a place in ROOMS (packages/shared/src/contracts/habitat.ts).
+placeholder) and a place in ROOMS (shared/src/contracts/habitat.ts).
 Needs Pillow (pip install pillow).
 """
 import sys

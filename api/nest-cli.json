@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json.schemastore.org/nest-cli",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "deleteOutDir": true,
+    "builder": { "type": "rspack", "options": { "configPath": "rspack.config.cjs" } }
+  }
+}

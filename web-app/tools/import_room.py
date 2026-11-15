@@ -9,7 +9,7 @@ out any of our UI that was copied into the picture (the game draws it live), sca
 room's size with LANCZOS as the plants and the board were, writes
 apps/web/public/assets/game/habitat/rooms/room-<room>.png and marks it delivered.
 
-The picture must keep the room's grid (layout in packages/shared/src/contracts/habitat.ts):
+The picture must keep the room's grid (layout in shared/src/contracts/habitat.ts):
 beds, paths and doors on the same tiles. Needs Pillow (pip install pillow).
 """
 import re
