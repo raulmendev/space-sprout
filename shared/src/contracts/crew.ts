@@ -28,8 +28,8 @@ export const CREW: readonly CrewMember[] = [
 
 export const PETS: readonly PetId[] = ['DOG', 'CAT', 'RADISH'];
 export const isPet = (id: NpcId): id is PetId => (PETS as readonly NpcId[]).includes(id);
-/** A crew member, as opposed to Sprout or a pet. */
-export const isCrew = (id: NpcId): id is CrewId => id !== 'SPROUT' && !isPet(id);
+/** A crew member, as opposed to a pet. */
+export const isCrew = (id: NpcId): id is CrewId => !isPet(id);
 
 export const CREW_BY_ID = Object.fromEntries(CREW.map((c) => [c.id, c])) as Record<CrewId, CrewMember>;
 

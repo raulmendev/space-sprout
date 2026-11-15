@@ -36,7 +36,8 @@ export interface GardenObject {
 export const PLANT_STAGE_ORDER = ['SEED', 'SPROUT', 'GROWING', 'BUD', 'MATURE'] as const;
 export type PlantStage = (typeof PLANT_STAGE_ORDER)[number];
 
-export type CareAction = 'WATER' | 'FERTILIZE' | 'PRUNE' | 'HARVEST';
+export const CARE_ACTIONS = ['WATER', 'FERTILIZE', 'PRUNE', 'HARVEST'] as const;
+export type CareAction = (typeof CARE_ACTIONS)[number];
 
 /** One care action, kept so both players can see who tended what. */
 export interface CareEvent {
@@ -79,8 +80,8 @@ export type HealthMetric =
 export type CrewId = 'MEDIC' | 'TRAINER' | 'CHEF' | 'SCIENTIST';
 /** The station's pets: they roam like the crew but only react when you go over. */
 export type PetId = 'DOG' | 'CAT' | 'RADISH';
-/** Every NPC: Sprout (the garden's), the pets and the crew. */
-export type NpcId = 'SPROUT' | PetId | CrewId;
+/** Every NPC: the pets and the crew. */
+export type NpcId = PetId | CrewId;
 export type MeasurementSource = 'MANUAL' | 'SIMULATED' | 'DEVICE';
 
 export interface HealthMeasurement {

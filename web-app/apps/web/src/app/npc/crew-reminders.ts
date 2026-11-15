@@ -114,7 +114,7 @@ export class CrewReminders {
     this.actors.reset();
   }
 
-  /** The crew member speaking right now, if any (not Sprout or the dog). */
+  /** The crew member speaking right now, if any (not a pet). */
   private crewSpeaking(): CrewId | null {
     const id = this.npc.current()?.speaker;
     return id && isCrew(id) ? id : null;

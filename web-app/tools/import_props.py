@@ -22,6 +22,7 @@ from art import ASSETS, add_shadow, clear_background, drop_glow, drop_strays, ga
 #   glow    clear the soft glow painted around it (it reads as haze on the floor)
 #   seat    pull a contact shadow exported apart from the piece up under its feet
 #   shadow  draw a contact shadow to match the furniture pack's (for art delivered without one)
+#   feet    the same, centred on the piece's feet line instead of its lowest pixel (a desk with a stool)
 #
 # delivered file name → (HabitatProp.kind, asset folder, scale, cleanup steps). Packs drawn at
 # 64 px per tile import at half; concept-art packs are scaled to the astronaut (36x50).
@@ -51,8 +52,31 @@ PROPS: dict[str, tuple[str, str, float, set[str]]] = {
     'sofa_with_blanket.png': ('SOFA', 'social/decorations', 0.105, {'seat'}),
     # Table & rug pack: the decorated coffee table, about two astronauts wide.
     'coffee_table_decorated.png': ('COFFEE_TABLE', 'social/decorations', 0.175, {'glow'}),
-    # First Social Space zip (sketch cut-outs at game scale); used in the Medical Station.
-    'planta_maceta.png': ('POTTED_PLANT', 'medical/terminal', 0.6, set()),
+    # Medical Station desk ("Pixel-Art Sci-Fi Medical Station.png", renamed): desk at the
+    # astronaut's waist, the stool knee-high.
+    'medical_terminal.png': ('MEDICAL_TERMINAL', 'medical/terminal', 0.074, {'feet'}),
+    # Health Insights console ("Pixel-Art Futuristic Health Console.png", renamed): the same scale
+    # as the terminal, so their stools match.
+    'health_insights.png': ('HEALTH_INSIGHTS', 'medical/insights', 0.074, {'feet'}),
+    # Medical Bay furniture pack (Medical_Bay_Furniture_Export.zip): one sheet, so one scale keeps
+    # the pieces matched; the scan pod's figure is about the astronaut's height.
+    '01_patient_bed_alcove.png': ('MED_BED', 'medical/decorations', 0.2, {'feet'}),
+    '02_medicine_shelf.png': ('MED_SHELF', 'medical/decorations', 0.2, {'feet'}),
+    '03_medical_locker.png': ('MED_LOCKER', 'medical/decorations', 0.2, {'feet'}),
+    '04_body_scan_pod.png': ('MED_SCAN_POD', 'medical/decorations', 0.2, {'feet'}),
+    '05_supply_cart.png': ('MED_CART', 'medical/decorations', 0.17, {'feet'}),
+    # Waiting bench seen from behind ("Rear-View Lavender Sci-Fi Bench-1.png", renamed): it stands
+    # against the bottom wall facing into the room; as wide as the sheet's front-view bench.
+    'bench_rear.png': ('MED_BENCH_BACK', 'medical/decorations', 0.054, {'feet'}),
+    '10_large_leafy_plant.png': ('MED_POT_LEAFY', 'medical/decorations', 0.18, {'shadow'}),
+    '11_lavender_potted_plant.png': ('MED_POT_LAVENDER', 'medical/decorations', 0.18, {'shadow'}),
+}
+
+# Props with visual states (PROP_VISUALS states in asset-registry.ts): one delivered picture is
+# written for every state until the design team draws each one.
+STATES: dict[str, list[str]] = {
+    'MEDICAL_TERMINAL': ['idle', 'syncing', 'complete', 'attention'],
+    'HEALTH_INSIGHTS': ['idle', 'new_data', 'active'],
 }
 
 
@@ -73,12 +97,13 @@ def main() -> None:
         if 'seat' in steps:
             im = seat_shadows(im)
         im = trim(im)
-        if 'shadow' in steps:
-            im = add_shadow(im)
+        if steps & {'shadow', 'feet'}:
+            im = add_shadow(im, feet='feet' in steps)
         size = game_size(im, scale)
-        key = 'prop-' + kind.lower().replace('_', '-')  # propTextureKey(kind)
-        save_scaled(im, size, ASSETS / folder / f'{key}.png')
-        keys.append(key)
+        base = 'prop-' + kind.lower().replace('_', '-')  # propTextureKey(kind, state)
+        for key in [f"{base}-{state.replace('_', '-')}" for state in STATES.get(kind, [])] or [base]:
+            save_scaled(im, size, ASSETS / folder / f'{key}.png')
+            keys.append(key)
         print(f'{kind:14} {size[0]}x{size[1]}')
     mark_delivered(*keys)
 

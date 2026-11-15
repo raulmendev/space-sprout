@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import type { GardenFailure } from '../garden/garden.service';
 import {
   DECOR_ROOMS,
-  DecorError,
   ROOMS,
   ROOM_ROWS,
   TileCoord,
@@ -20,7 +20,7 @@ import { PlayerStore } from '../habitat/player.store';
 /** Placing a decoration from the inventory, or moving one that's already up. */
 export type DecorMode = { kind: 'PLACE'; itemId: string } | { kind: 'MOVE'; itemId: string; decorId: string };
 
-export type DecorOutcome = { ok: true; message: string } | { ok: false; error: DecorError };
+export type DecorOutcome = { ok: true; message: string } | { ok: false; error: GardenFailure };
 
 /** The bar sits at the top when what you're decorating reaches the bottom rows of the room. */
 const BAR_FLIP_ROW = ROOM_ROWS - 5;
