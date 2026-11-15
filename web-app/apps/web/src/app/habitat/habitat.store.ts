@@ -104,7 +104,7 @@ export class HabitatStore {
     const overflow = notes.length > NOTE_SLOTS.length;
     const shown = overflow ? notes.slice(0, NOTE_SLOTS.length - 1) : notes;
     const decals: RenderDecal[] = shown.map((n, i) => ({
-      texture: this.notes.isMine(n) ? NOTE_TEXTURES.astronaut : NOTE_TEXTURES.family,
+      texture: this.notes.fromAstronaut(n) ? NOTE_TEXTURES.astronaut : NOTE_TEXTURES.family,
       ...NOTE_SLOTS[i],
     }));
     if (overflow) decals.push({ texture: NOTE_TEXTURES.more, ...NOTE_SLOTS[shown.length] });

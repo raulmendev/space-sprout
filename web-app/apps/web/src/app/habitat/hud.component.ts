@@ -1,7 +1,8 @@
 import { Component, ElementRef, effect, inject, output, signal } from '@angular/core';
 import { ROOMS, RoomId } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
-import { HabitatStore } from './habitat.store';
+import { HabitatStore } from './habitat.store';
+import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, IS_FAMILY } from '../session/current-user';
 
 /**
  * Slim overlay along the top of the screen: rooms, seeds, fullscreen and a small
@@ -31,6 +32,11 @@ import { HabitatStore } from './habitat.store';
     </nav>
 
     <div class="flex items-center gap-1.5">
+      <span
+        class="flex h-9 items-center gap-1 rounded-full bg-night/60 px-2.5 text-sm font-bold text-cream backdrop-blur-sm"
+        [attr.aria-label]="'Playing as ' + me.displayName"
+        [title]="'Playing as ' + me.displayName"
+      ><span class="text-lg" aria-hidden="true">{{ meIcon }}</span><span class="hidden sm:inline">{{ me.displayName }}</span></span>
       <span class="panel px-2.5 py-0.5 text-base font-extrabold text-bark-dark sm:text-lg" aria-label="Seeds balance">🌱 {{ garden.balance() }}</span>
       <button
         type="button"
@@ -62,6 +68,7 @@ import { HabitatStore } from './habitat.store';
               <input type="checkbox" class="accent-leaf-dark" [checked]="habitat.showLayout()" (change)="habitat.showLayout.set(!habitat.showLayout())" />
               Show layout
             </label>
+            <a class="rounded-md px-2 py-1.5 hover:bg-parchment" [href]="switchTo.href">Play as {{ switchTo.name }}</a>
             <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); reset.emit()">Reset demo</button>
           </div>
         }
@@ -78,6 +85,12 @@ export class HudComponent {
   protected readonly roomOrder: RoomId[] = ['GARDEN', 'SOCIAL', 'MEDICAL'];
   protected readonly rooms = ROOMS;
   protected readonly menuOpen = signal(false);
+  /** Who is playing (from the URL), and the link that reloads as the other player. */
+  protected readonly me = CURRENT_USER;
+  protected readonly meIcon = IS_FAMILY ? '🏡' : '🧑‍🚀';
+  protected readonly switchTo = IS_FAMILY
+    ? { name: ASTRONAUT_USER.displayName, href: '?' }
+    : { name: FAMILY_USER.displayName, href: '?user=family' };
   private readonly host = inject(ElementRef<HTMLElement>);
   protected readonly isFullscreen = signal(false);
   /** iPhone Safari has no element fullscreen; there, "Add to Home Screen" gives full screen instead. */

@@ -1,9 +1,10 @@
 import { Injectable, effect, inject, untracked } from '@angular/core';
-import { CREW, CREW_BY_ID, CREW_REMINDER, CrewId, CrewMember, HealthMetric, METRICS, UNKNOWN_BAND, bandFor, distance, nextAsk } from '@garden/shared';
+import { CREW_REMINDER, CrewId, CrewMember, HealthMetric, METRICS, UNKNOWN_BAND, bandFor, distance, nextAsk } from '@garden/shared';
+import { MY_CREW, MY_CREW_BY_ID, ROLE } from '../session/current-user';
 import { HealthStore } from '../health/health.store';
 import { HabitatStore } from '../habitat/habitat.store';
 import { PlayerStore } from '../habitat/player.store';
-import { ALL_DONE, ASK, INTRO, LATER, REPLY, SCAN_NOTE, SCAN_RESULT, pick } from './crew-lines';
+import { ALL_DONE, ASK, INTRO, LATER, NOTHING_TO_ASK, SCAN_NOTE, SCAN_RESULT, pick, replyLines } from './crew-lines';
 import { simulatedValue } from '../health/simulated-wearable';
 import { formatValue } from '../health/format';
 import { NpcActorStore } from './npc-actor.store';
@@ -47,15 +48,15 @@ export class CrewReminders {
   /** The player tapped a crew member (and walked up): always answer. */
   talk(id: CrewId): void {
     this.lastAsked.set(id, performance.now());
-    const metric = nextAsk(CREW_BY_ID[id], this.health.answeredToday());
-    if (metric) this.ask(CREW_BY_ID[id], metric);
-    else this.npc.sayAs(id, pick(ALL_DONE[id]));
+    const metric = nextAsk(MY_CREW_BY_ID[id], this.health.answeredToday());
+    if (metric) this.ask(MY_CREW_BY_ID[id], metric);
+    else this.npc.sayAs(id, pick(MY_CREW_BY_ID[id].metrics.length ? ALL_DONE[id] : NOTHING_TO_ASK[id]));
   }
 
   /** Quick answer from the bubble: saved like a terminal reading (same rules, same seeds). */
   async answer({ speaker, metric, value }: CrewAnswer): Promise<void> {
     const earned = await this.health.submitManual({ [metric]: value });
-    this.reply(speaker, metric, bandFor(metric, value)?.id, earned);
+    this.reply(speaker, metric, bandFor(metric, value, ROLE)?.id, earned);
   }
 
   /** "I don't know": nothing is stored as a reading; the crew nudge you to measure next time. */
@@ -66,12 +67,12 @@ export class CrewReminders {
 
   /** The scientist reads his instruments: every reading of his at once, labelled as simulated. */
   async scan(speaker: CrewId): Promise<void> {
-    const member = CREW_BY_ID[speaker];
+    const member = MY_CREW_BY_ID[speaker];
     const values: Partial<Record<HealthMetric, number>> = {};
     for (const m of member.metrics) values[m] = simulatedValue(m);
     const earned = await this.health.submitManual(values, 'SIMULATED');
     const level = (m: HealthMetric) => formatValue({ metric: m, value: values[m] ?? 0 });
-    const note = (m: HealthMetric) => SCAN_NOTE[m]?.[bandFor(m, values[m] ?? 0)?.id ?? ''] ?? METRICS[m].label;
+    const note = (m: HealthMetric) => SCAN_NOTE[m]?.[bandFor(m, values[m] ?? 0, ROLE)?.id ?? ''] ?? METRICS[m].label;
     const text = pick(SCAN_RESULT)
       .replace('{rad}', level('RADIATION'))
       .replace('{radNote}', note('RADIATION'))
@@ -90,9 +91,9 @@ export class CrewReminders {
 
   /** Their reply to an answer, then their next question (or goodbye). */
   private reply(speaker: CrewId, metric: HealthMetric, band: string | undefined, earned: number): void {
-    const lines = band ? REPLY[metric]?.[band] : undefined;
+    const lines = band ? replyLines(metric, band, ROLE) : undefined;
     const said = (lines ? pick(lines) : 'Noted, thank you!') + seeds(earned);
-    const member = CREW_BY_ID[speaker];
+    const member = MY_CREW_BY_ID[speaker];
     const next = nextAsk(member, this.health.answeredToday());
     if (next) this.npc.sayAs(speaker, `${said} ${pick(ASK[next])}`, next, !!member.scans);
     else this.npc.sayAs(speaker, `${said} ${pick(ALL_DONE[speaker])}`);
@@ -135,7 +136,7 @@ export class CrewReminders {
     // The nearest crew member in reach who's free to ask and has something to ask.
     const today = this.health.answeredToday();
     let nearest: { member: CrewMember; d: number } | null = null;
-    for (const member of CREW) {
+    for (const member of MY_CREW) {
       const at = this.actors.get(member.id)!.position;
       const d = distance(at, me);
       if (at.room !== me.room || d > CREW_REMINDER.noticeRadius || (nearest && d >= nearest.d)) continue;
