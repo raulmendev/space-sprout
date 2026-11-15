@@ -126,13 +126,14 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
           </p>
           <!-- Grown plants can move indoors: potting takes it out of the plot and into the inventory. -->
           @if (info().stage === 'MATURE') {
-            <button
-              type="button"
-              class="btn-press inline-flex items-baseline gap-1.5 bg-parchment px-2.5 py-0.5 text-sm font-bold hover:bg-sun disabled:opacity-60 short:py-0"
-              [disabled]="!info().pots"
-              [attr.aria-label]="'Pot it, ' + potHint()"
-              (click)="pot.emit()"
-            >🪴 Pot it <span class="hint">{{ potHint() }}</span></button>
+            <!-- A round button like the care actions. Without a pot the hint stays readable and says where to get one. -->
+            <button type="button" class="pot" [disabled]="!info().pots" aria-describedby="pot-hint" (click)="pot.emit()">
+              <span class="disc"><span aria-hidden="true">🪴</span></span>
+              <span class="flex flex-col items-start text-left">
+                <span class="label">Pot it</span>
+                <span id="pot-hint" class="text-xs font-semibold text-bark">{{ potHint() }}</span>
+              </span>
+            </button>
           }
         </div>
 
@@ -285,6 +286,17 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
     .hint { font-size: .78rem; color: rgb(107 74 50 / .7); }
     .hint.good { color: var(--color-leaf-dark); font-weight: 600; }
 
+    /* "Pot it": the care actions' disc, smaller, with its label beside it. */
+    .pot { display: flex; align-items: center; gap: 8px; }
+    .pot .disc { width: 48px; height: 48px; border-width: 3px; font-size: 1.4rem; background: var(--color-sun); }
+    .pot .label { margin-top: 0; }
+    .pot:enabled:hover .disc { translate: 0 -2px; }
+    .pot:enabled:active .disc { translate: 0 1px; box-shadow: none; }
+    .pot:focus-visible { outline: none; }
+    .pot:focus-visible .disc { outline: 3px solid var(--color-sun); outline-offset: 2px; }
+    .pot:disabled .disc { border-style: dashed; border-color: #b9a58f; background: #f6e6c6; filter: grayscale(.85); box-shadow: none; }
+    .pot:disabled .label { color: rgb(107 74 50 / .6); }
+
     .fx { position: absolute; width: 6px; height: 6px; opacity: 0; pointer-events: none; }
     .fx-WATER { background: #5fb7e8; border-radius: 0 50% 50% 50%; rotate: 45deg; animation: drip 800ms ease-in forwards; }
     .fx-FERTILIZE { background: #c6f07a; box-shadow: 0 0 6px #c6f07a; animation: rise 900ms ease-out forwards; }
@@ -313,6 +325,7 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
       .disc { width: 48px; height: 48px; border-width: 3px; font-size: 1.35rem; }
       .label { margin-top: 2px; font-size: .8rem; }
       .hint { font-size: .7rem; }
+      .pot .disc { width: 40px; height: 40px; font-size: 1.15rem; }
       .tl, .tr { top: 8px; }
       .bl, .br { bottom: 6px; }
     }
@@ -326,7 +339,7 @@ export class PlantCloseupComponent {
   readonly pot = output<void>();
 
   protected readonly potHint = computed(() =>
-    this.info().pots ? `uses a clay pot (${this.info().pots} left)` : 'Get a clay pot at the store',
+    this.info().pots ? `Uses a clay pot (${this.info().pots} left)` : '🛒 Clay pots are sold at the Supply Store',
   );
 
   protected readonly actions = ACTIONS;
