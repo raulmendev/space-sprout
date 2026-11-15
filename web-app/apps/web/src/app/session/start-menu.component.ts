@@ -6,6 +6,12 @@ import { CURRENT_USER, ROLE, SAVED_PROFILE, SUIT, saveProfile, switchTo } from '
 import { type PlayerChoice, stationMembers } from './member-session';
 
 const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine', purple: 'Purple', cactus: 'Cactus', leaf: 'Leaf' };
+/**
+ * Suits no longer offered (the turquoise art now draws the cactus character). Members who
+ * already wear one keep it, and still see it here while it's theirs.
+ */
+const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
+const PICKABLE_SUITS: readonly Suit[] = SUITS.filter((s) => !HIDDEN_SUITS.includes(s) || s === SUIT);
 
 /**
  * The start menu: astronaut (suit carousel), name, astronaut or family, and station
@@ -323,7 +329,7 @@ export class StartMenuComponent {
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
 
-  protected readonly suits = SUITS;
+  protected readonly suits = PICKABLE_SUITS;
   protected readonly nameMax = DISPLAY_NAME_MAX;
   protected readonly roles = [
     { value: 'ASTRONAUT', label: 'Astronaut', icon: '🧑‍🚀' },
@@ -406,8 +412,8 @@ export class StartMenuComponent {
 
   /** Slide to a suit from the dots, the short way round. */
   protected goTo(s: Suit): void {
-    const n = SUITS.length;
-    let by = (SUITS.indexOf(s) - SUITS.indexOf(this.suit()) + n) % n;
+    const n = PICKABLE_SUITS.length;
+    let by = (PICKABLE_SUITS.indexOf(s) - PICKABLE_SUITS.indexOf(this.suit()) + n) % n;
     if (by > n / 2) by -= n;
     this.step(by);
   }
@@ -479,8 +485,8 @@ export class StartMenuComponent {
   }
 
   private neighbour(by: number): Suit {
-    const i = SUITS.indexOf(this.suit());
-    return SUITS[(((i + by) % SUITS.length) + SUITS.length) % SUITS.length];
+    const i = PICKABLE_SUITS.indexOf(this.suit());
+    return PICKABLE_SUITS[(((i + by) % PICKABLE_SUITS.length) + PICKABLE_SUITS.length) % PICKABLE_SUITS.length];
   }
 
   protected portrait(s: Suit): string {

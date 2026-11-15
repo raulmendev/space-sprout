@@ -471,7 +471,7 @@ export interface PlayerFrames {
  * the original turquoise suit keeps the plain names. Pick one with `?suit=green|black|wine|purple|cactus|leaf`.
  */
 const SUITS: Record<Suit, { prefix: string; size: [number, number]; wave: boolean }> = {
-  turquoise: { prefix: 'player-astronaut', size: [36, 50], wave: true },
+  turquoise: { prefix: 'player-astronaut', size: [34, 50], wave: false },
   green: { prefix: 'player-astronaut-green', size: [40, 50], wave: false },
   black: { prefix: 'player-astronaut-black', size: [38, 50], wave: false },
   wine: { prefix: 'player-astronaut-wine', size: [38, 50], wave: false },
