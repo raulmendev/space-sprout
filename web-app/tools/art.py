@@ -131,7 +131,9 @@ def seat_shadows(im: Image.Image) -> Image.Image:
 def add_shadow(im: Image.Image) -> Image.Image:
     """Draw a contact shadow under a trimmed sprite, in the style of the furniture pack: the same
     dark purple in stepped rings (darkest in the middle), a flat ellipse centred on the sprite's
-    bottom edge and drawn behind it. The canvas grows to fit the half that shows below."""
+    bottom edge and drawn behind it. The canvas grows to fit the half that shows below.
+    The astronaut's shadow is drawn the same way in the game (placeholders.ts groundShadowArt):
+    change both together."""
     im = im.convert('RGBA')
     w, h = im.size
     sw, sh = round(w * 0.9), max(4, round(min(w * 0.16, h * 0.14)))  # wide pieces stay flat

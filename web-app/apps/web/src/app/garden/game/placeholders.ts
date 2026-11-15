@@ -698,3 +698,23 @@ export function potFrontArt(): HTMLCanvasElement {
   c.getContext('2d')!.clearRect(0, 0, 45, POT_OFFSET_Y + POT_LIP_BOTTOM);
   return c;
 }
+
+/**
+ * The contact shadow under a character standing on the floor, drawn the way tools/art.py
+ * add_shadow draws the furniture's: one dark purple in stepped rings, darkest in the middle, each
+ * ring replacing the one under it. Keep the two in step. `w`×`h` is the canvas size.
+ */
+export function groundShadowArt(w: number, h: number): HTMLCanvasElement {
+  const [canvas, ctx] = makeCanvas(w, h);
+  const img = ctx.createImageData(w, h);
+  const rings = [[1, 32], [0.82, 78], [0.62, 128], [0.42, 169]] as const;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const r = Math.hypot((x + 0.5) / (w / 2) - 1, (y + 0.5) / (h / 2) - 1);
+      const i = (y * w + x) * 4;
+      img.data.set([52, 31, 79, rings.reduce((a, [scale, alpha]) => (r <= scale ? alpha : a), 0)], i);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  return canvas;
+}

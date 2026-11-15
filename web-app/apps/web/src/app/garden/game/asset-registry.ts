@@ -7,9 +7,8 @@
  */
 import {
   ALL_PROPS,
-  CLAY_POT,
+  ALL_STORE_ITEMS,
   CrewId,
-  FERTILIZER,
   PlantStage,
   ROOMS,
   ROOM_COLS,
@@ -46,6 +45,7 @@ import {
   wetSoilTile,
   woodPathTile,
   DECOR_ART,
+  groundShadowArt,
   potArt,
   potFrontArt,
 } from './placeholders';
@@ -368,9 +368,12 @@ for (const { prefix, size, wave } of Object.values(SUITS)) {
 }
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
 register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
-/** Supply Store items drawn by the design team (cards in the store and inventory; others keep their emoji). */
+/** Store item art for the store and inventory cards. Items whose art isn't delivered keep their emoji. */
 export const storeItemTextureKey = (itemId: string) => `store-${itemId}`;
-for (const id of [FERTILIZER, CLAY_POT]) register(storeItemTextureKey(id), 'gui/store', [64, 64], BOTTOM_CENTER, null, true);
+for (const { id } of ALL_STORE_ITEMS) register(storeItemTextureKey(id), 'gui/store', [64, 64], BOTTOM_CENTER, null, true);
+/** The contact shadow under a character standing on the floor (the astronaut), like the furniture's. */
+export const GROUND_SHADOW_TEXTURE = 'fx-ground-shadow';
+register(GROUND_SHADOW_TEXTURE, 'fx', [28, 6], [0.5, 0.5], () => groundShadowArt(56, 12));
 /** Station crew (placeholders until the design team's character art lands). */
 const CREW_LOOKS: Record<CrewId, Parameters<typeof crewGrid>[0]> = {
   MEDIC: { uniform: 'W', badge: 'R', hair: 'b' },

@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { MANIFEST_URL, getAsset, placeholderUrl } from '../garden/game/asset-registry';
+import { MANIFEST_URL, getAsset, placeholderUrl, previewTextureKey, storeItemTextureKey } from '../garden/game/asset-registry';
 
 interface AssetManifest {
   /** Asset keys whose PNG has been delivered by the design team. */
@@ -24,6 +24,19 @@ export class AssetService {
   url(key: string): string {
     const asset = getAsset(key);
     return asset && this.delivered().has(key) ? asset.path : placeholderUrl(key);
+  }
+
+  /**
+   * The picture on a store or inventory card: the plant's mature art for seed packets and potted
+   * plants (its placeholder until delivered), else the item's own delivered art. Null: show its emoji.
+   */
+  itemSprite(itemId: string, plant?: string): { url: string; pixelated: boolean } | null {
+    if (plant) {
+      const key = previewTextureKey(plant, 'MATURE');
+      return { url: this.url(key), pixelated: !this.has(key) };
+    }
+    const key = storeItemTextureKey(itemId);
+    return this.has(key) ? { url: this.url(key), pixelated: true } : null;
   }
 
   private async loadManifest(): Promise<void> {
