@@ -38,16 +38,21 @@ export const POST_IT = 'post-it';
 export const CLAY_POT = 'clay-pot';
 export const seedItemId = (plant: string) => `seed:${plant}`;
 
+const PLANTS = CATALOG.filter((p) => p.type === 'PLANT');
+
+// One packet plants one plant, at the price planting used to cost.
+const seedPacket = (p: (typeof CATALOG)[number]): StoreItem => ({
+  id: seedItemId(p.id),
+  section: 'GARDEN',
+  name: `${p.name} seeds`,
+  description: p.description,
+  price: p.price,
+  plant: p.id,
+});
+
+/** What the store sells. */
 export const STORE_ITEMS: readonly StoreItem[] = [
-  // One packet plants one plant, at the price planting used to cost.
-  ...CATALOG.filter((p) => p.type === 'PLANT').map((p) => ({
-    id: seedItemId(p.id),
-    section: 'GARDEN' as const,
-    name: `${p.name} seeds`,
-    description: p.description,
-    price: p.price,
-    plant: p.id,
-  })),
+  ...PLANTS.filter((p) => !p.retired).map(seedPacket),
   { id: FERTILIZER, section: 'GARDEN', name: 'Fertilizer', description: 'One scoop helps a growing plant along.', price: 2, icon: '🧪' },
   { id: CLAY_POT, section: 'GARDEN', name: 'Clay pot', description: 'Pot a grown plant and bring it indoors.', price: 4, icon: '🏺' },
   { id: POST_IT, section: 'MESSAGES', name: 'Post-it', description: 'One note for the message board, home and back.', price: 3, icon: '📝' },
@@ -58,6 +63,9 @@ export const STORE_ITEMS: readonly StoreItem[] = [
   { id: 'star-lamp', section: 'DECORATIONS', name: 'Star lamp', description: 'Paints constellations on the ceiling.', price: 20, icon: '🌟' },
 ];
 
+/** Everything the store has ever sold: also packets of retired plants, which households may still own. */
+export const ALL_STORE_ITEMS: readonly StoreItem[] = [...STORE_ITEMS, ...PLANTS.filter((p) => p.retired).map(seedPacket)];
+
 export const STORE_SECTIONS: readonly { id: StoreSection; title: string; icon: string }[] = [
   { id: 'GARDEN', title: 'Gardening', icon: '🌱' },
   { id: 'MESSAGES', title: 'Messages', icon: '📝' },
@@ -65,15 +73,16 @@ export const STORE_SECTIONS: readonly { id: StoreSection; title: string; icon: s
 ];
 
 /** What a new household starts with, so the garden and the message board can be tried before the first check-in. */
-export const STARTER_INVENTORY: Inventory = { [seedItemId('flower')]: 2, [FERTILIZER]: 1, [POST_IT]: 1 };
+export const STARTER_INVENTORY: Inventory = { [seedItemId('lettuce')]: 2, [FERTILIZER]: 1, [POST_IT]: 1 };
 
 /** Recent purchases kept (and shown in the store). */
 export const PURCHASE_LOG_SIZE = 3;
 
 export type PurchaseError = 'UNKNOWN_ITEM' | 'INSUFFICIENT_FUNDS';
 
+/** Any item the store has ever sold, so owned items and old purchases keep their names. */
 export function getStoreItem(id: string): StoreItem | undefined {
-  return STORE_ITEMS.find((i) => i.id === id);
+  return ALL_STORE_ITEMS.find((i) => i.id === id);
 }
 
 export const owned = (inventory: Inventory, itemId: string): number => inventory[itemId] ?? 0;
@@ -95,7 +104,8 @@ export function applyPurchase(
   actor: Actor,
   at: string,
 ): { ok: true; state: StoreState } | { ok: false; error: PurchaseError } {
-  const item = getStoreItem(itemId);
+  // Only what's on sale now: retired packets can't be bought.
+  const item = STORE_ITEMS.find((i) => i.id === itemId);
   if (!item) return { ok: false, error: 'UNKNOWN_ITEM' };
   if (state.balance < item.price) return { ok: false, error: 'INSUFFICIENT_FUNDS' };
   return {

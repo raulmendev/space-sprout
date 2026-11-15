@@ -1,18 +1,20 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { canTakeDown, type SocialNote } from '@garden/shared';
 import { LOCAL_PLAYER } from '../garden/garden.service';
+import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, isAstronaut } from '../session/current-user';
 import { GardenStore } from '../garden/garden.store';
 import { loadJson, saveJson } from '../shared/storage';
 
-const READ_KEY = 'jardin-comunal:notes-read:v1';
+// What you've read is per player; the astronaut keeps the original key.
+const READ_KEY = CURRENT_USER.role === 'FAMILY' ? 'jardin-comunal:notes-read:family:v1' : 'jardin-comunal:notes-read:v1';
 const REMOVED_DEMO_KEY = 'jardin-comunal:notes-removed:v1';
-const FAMILY_ID = 'family-demo';
+const FAMILY_ID = FAMILY_USER.id;
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 
 /** Demo notes until the backend exists. Ids are stable so "read" survives a reload. */
 const DEMO_NOTES: SocialNote[] = [
   { id: 'demo-note-1', authorId: FAMILY_ID, content: 'The sunflower you planted is taller than Lucía now! 🌻', createdAt: minutesAgo(25) },
-  { id: 'demo-note-2', authorId: LOCAL_PLAYER.id, content: 'Saw 16 sunrises today. Thinking of you at every one.', createdAt: minutesAgo(180) },
+  { id: 'demo-note-2', authorId: ASTRONAUT_USER.id, content: 'Saw 16 sunrises today. Thinking of you at every one.', createdAt: minutesAgo(180) },
   { id: 'demo-note-3', authorId: FAMILY_ID, content: "Dinner at grandma's on Sunday. We'll call you after!", createdAt: minutesAgo(600) },
 ];
 
@@ -35,6 +37,17 @@ export class NotesStore {
 
   isMine(note: SocialNote): boolean {
     return note.authorId === LOCAL_PLAYER.id;
+  }
+
+  /** Who wrote it, for the note's colour and avatar: the astronaut or the family. */
+  fromAstronaut(note: SocialNote): boolean {
+    return isAstronaut(note.authorId);
+  }
+
+  /** "You" for your own notes, otherwise who wrote it. */
+  author(note: SocialNote): string {
+    if (this.isMine(note)) return 'You';
+    return this.fromAstronaut(note) ? ASTRONAUT_USER.displayName : FAMILY_USER.displayName;
   }
 
   canTakeDown(note: SocialNote): boolean {

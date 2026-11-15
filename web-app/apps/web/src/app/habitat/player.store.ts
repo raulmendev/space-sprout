@@ -3,6 +3,14 @@ import { HabitatPosition, PLAYER_START, Point, TileRect, doorAt, planReach, slid
 import { Ticker } from './ticker.service';
 import type { Facing } from '../garden/game/asset-registry';
 
+/** Which way someone moving by (dx, dy) faces. Keeps the current axis unless the other clearly wins, so diagonals don't flicker. */
+export function nextFacing(cur: Facing, dx: number, dy: number): Facing {
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  const horizontal = cur === 'left' || cur === 'right' ? ax * 1.25 >= ay : ax > ay * 1.25;
+  return horizontal ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+}
+
 /** Walking speed, in tiles per second. */
 const SPEED = 6;
 /** How long a wave lasts: the six-frame wave, twice (see HabitatStore's player animation). */
@@ -150,14 +158,9 @@ export class PlayerStore {
     this.position.set({ room: pos.room, ...next });
   };
 
-  /** Keep the current axis unless the other clearly wins, so diagonals don't flicker. */
   private faceToward(dx: number, dy: number): void {
-    const ax = Math.abs(dx);
-    const ay = Math.abs(dy);
-    const cur = this.facing();
-    const horizontal = cur === 'left' || cur === 'right' ? ax * 1.25 >= ay : ax > ay * 1.25;
-    const next: Facing = horizontal ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-    if (next !== cur) this.facing.set(next);
+    const next = nextFacing(this.facing(), dx, dy);
+    if (next !== this.facing()) this.facing.set(next);
   }
 
   private arrive(): void {

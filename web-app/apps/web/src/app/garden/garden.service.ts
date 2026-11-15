@@ -36,6 +36,7 @@ import {
   potPlant,
   PotError,
 } from '@garden/shared';
+import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, asActor } from '../session/current-user';
 
 /** Garden coins earned per actor on one day, for the daily cap. */
 export type GardenEarnings = Record<string, { day: string; amount: number }>;
@@ -75,11 +76,13 @@ export type CareResult =
   | { ok: false; error: CareError | 'NOT_FOUND' };
 
 /**
- * Who is playing on this device. Until accounts exist, the local player is the astronaut;
- * the family's actions arrive through the same shared garden once there is a backend.
+ * Who is playing on this page: the astronaut, or the family with `?user=family`
+ * (see session/current-user.ts). Both act on the same shared garden.
  */
-export const LOCAL_PLAYER: Actor = { id: 'astronaut-demo', name: 'Astronaut' };
-const FAMILY_DEMO: Actor = { id: 'family-demo', name: 'Family' };
+export const LOCAL_PLAYER: Actor = asActor(CURRENT_USER);
+/** The demo garden's planters, whoever is playing. */
+const ASTRONAUT_DEMO: Actor = asActor(ASTRONAUT_USER);
+const FAMILY_DEMO: Actor = asActor(FAMILY_USER);
 
 export function earnedToday(earnings: GardenEarnings | undefined, actorId: string, now: number): number {
   const e = earnings?.[actorId];
@@ -301,22 +304,22 @@ function seedGarden(): GardenSnapshot {
     // Every species with delivered art, fully grown, plus one rose bush per growth stage.
     objects: [
       // Top field
-      mk('lily', 2, 5, LOCAL_PLAYER, FAMILY_DEMO),
-      mk('rose', 5, 5, FAMILY_DEMO, LOCAL_PLAYER),
-      mk('pitcher', 8, 5, LOCAL_PLAYER, FAMILY_DEMO, FAMILY_DEMO),
+      mk('lily', 2, 5, ASTRONAUT_DEMO, FAMILY_DEMO),
+      mk('rose', 5, 5, FAMILY_DEMO, ASTRONAUT_DEMO),
+      mk('pitcher', 8, 5, ASTRONAUT_DEMO, FAMILY_DEMO, FAMILY_DEMO),
       mk('lettuce', 15, 5, FAMILY_DEMO),
-      mk('fern', 18, 5, LOCAL_PLAYER, LOCAL_PLAYER),
+      mk('fern', 18, 5, ASTRONAUT_DEMO, ASTRONAUT_DEMO),
       mk('nopal', 21, 5, FAMILY_DEMO, FAMILY_DEMO),
       // Bottom field
-      mk('cempasuchil', 2, 11, FAMILY_DEMO, LOCAL_PLAYER),
-      mk('yellowflower', 5, 11, LOCAL_PLAYER, FAMILY_DEMO, LOCAL_PLAYER),
+      mk('cempasuchil', 2, 11, FAMILY_DEMO, ASTRONAUT_DEMO),
+      mk('yellowflower', 5, 11, ASTRONAUT_DEMO, FAMILY_DEMO, ASTRONAUT_DEMO),
       mk('mustard', 8, 11, FAMILY_DEMO),
-      mk('monstera', 5, 13, LOCAL_PLAYER, FAMILY_DEMO, FAMILY_DEMO),
-      mk('tulip', 8, 13, FAMILY_DEMO, LOCAL_PLAYER),
+      mk('monstera', 5, 13, ASTRONAUT_DEMO, FAMILY_DEMO, FAMILY_DEMO),
+      mk('tulip', 8, 13, FAMILY_DEMO, ASTRONAUT_DEMO),
       // Rose bushes planted 0s, 45s, 95s and 160s ago: one per growth stage. They keep growing,
       // so all four bloom within a few minutes.
       ...[0, 45, 95, 160].map((sec, i) => ({
-        ...mk('rose', 14 + 2 * i, 12, LOCAL_PLAYER, LOCAL_PLAYER),
+        ...mk('rose', 14 + 2 * i, 12, ASTRONAUT_DEMO, ASTRONAUT_DEMO),
         createdAt: ago(sec),
       })),
     ],

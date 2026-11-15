@@ -2,6 +2,7 @@ import { Component, ElementRef, effect, inject, output, signal } from '@angular/
 import { ROOMS, RoomId } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from './habitat.store';
+import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, IS_FAMILY, SUIT, SUITS, urlWith } from '../session/current-user';
 
 /**
  * Slim overlay along the top of the screen: rooms, seeds, fullscreen and a small
@@ -30,18 +31,23 @@ import { HabitatStore } from './habitat.store';
       </ol>
     </nav>
 
-    <div class="flex items-center gap-1.5">
-      <span class="panel px-2.5 py-0.5 text-base font-extrabold text-bark-dark sm:text-lg" aria-label="Seeds balance">🌱 {{ garden.balance() }}</span>
+    <div class="flex items-center gap-3">
+      <span
+        class="flex h-12 items-center gap-1 rounded-full bg-night/60 px-2.5 text-sm font-bold text-cream backdrop-blur-sm"
+        [attr.aria-label]="'Playing as ' + me.displayName"
+        [title]="'Playing as ' + me.displayName"
+      ><span class="text-lg" aria-hidden="true">{{ meIcon }}</span><span class="hidden sm:inline">{{ me.displayName }}</span></span>
+      <span class="panel flex h-12 items-center px-3 text-xl font-extrabold text-bark-dark" aria-label="Seeds balance">🌱 {{ garden.balance() }}</span>
       <button
         type="button"
-        class="grid size-9 place-items-center rounded-full bg-night/60 text-lg backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
+        class="grid size-12 place-items-center rounded-full bg-night/60 text-[2rem] leading-none backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
         aria-label="Inventory"
         (click)="habitat.openPanel.set('INVENTORY')"
       >🎒</button>
       @if (canFullscreen) {
         <button
           type="button"
-          class="grid size-9 place-items-center rounded-full bg-night/60 text-lg text-cream backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
+          class="grid size-12 place-items-center rounded-full bg-night/60 text-[2.25rem] font-black leading-none text-cream backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
           [attr.aria-label]="isFullscreen() ? 'Exit full screen' : 'Full screen'"
           (click)="toggleFullscreen()"
         >{{ isFullscreen() ? '⤡' : '⤢' }}</button>
@@ -49,19 +55,23 @@ import { HabitatStore } from './habitat.store';
       <div class="relative">
         <button
           type="button"
-          class="grid size-9 place-items-center rounded-full bg-night/60 text-lg text-cream backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
+          class="grid size-12 place-items-center rounded-full bg-night/60 text-[2.25rem] font-black leading-none text-cream backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
           aria-label="Menu"
           [attr.aria-expanded]="menuOpen()"
           aria-controls="hud-menu"
           (click)="menuOpen.set(!menuOpen())"
         >⋯</button>
         @if (menuOpen()) {
-          <div id="hud-menu" class="panel absolute right-0 top-11 z-40 flex w-48 flex-col gap-1 p-2 text-sm">
+          <div id="hud-menu" class="panel absolute right-0 top-14 z-40 flex w-48 flex-col gap-1 p-2 text-sm">
             <p class="px-2 pt-1 font-pixel text-base">Jardín Comunal</p>
             <label class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-parchment">
               <input type="checkbox" class="accent-leaf-dark" [checked]="habitat.showLayout()" (change)="habitat.showLayout.set(!habitat.showLayout())" />
               Show layout
             </label>
+            <a class="rounded-md px-2 py-1.5 hover:bg-parchment" [href]="switchTo.href">Play as {{ switchTo.name }}</a>
+            @for (s of suitSwitch; track s.label) {
+              <a class="rounded-md px-2 py-1.5 hover:bg-parchment" [href]="s.href">{{ s.label }}</a>
+            }
             <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); reset.emit()">Reset demo</button>
           </div>
         }
@@ -78,6 +88,17 @@ export class HudComponent {
   protected readonly roomOrder: RoomId[] = ['GARDEN', 'SOCIAL', 'MEDICAL'];
   protected readonly rooms = ROOMS;
   protected readonly menuOpen = signal(false);
+  /** Who is playing (from the URL), and the link that reloads as the other player. */
+  protected readonly me = CURRENT_USER;
+  protected readonly meIcon = IS_FAMILY ? '🏡' : '🧑‍🚀';
+  protected readonly switchTo = IS_FAMILY
+    ? { name: ASTRONAUT_USER.displayName, href: urlWith('user', null) }
+    : { name: FAMILY_USER.displayName, href: urlWith('user', 'family') };
+  /** Try the other suit colours (art only). Turquoise is the default, so it drops the parameter. */
+  protected readonly suitSwitch = SUITS.filter((s) => s !== SUIT).map((s) => ({
+    label: `${s[0].toUpperCase()}${s.slice(1)} suit`,
+    href: urlWith('suit', s === 'turquoise' ? null : s),
+  }));
   private readonly host = inject(ElementRef<HTMLElement>);
   protected readonly isFullscreen = signal(false);
   /** iPhone Safari has no element fullscreen; there, "Add to Home Screen" gives full screen instead. */

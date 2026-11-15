@@ -22,7 +22,16 @@ export interface RendererCallbacks {
   onHover(i: HabitatInteraction | null): void;
 }
 
-/** Phaser implementation. Buffers calls until the scene is ready. */
+/** Most canvas pixels per world pixel: past this a bigger canvas costs memory without looking sharper. */
+const MAX_RESOLUTION = 4;
+
+/**
+ * Phaser implementation. Buffers calls until the scene is ready.
+ *
+ * The canvas renders at the size it's shown on screen, in device pixels (a zoom of 1.7 on a
+ * 3x phone is about 5 pixels per world pixel, capped), and the camera zooms to match. So 2x art
+ * keeps its detail instead of being drawn at 1x and stretched by the browser.
+ */
 export function createHabitatRenderer(parent: HTMLElement, deliveredKeys: readonly string[], cb: RendererCallbacks): HabitatRenderer {
   let scene: HabitatScene | null = null;
   // Calls made before the scene boots: keep only the latest of each kind.
@@ -62,7 +71,13 @@ export function createHabitatRenderer(parent: HTMLElement, deliveredKeys: readon
     setGhost: (g) => runLatest('ghost', (s) => s.setGhost(g)),
     setSpots: (t) => runLatest('spots', (s) => s.setSpots(t)),
     flashTile: (t) => scene?.flashTile(t), // a pre-boot error flash isn't worth replaying
-    setZoom: (z) => game.scale.setZoom(z),
+    setZoom: (z) => {
+      const res = Math.min(MAX_RESOLUTION, z * devicePixelRatio);
+      const w = Math.round(WORLD_W * res), h = Math.round(WORLD_H * res);
+      if (w !== game.scale.width || h !== game.scale.height) game.scale.resize(w, h); // skip reallocating the same size
+      game.scale.setZoom(z / res); // shown at WORLD_W * z CSS pixels
+      runLatest('resolution', (s) => s.setResolution(res));
+    },
     destroy: () => game.destroy(true),
   };
 }

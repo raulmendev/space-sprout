@@ -2,27 +2,27 @@ import { makeCanvas } from './placeholders';
 
 /**
  * Message board geometry, in sprite pixels at 1x (1 tile = 32px): where notes are pinned on
- * the delivered board's cork (14,14 · 86×58), and placeholder art for the notes and bubble.
+ * the delivered board's cork (9,25 · 106×50), and placeholder art for the notes and bubble.
  *
  * The board is one sprite; each note is its own small sprite pinned on top, so the art
  * team draws one board and a few notes instead of a board per note count.
  */
 /** Size of the delivered board art (social/board/prop-message-board.png): stands on its 4×2-tile footprint. */
-export const BOARD_SIZE: [number, number] = [114, 104];
+export const BOARD_SIZE: [number, number] = [124, 113];
 
 export const NOTE_SIZE = 24;
 
-/** The "new note" bubble's bottom-centre: on the frame's top-right corner, clear of the HUD. */
-export const BUBBLE_AT = { dx: 102, dy: 12 } as const;
+/** The "new note" bubble's bottom-centre: on the frame's top-right corner bracket. */
+export const BUBBLE_AT = { dx: 114, dy: 16 } as const;
 
 /** Centres of the six note slots (3 × 2) on the cork, each with a slight hand-pinned tilt. */
 export const NOTE_SLOTS = [
-  { dx: 28, dy: 28, angle: -6 },
-  { dx: 57, dy: 27, angle: 4 },
-  { dx: 86, dy: 29, angle: -3 },
-  { dx: 29, dy: 57, angle: 5 },
-  { dx: 57, dy: 58, angle: -4 },
-  { dx: 85, dy: 56, angle: 3 },
+  { dx: 27, dy: 38, angle: -6 },
+  { dx: 62, dy: 37, angle: 4 },
+  { dx: 97, dy: 38, angle: -3 },
+  { dx: 28, dy: 63, angle: 5 },
+  { dx: 62, dy: 63, angle: -4 },
+  { dx: 96, dy: 62, angle: 3 },
 ] as const;
 
 // Placeholder palette (canvas can't read CSS variables): the theme's bark-dark, alert, parchment and cream.

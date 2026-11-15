@@ -1,6 +1,5 @@
 import { Injectable } from '@angular/core';
 import {
-  ALL_METRICS,
   GOAL_METRICS,
   GoalMetric,
   Goals,
@@ -24,6 +23,7 @@ import {
   validateMeasurement,
 } from '@garden/shared';
 import { simulatedValue } from './simulated-wearable';
+import { CURRENT_USER, MY_METRICS, ROLE } from '../session/current-user';
 
 /** "I don't know" answers: nothing measured, but the crew stop asking for the day. */
 export interface UnknownAnswer {
@@ -48,7 +48,7 @@ export interface RecordResult {
   bonuses: HabitBonus[];
 }
 
-const USER_ID = 'astronaut-demo';
+const USER_ID = CURRENT_USER.id;
 const GARDEN_ID = 'garden-demo';
 
 /**
@@ -59,7 +59,8 @@ const GARDEN_ID = 'garden-demo';
  */
 @Injectable({ providedIn: 'root' })
 export class HealthService {
-  private static readonly KEY = 'jardin-comunal:health:v1';
+  // One record per player; the astronaut keeps the original key.
+  private static readonly KEY = ROLE === 'FAMILY' ? 'jardin-comunal:health:family:v1' : 'jardin-comunal:health:v1';
 
   async load(): Promise<HealthSnapshot> {
     try {
@@ -78,9 +79,9 @@ export class HealthService {
     const snap = await this.load();
     const result: RecordResult = { saved: [], outcomes: [], earned: 0, bonuses: [] };
     for (const input of inputs) {
-      if (validateMeasurement(input.metric, input.value)) continue;
+      if (!MY_METRICS.includes(input.metric) || validateMeasurement(input.metric, input.value)) continue; // not this player's reading, or invalid
       const m = toMeasurement(input, crypto.randomUUID(), USER_ID);
-      const decision = decideReward(m, snap.rewards, rewardFor(m.metric, m.value));
+      const decision = decideReward(m, snap.rewards, rewardFor(m.metric, m.value, ROLE));
       if (decision.amount > 0) {
         snap.rewards.push({
           id: crypto.randomUUID(),
@@ -109,7 +110,7 @@ export class HealthService {
     const measuredAt = new Date().toISOString();
     const day = dayOf(measuredAt);
     const unknowns = (snap.unknowns ??= []);
-    const worth = unknownRewardFor(metric);
+    const worth = unknownRewardFor(metric, ROLE);
     let earned = 0;
     if (worth !== null && !unknowns.some((u) => u.metric === metric && u.day === day)) {
       unknowns.push({ metric, day });
@@ -194,7 +195,7 @@ function seedHistory(): HealthMeasurement[] {
     if (SEED_SKIPPED.has(daysAgo)) continue;
     const at = new Date(Date.now() - daysAgo * 86_400_000);
     at.setUTCHours(7, 30, 0, 0);
-    for (const metric of ALL_METRICS) {
+    for (const metric of MY_METRICS) {
       const value = metric === 'MOOD' ? 3 + Math.round(rand() * 2) : simulatedValue(metric, rand);
       out.push(toMeasurement({ metric, value, measuredAt: at.toISOString(), source: 'SIMULATED' }, crypto.randomUUID(), USER_ID));
     }

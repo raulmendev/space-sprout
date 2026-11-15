@@ -1,6 +1,5 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import {
-  ALL_METRICS,
   GOAL_METRICS,
   GoalMetric,
   Goals,
@@ -22,6 +21,7 @@ import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
 import { HealthService, UnknownAnswer } from './health.service';
 import { SimulatedWearable, WEARABLE_METRICS } from './simulated-wearable';
+import { MY_METRICS } from '../session/current-user';
 
 export interface CheckInResult {
   readings: HealthMeasurement[];
@@ -67,7 +67,7 @@ export class HealthStore {
   /** Readings per metric. */
   readonly byMetric = computed(() => {
     const out = {} as Record<HealthMetric, HealthMeasurement[]>;
-    for (const metric of ALL_METRICS) out[metric] = [];
+    for (const metric of MY_METRICS) out[metric] = [];
     for (const m of this.measurements()) out[m.metric]?.push(m);
     return out;
   });
@@ -75,7 +75,7 @@ export class HealthStore {
   /** Insight card per metric: the last week against the astronaut's own usual range. */
   readonly cards = computed(() => {
     const out = {} as Record<HealthMetric, MetricSummary>;
-    for (const metric of ALL_METRICS) out[metric] = this.summary(metric, CARD_WINDOW_DAYS);
+    for (const metric of MY_METRICS) out[metric] = this.summary(metric, CARD_WINDOW_DAYS);
     return out;
   });
 
@@ -152,7 +152,7 @@ export class HealthStore {
   /** Check-in with any subset of metrics (typed in, or read by a crew instrument). Resolves to the seeds it earned. */
   async submitManual(values: Partial<Record<HealthMetric, number>>, source: MeasurementSource = 'MANUAL'): Promise<number> {
     const measuredAt = new Date().toISOString();
-    const readings: NewMeasurement[] = ALL_METRICS.filter((m) => values[m] !== undefined).map((metric) => ({
+    const readings: NewMeasurement[] = MY_METRICS.filter((m) => values[m] !== undefined).map((metric) => ({
       metric,
       value: values[metric]!,
       measuredAt,

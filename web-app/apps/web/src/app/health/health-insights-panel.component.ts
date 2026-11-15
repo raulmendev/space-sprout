@@ -1,5 +1,6 @@
 import { Component, DestroyRef, ElementRef, Injector, afterNextRender, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { HealthMeasurement, HealthMetric, METRICS, ALL_METRICS, goalTarget, isGoalMetric } from '@garden/shared';
+import { HealthMeasurement, HealthMetric, METRICS, goalTarget, isGoalMetric } from '@garden/shared';
+import { MY_METRICS } from '../session/current-user';
 import { HealthStore } from './health.store';
 import { TrendChartComponent } from './trend-chart.component';
 import { MetricDetailComponent } from './metric-detail.component';
@@ -17,12 +18,12 @@ import { METRIC_ICON, SOURCE_LABEL, comparisonText, formatAmount, formatValue, t
  * hidden from assistive tech and the keyboard.
  */
 const PER_SLIDE = 2;
-const SLIDE_COUNT = Math.ceil(ALL_METRICS.length / PER_SLIDE);
+const SLIDE_COUNT = Math.ceil(MY_METRICS.length / PER_SLIDE);
 /** Cards in row order: [copy of last slide] real slides [copy of first slide]. */
 const LOOP = [
-  ...ALL_METRICS.slice(-PER_SLIDE).map((metric) => ({ metric, copy: true })),
-  ...ALL_METRICS.map((metric) => ({ metric, copy: false })),
-  ...ALL_METRICS.slice(0, PER_SLIDE).map((metric) => ({ metric, copy: true })),
+  ...MY_METRICS.slice(-PER_SLIDE).map((metric) => ({ metric, copy: true })),
+  ...MY_METRICS.map((metric) => ({ metric, copy: false })),
+  ...MY_METRICS.slice(0, PER_SLIDE).map((metric) => ({ metric, copy: true })),
 ];
 
 @Component({
@@ -121,8 +122,21 @@ const LOOP = [
     }
     .goals li.met { border-color: var(--color-leaf); background: color-mix(in srgb, var(--color-leaf) 18%, transparent); color: var(--color-leaf-dark); }
 
-    /* Six cards: two rows of three when there's room, two columns on narrow screens. */
-    .cards { display: grid; flex: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    /*
+     * A card per metric: rows of three when there's room, two columns on narrow screens. The
+     * popup has a fixed height, so the cards scroll inside the screen (the streak and the privacy
+     * note stay put); the padding keeps the cards' rivets and focus ring from being clipped.
+     */
+    .cards {
+      display: grid;
+      flex: 1;
+      min-height: 0;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-content: start;
+      gap: 10px;
+      padding: 3px;
+      overflow-y: auto;
+    }
     @container (min-width: 40rem) { .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
     .card { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; text-align: left; }
     .card:hover { filter: brightness(1.03); }
@@ -145,8 +159,7 @@ const LOOP = [
         grid-auto-flow: column;
         grid-auto-columns: calc((100% - 12px) / 2);
         gap: 12px;
-        padding: 3px;
-        overflow-x: auto;
+        overflow: auto hidden;
         scroll-snap-type: x mandatory;
         scroll-padding-inline: 3px;
         overscroll-behavior-x: contain;
@@ -265,7 +278,7 @@ export class HealthInsightsPanelComponent {
 
   /** "Heart rate and Sleep". */
   protected slideLabel(i: number): string {
-    return ALL_METRICS.slice(i * PER_SLIDE, (i + 1) * PER_SLIDE).map((m) => METRICS[m].label).join(' and ');
+    return MY_METRICS.slice(i * PER_SLIDE, (i + 1) * PER_SLIDE).map((m) => METRICS[m].label).join(' and ');
   }
 
   protected openDetail(metric: HealthMetric): void {

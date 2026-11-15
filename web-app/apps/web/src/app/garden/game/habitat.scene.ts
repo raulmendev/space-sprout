@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
 import { TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
 import { missingTexture } from './placeholders';
-import { TileCoord, TileManager, TileRect } from './tile-manager';
+import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingScale, restingSize } from './tile-manager';
 
 /** One sprite to draw. Computed by Angular; the scene applies no rules. */
 export interface RenderSprite extends TileRect {
@@ -46,6 +46,8 @@ export interface RenderActor {
   interaction: HabitatInteraction | null;
   /** Frame-by-frame art (the astronaut). Without it the texture is still, flipped and bobbed. */
   anim?: ActorAnim;
+  /** Hovers (the crew robots): drifts gently up and down all the time over a small shadow, instead of the walk bob. */
+  float?: boolean;
 }
 
 /** Frames played by the scene's own clock, so they keep going while nothing else changes. */
@@ -62,6 +64,22 @@ export interface ActorAnim {
 const FOOT_OFFSET_PX = 6;
 /** Characters draw in front of props/plants whose base is on the same line. */
 const ACTOR_DEPTH_BIAS = 0.5;
+/** Hovering robots: always `lift` px up, drifting `amplitude` px more and back every `periodMs`. */
+const FLOAT = { lift: 3, amplitude: 3, periodMs: 1800 } as const;
+
+interface FloatState {
+  /** Where the feet would be on the floor (px). */
+  baseY: number;
+  /** Each robot drifts on its own beat. */
+  phase: number;
+}
+
+/** A stable phase (radians) from an id, so robots don't bob in step. */
+function phaseOf(id: string): number {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return ((h >>> 0) % 1000) / 1000 * 2 * Math.PI;
+}
 
 /** A translucent preview sprite over a footprint, raised `lift` px (the "+" hint floats a little). */
 export interface GhostSprite extends TileRect {
@@ -103,6 +121,8 @@ export class HabitatScene extends Phaser.Scene {
   private readonly sprites = new Map<string, SpriteEntry>();
   private readonly wet = new Map<string, Phaser.GameObjects.Image>();
   private readonly actors = new Map<string, Phaser.GameObjects.Image>();
+  /** The small shadow under each hovering character. */
+  private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse>();
   /** The latest characters sent, kept for when a room change held them back. */
   private lastActors: readonly RenderActor[] = [];
   private readonly failed = new Set<string>();
@@ -195,6 +215,12 @@ export class HabitatScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ renderer API
 
+  /** The canvas renders `pixelsPerUnit` pixels per world pixel: zoom the camera to fill it with the room. */
+  setResolution(pixelsPerUnit: number): void {
+    const cam = this.cameras.main;
+    cam.setSize(this.scale.width, this.scale.height).setZoom(pixelsPerUnit).centerOn(WORLD_W / 2, WORLD_H / 2);
+  }
+
   setState(state: HabitatRenderState): void {
     if (this.queued) {
       this.queued = state; // mid-fade: apply once the new room is up
@@ -228,6 +254,8 @@ export class HabitatScene extends Phaser.Scene {
     this.sprites.clear();
     this.actors.forEach((a) => a.destroy());
     this.actors.clear();
+    this.shadows.forEach((s) => s.destroy());
+    this.shadows.clear();
     this.room = state.room;
     this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
     this.building = true;
@@ -244,7 +272,7 @@ export class HabitatScene extends Phaser.Scene {
       seen.add(data.id);
       const entry = this.sprites.get(data.id);
       if (!entry) {
-        const img = this.add.image(0, 0, data.texture);
+        const img = fitToGame(this.add.image(0, 0, data.texture));
         const created: SpriteEntry = { img, data, tweens: [], decals: [] };
         this.sprites.set(data.id, created);
         this.apply(created, data, null);
@@ -286,7 +314,7 @@ export class HabitatScene extends Phaser.Scene {
     const { img } = entry;
     const asset = getAsset(data.texture);
     const { px, py } = this.tiles.anchor(data);
-    if (!prev || prev.texture !== data.texture) img.setTexture(data.texture);
+    if (!prev || prev.texture !== data.texture) fitToGame(img.setTexture(data.texture));
     img
       .setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1)
       .setPosition(px, py)
@@ -302,12 +330,13 @@ export class HabitatScene extends Phaser.Scene {
     if (!motionChanged || this.reducedMotion) return;
     entry.tweens.forEach((t) => t.remove());
     entry.tweens = [];
-    img.setAngle(0).setScale(1);
+    fitToGame(img.setAngle(0));
+    const s = restingScale(img);
     if (data.sway) {
       entry.tweens.push(this.sway(img));
     }
     if (data.pulse) {
-      entry.tweens.push(this.tweens.add({ targets: img, scaleY: 1.06, scaleX: 0.96, duration: 380, yoyo: true, repeat: -1, repeatDelay: 1200, ease: 'Quad.out' }));
+      entry.tweens.push(this.tweens.add({ targets: img, scaleY: s * 1.06, scaleX: s * 0.96, duration: 380, yoyo: true, repeat: -1, repeatDelay: 1200, ease: 'Quad.out' }));
     }
   }
 
@@ -322,20 +351,25 @@ export class HabitatScene extends Phaser.Scene {
       let img = this.actors.get(a.id);
       if (!img) {
         const asset = getAsset(a.texture);
-        img = this.add.image(0, 0, a.texture).setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1);
+        img = fitToGame(this.add.image(0, 0, a.texture)).setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1);
         if (a.interaction) img.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
         this.actors.set(a.id, img);
       }
       const px = a.x * TILE_SIZE;
       const py = a.y * TILE_SIZE + FOOT_OFFSET_PX;
+      const float: FloatState | null = a.float ? { baseY: py, phase: phaseOf(a.id) } : null;
       img
-        // Animated art walks on its own; only still sprites get the bob and the mirror.
-        .setPosition(px, py - (a.moving && !a.anim ? bob : 0))
+        // Animated art walks on its own and hovering robots drift; only the rest get the walk bob. Animated art isn't mirrored.
+        .setPosition(px, py - (a.moving && !a.anim && !a.float ? bob : 0))
         .setFlipX(a.anim ? false : a.flipX)
         .setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS)
         .setData('interaction', a.interaction)
-        .setData('anim', a.anim ?? null);
+        .setData('anim', a.anim ?? null)
+        .setData('float', float);
+      if (!a.anim && img.texture.key !== a.texture) img.setTexture(a.texture); // e.g. crew art that turns
+      if (float) this.placeShadow(a.id, img, px, py);
       this.showFrame(img);
+      this.applyHover(a.id, img);
     }
     for (const [id, img] of this.actors) {
       if (!seen.has(id)) {
@@ -343,11 +377,39 @@ export class HabitatScene extends Phaser.Scene {
         this.actors.delete(id);
       }
     }
+    for (const [id, shadow] of this.shadows) {
+      if (!seen.has(id) || !this.actors.get(id)?.getData('float')) {
+        shadow.destroy();
+        this.shadows.delete(id);
+      }
+    }
   }
 
-  /** Phaser's per-frame hook: advance every animated character. */
+  /** Phaser's per-frame hook: advance every animated character and keep the robots hovering. */
   override update(): void {
-    for (const img of this.actors.values()) this.showFrame(img);
+    for (const [id, img] of this.actors) {
+      this.showFrame(img);
+      this.applyHover(id, img);
+    }
+  }
+
+  /** A soft oval on the floor under a hovering character, about half as wide as it. */
+  private placeShadow(id: string, img: Phaser.GameObjects.Image, px: number, py: number): void {
+    let shadow = this.shadows.get(id);
+    if (!shadow) {
+      shadow = this.add.ellipse(0, 0, Math.round(img.width * 0.55), 6, 0x000000, 0.22);
+      this.shadows.set(id, shadow);
+    }
+    shadow.setPosition(px, py - 2).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
+  }
+
+  /** Lift a hovering character for this moment; its shadow shrinks a little as it rises. Reduced motion: it just hovers, still. */
+  private applyHover(id: string, img: Phaser.GameObjects.Image): void {
+    const float = img.getData('float') as FloatState | null;
+    if (!float) return;
+    const wave = this.reducedMotion ? 0 : (1 - Math.cos((2 * Math.PI * performance.now()) / FLOAT.periodMs + float.phase)) / 2;
+    img.setY(float.baseY - Math.round(FLOAT.lift + FLOAT.amplitude * wave)); // whole pixels keep the pixel art crisp
+    this.shadows.get(id)?.setScale(1 - 0.25 * wave);
   }
 
   /** The frame an animated character should show right now (reduced motion: a wave stays on its first frame). */
@@ -358,7 +420,7 @@ export class HabitatScene extends Phaser.Scene {
     const step = Math.floor(((performance.now() - anim.startedAt) * anim.fps) / 1000);
     const i = anim.loop ? ((step % n) + n) % n : this.reducedMotion ? 0 : Math.min(Math.max(step, 0), n - 1);
     const key = anim.frames[i];
-    if (img.texture.key !== key) img.setTexture(key);
+    if (img.texture.key !== key) fitToGame(img.setTexture(key));
   }
 
   /** Keep the floating badge in sync: appear with a soft pop, bob gently, fade out when gone. */
@@ -381,14 +443,11 @@ export class HabitatScene extends Phaser.Scene {
       return;
     }
     this.removeBadge(entry, false);
-    const badge = this.add.image(x, y, data.badge).setOrigin(0.5, 1).setDepth(DEPTH.INDICATOR - 1);
+    const badge = fitToGame(this.add.image(x, y, data.badge)).setOrigin(0.5, 1).setDepth(DEPTH.INDICATOR - 1);
     badge.setData('interaction', data.interaction);
     if (data.interaction) badge.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
     entry.badge = badge;
-    if (!this.reducedMotion && !this.building) { // no pop for bubbles already there when entering a room
-      badge.setScale(0.3);
-      this.tweens.add({ targets: badge, scale: 1, duration: 280, ease: 'Back.out' });
-    }
+    if (!this.reducedMotion && !this.building) this.popIn(badge, 0.3, 280); // not for bubbles already there when entering a room
     this.bobBadge(entry, y);
   }
 
@@ -469,8 +528,7 @@ export class HabitatScene extends Phaser.Scene {
     const corner = topLeft(img);
     after.forEach((d, i) => {
       // Not interactive: decals sit on the sprite, so a tap on one lands on the sprite beneath.
-      const decal = this.add
-        .image(corner.x + d.dx, corner.y + d.dy, d.texture)
+      const decal = fitToGame(this.add.image(corner.x + d.dx, corner.y + d.dy, d.texture))
         .setAngle(d.angle ?? 0)
         .setDepth(img.depth + 0.5 + i * 0.01);
       entry.decals.push(decal);
@@ -480,10 +538,7 @@ export class HabitatScene extends Phaser.Scene {
         if (!this.reducedMotion) this.sway(decal);
       }
       const isNew = i >= before.length || before[i].texture !== d.texture;
-      if (prev && isNew && !this.building && !this.reducedMotion) {
-        decal.setScale(0.2);
-        this.tweens.add({ targets: decal, scale: 1, duration: 260, ease: 'Back.out', delay: (i - before.length) * 60 });
-      }
+      if (prev && isNew && !this.building && !this.reducedMotion) this.popIn(decal, 0.2, 260, (i - before.length) * 60);
     });
   }
 
@@ -525,7 +580,7 @@ export class HabitatScene extends Phaser.Scene {
     this.ghost.setVisible(!!ghost);
     if (!ghost) return;
     const { px, py } = this.tiles.anchor(ghost);
-    this.ghost.setTexture(ghost.texture).setPosition(px, py - ghost.lift);
+    fitToGame(this.ghost.setTexture(ghost.texture)).setPosition(px, py - ghost.lift);
   }
 
   /** Light up where a decoration can go (null: stop placing). */
@@ -558,15 +613,21 @@ export class HabitatScene extends Phaser.Scene {
 
   private pop(img: Phaser.GameObjects.Image): void {
     if (this.reducedMotion || this.building) return; // no pop for things already in a room we enter
-    const s = img.scale;
-    img.setScale(s * 0.2);
-    this.tweens.add({ targets: img, scale: s, duration: 320, ease: 'Back.out' });
+    this.popIn(img, 0.2, 320);
     this.sparkle(img.x, img.y - TILE_SIZE / 2);
+  }
+
+  /** Grow from `from` times its resting size back to it, with a little overshoot. */
+  private popIn(img: Phaser.GameObjects.Image, from: number, duration: number, delay = 0): void {
+    const s = restingScale(img);
+    img.setScale(s * from);
+    this.tweens.add({ targets: img, scale: s, duration, delay, ease: 'Back.out' });
   }
 
   private grow(img: Phaser.GameObjects.Image): void {
     if (this.reducedMotion) return;
-    this.tweens.add({ targets: img, scaleX: 1.15, scaleY: 0.85, duration: 120, yoyo: true, ease: 'Quad.out' });
+    const s = restingScale(img);
+    this.tweens.add({ targets: img, scaleX: s * 1.15, scaleY: s * 0.85, duration: 120, yoyo: true, ease: 'Quad.out' });
     this.sparkle(img.x, img.y - TILE_SIZE / 2);
   }
 
@@ -604,7 +665,8 @@ function samePlace(a: RenderSprite, b: RenderSprite): boolean {
 
 /** The sprite's top-left corner in world pixels (badges and decals are placed from here). */
 function topLeft(img: Phaser.GameObjects.Image): { x: number; y: number } {
-  return { x: img.x - img.width * img.originX, y: img.y - img.height * img.originY };
+  const { w, h } = restingSize(img);
+  return { x: img.x - w * img.originX, y: img.y - h * img.originY };
 }
 
 /** Decal lists are usually the same array (a computed); only compare contents when they aren't. */

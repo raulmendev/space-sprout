@@ -7,15 +7,6 @@ import { MessageBoardPanelComponent } from '../../social/message-board-panel.com
 import { StorePanelComponent } from '../../store/store-panel.component';
 import { InventoryPanelComponent } from '../../store/inventory-panel.component';
 
-const EMOTES = [
-  { glyph: '❤️', label: 'Love' },
-  { glyph: '😊', label: 'Happy' },
-  { glyph: '👋', label: 'Hello' },
-  { glyph: '🌱', label: 'Encouragement' },
-  { glyph: '⭐', label: 'Celebration' },
-  { glyph: '🫂', label: 'Hug' },
-];
-
 /** Panels drawn in the steel console frame; their content supplies its own cream screen. */
 const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED', 'HEALTH_INSIGHTS_SELECTED', 'MESSAGE_BOARD_SELECTED', 'STORE_SELECTED', 'INVENTORY']);
 
@@ -25,9 +16,7 @@ const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habi
 /** Popups that aren't opened from a prop bring their own title. */
 const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>> = { INVENTORY: { title: 'Inventory', zone: 'Household' } };
 
-/**
- * Panels opened from habitat objects. The emote corner is still a shell until emotes are built.
- */
+/** Panels opened from habitat objects. */
 @Component({
   selector: 'app-station-panel',
   imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent, MessageBoardPanelComponent, StorePanelComponent, InventoryPanelComponent],
@@ -123,16 +112,6 @@ const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>>
         @case ('INVENTORY') {
           <app-inventory-panel />
         }
-        @case ('EMOTE_AREA_SELECTED') {
-          <ul class="grid grid-cols-3 gap-2">
-            @for (e of emotes; track e.label) {
-              <li><button type="button" disabled class="flex w-full flex-col items-center rounded-lg bg-parchment/70 p-2 text-sm"><span class="text-2xl" aria-hidden="true">{{ e.glyph }}</span>{{ e.label }}</button></li>
-            }
-          </ul>
-        }
-      }
-      @if (panel() === 'EMOTE_AREA_SELECTED') {
-        <p class="text-xs italic text-bark/60">Panel shell: emotes arrive in a later step.</p>
       }
       </div>
     </section>
@@ -176,7 +155,6 @@ const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>>
 export class StationPanelComponent {
   readonly panel = input.required<HabitatPanel>();
   readonly closed = output<void>();
-  protected readonly emotes = EMOTES;
   private readonly heading = viewChild.required<ElementRef<HTMLElement>>('heading');
   /** Panels drawn as a station console (steel bezel, cream screen). */
   protected readonly console = computed(() => CONSOLE_PANELS.has(this.panel()));
