@@ -314,11 +314,13 @@ export interface PlayerFrames {
 
 /**
  * Each suit colour is its own set of frames, named by colour (player-astronaut-green-*);
- * the original turquoise suit keeps the plain names. Pick one with `?suit=green`.
+ * the original turquoise suit keeps the plain names. Pick one with `?suit=green|black|wine`.
  */
 const SUITS: Record<Suit, { prefix: string; size: [number, number]; wave: boolean }> = {
   turquoise: { prefix: 'player-astronaut', size: [36, 50], wave: true },
   green: { prefix: 'player-astronaut-green', size: [40, 50], wave: false },
+  black: { prefix: 'player-astronaut-black', size: [38, 50], wave: false },
+  wine: { prefix: 'player-astronaut-wine', size: [38, 50], wave: false },
 };
 
 function suitFrames(prefix: string, wave: boolean): PlayerFrames {

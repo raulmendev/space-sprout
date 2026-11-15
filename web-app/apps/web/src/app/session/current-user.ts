@@ -19,11 +19,13 @@ export const CURRENT_USER: User = (() => {
 
 export const ROLE = CURRENT_USER.role;
 
-/** The astronaut's suit colour, from `?suit=green` (turquoise otherwise). Art only: nothing else changes. */
-export type Suit = 'turquoise' | 'green';
+/** The astronaut's suit colour, from `?suit=green|black|wine` (turquoise otherwise). Art only: nothing else changes. */
+export const SUITS = ['turquoise', 'green', 'black', 'wine'] as const;
+export type Suit = (typeof SUITS)[number];
 export const SUIT: Suit = (() => {
   try {
-    return new URLSearchParams(location.search).get('suit')?.toLowerCase() === 'green' ? 'green' : 'turquoise';
+    const asked = new URLSearchParams(location.search).get('suit')?.toLowerCase();
+    return SUITS.find((s) => s === asked) ?? 'turquoise';
   } catch {
     return 'turquoise';
   }
