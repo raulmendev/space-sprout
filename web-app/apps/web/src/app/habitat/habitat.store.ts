@@ -6,8 +6,11 @@ import {
   MedicalTerminalState,
   PropInteraction,
   ROOMS,
+  DECOR_SPECS,
   TileCoord,
   TileRect,
+  decorAt,
+  decorRect,
   distanceToRect,
   footprintTiles,
   getCatalogItem,
@@ -25,17 +28,20 @@ import {
   HINT_TEXTURE,
   NOTE_BUBBLE_TEXTURE,
   NOTE_TEXTURES,
+  PLAYER_FRAMES,
   PLAYER_TEXTURE,
   THIRST_TEXTURE,
+  decorTextureKey,
   plantSways,
   plantTextureKey,
   propPulses,
   propTextureKey,
 } from '../garden/game/asset-registry';
-import { PlayerStore } from './player.store';
+import { PlayerStore, WAVE_MS } from './player.store';
+import { DecorStore } from '../decor/decor.store';
 import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
-import type { HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
+import type { ActorAnim, HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
 
@@ -63,6 +69,7 @@ export class HabitatStore {
   private readonly player = inject(PlayerStore);
   private readonly npcs = inject(NpcActorStore);
   private readonly notes = inject(NotesStore);
+  private readonly decor = inject(DecorStore);
   /** NPCs in the room on screen. Unchanged while only NPCs in other rooms move, so those don't redraw this one. */
   private readonly npcsHere = computed(() => this.npcs.view().filter((c) => c.position.room === this.activeRoom()), {
     equal: (a: readonly NpcView[], b: readonly NpcView[]) => a.length === b.length && a.every((v, i) => v === b[i]),
@@ -78,7 +85,7 @@ export class HabitatStore {
   /** A tab the next panel should open on (e.g. the store's Messages tab); that panel takes it once. */
   readonly panelTab = signal<string | null>(null);
   /** Something is open over the room (a panel, plant close-up or picker), so NPCs shouldn't walk over to chat. */
-  readonly busy = computed(() => !!(this.openPanel() || this.garden.closeupId() || this.garden.pickerTile()));
+  readonly busy = computed(() => !!(this.openPanel() || this.garden.closeupId() || this.garden.pickerTile() || this.decor.active()));
   /** Debug aid for the layout checkpoint: outline zones and footprints. */
   readonly showLayout = signal(false);
 
@@ -124,6 +131,18 @@ export class HabitatStore {
       });
     }
 
+    const moving = this.decor.movingId();
+    for (const d of this.garden.decorations()) {
+      if (d.room !== room || d.id === moving) continue; // the one being moved shows as the preview instead
+      sprites.push({
+        id: `decor:${d.id}`,
+        texture: decorTextureKey(d.itemId),
+        ...decorRect(d),
+        interaction: { type: 'DECOR_SELECTED', decorId: d.id },
+        flat: DECOR_SPECS[d.itemId]?.flat,
+      });
+    }
+
     const wetTiles: TileCoord[] = [];
     for (const o of room === GARDEN_ROOM ? this.garden.objects() : []) {
       const rect = objectRect(o);
@@ -159,12 +178,34 @@ export class HabitatStore {
       interaction: { type: 'NPC_SELECTED', npcId: n.id },
     }));
     const { x, y } = this.player.position();
-    actors.push({ id: 'player', texture: PLAYER_TEXTURE, x, y, flipX: this.player.facingLeft(), moving: this.player.moving(), interaction: null });
+    actors.push({
+      id: 'player',
+      texture: PLAYER_TEXTURE,
+      x,
+      y,
+      flipX: false,
+      moving: this.player.moving(),
+      interaction: null,
+      anim: this.playerAnim(),
+    });
     return actors;
+  });
+
+  /** Walking: four frames in the way they face. Standing: that direction's standing pose. Waving: the wave, twice. */
+  private readonly playerAnim = computed<ActorAnim>(() => {
+    const waveAt = this.player.waveAt();
+    if (waveAt !== null && !this.player.moving()) {
+      return { frames: [...PLAYER_FRAMES.wave, ...PLAYER_FRAMES.wave], fps: (2 * PLAYER_FRAMES.wave.length * 1000) / WAVE_MS, loop: false, startedAt: waveAt };
+    }
+    const facing = this.player.facing();
+    return this.player.moving()
+      ? { frames: PLAYER_FRAMES.walk[facing], fps: 8, loop: true, startedAt: 0 }
+      : { frames: [PLAYER_FRAMES.idle[facing]], fps: 1, loop: false, startedAt: 0 };
   });
 
   readonly hoverRect = computed(() => this.targetRect(this.hover()));
   readonly selectionRect = computed(() => {
+    if (this.decor.active()) return this.decor.focusRect();
     const s = this.selection();
     return s?.type === 'NPC_SELECTED' ? null : this.targetRect(s);
   });
@@ -211,11 +252,16 @@ export class HabitatStore {
 
   /** "+" over an empty plot under the pointer (or the one in reach), so plantable spots are self-evident. */
   readonly ghost = computed(() => {
+    const placing = this.decor.mode();
+    if (placing) {
+      const rect = this.decor.candidateRect();
+      return rect && { ...rect, texture: decorTextureKey(placing.itemId), lift: 0 };
+    }
     if (this.garden.pickerTile() || this.garden.closeupId()) return null;
     const h = this.hover();
     const plot = h?.type === 'PLOT_SELECTED' ? h : this.reachable()?.interaction;
     if (plot?.type !== 'PLOT_SELECTED') return null;
-    return this.garden.isEmptyPlot(plot) ? { x: plot.x, y: plot.y, texture: HINT_TEXTURE } : null;
+    return this.garden.isEmptyPlot(plot) ? { x: plot.x, y: plot.y, w: 1, h: 1, texture: HINT_TEXTURE, lift: 4 } : null;
   });
 
   /** Info for the "Look closer" panel when a plain tile or decoration is selected. */
@@ -265,6 +311,10 @@ export class HabitatStore {
       }
       case 'PROP_SELECTED':
         return this.roomProps().find((p) => p.id === i.propId) ?? null;
+      case 'DECOR_SELECTED': {
+        const d = this.garden.decorations().find((x) => x.id === i.decorId);
+        return d ? decorRect(d) : null;
+      }
       default:
         return this.roomProps().find((p) => p.interaction === i.type) ?? null;
     }
@@ -279,6 +329,8 @@ export class HabitatStore {
     const room = this.activeRoom();
     const plant = room === GARDEN_ROOM ? this.garden.plantAt(i) : undefined;
     if (plant) return { type: 'PLANT_SELECTED', plantId: plant.id };
+    const decor = decorAt(this.garden.decorations(), room, i.x, i.y);
+    if (decor) return { type: 'DECOR_SELECTED', decorId: decor.id };
     const prop = propAtTile(room, i.x, i.y);
     if (prop) return propInteraction(prop);
     return i;

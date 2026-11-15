@@ -1,12 +1,13 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import {
+  ALL_METRICS,
   GOAL_METRICS,
   GoalMetric,
   Goals,
   HabitBonus,
   HealthMeasurement,
   HealthMetric,
-  METRIC_ORDER,
+  MeasurementSource,
   MetricSummary,
   NewMeasurement,
   RewardOutcome,
@@ -19,7 +20,7 @@ import {
 } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
-import { HealthService } from './health.service';
+import { HealthService, UnknownAnswer } from './health.service';
 import { SimulatedWearable, WEARABLE_METRICS } from './simulated-wearable';
 
 export interface CheckInResult {
@@ -51,6 +52,8 @@ export class HealthStore {
   readonly wearable = new SimulatedWearable();
 
   readonly measurements = signal<HealthMeasurement[]>([]);
+  /** "I don't know" answers given to the crew. */
+  private readonly unknowns = signal<UnknownAnswer[]>([]);
   readonly syncing = signal(false);
   readonly lastSyncAt = signal<string | null>(null);
   readonly lastResult = signal<CheckInResult | null>(null);
@@ -64,7 +67,7 @@ export class HealthStore {
   /** Readings per metric. */
   readonly byMetric = computed(() => {
     const out = {} as Record<HealthMetric, HealthMeasurement[]>;
-    for (const metric of METRIC_ORDER) out[metric] = [];
+    for (const metric of ALL_METRICS) out[metric] = [];
     for (const m of this.measurements()) out[m.metric]?.push(m);
     return out;
   });
@@ -72,7 +75,7 @@ export class HealthStore {
   /** Insight card per metric: the last week against the astronaut's own usual range. */
   readonly cards = computed(() => {
     const out = {} as Record<HealthMetric, MetricSummary>;
-    for (const metric of METRIC_ORDER) out[metric] = this.summary(metric, CARD_WINDOW_DAYS);
+    for (const metric of ALL_METRICS) out[metric] = this.summary(metric, CARD_WINDOW_DAYS);
     return out;
   });
 
@@ -103,6 +106,15 @@ export class HealthStore {
     return out;
   });
 
+  /** What the crew count as answered today: a reading, or an honest "I don't know". */
+  readonly answeredToday = computed(() => {
+    const day = dayOf(new Date().toISOString());
+    const out: Partial<Record<HealthMetric, true>> = {};
+    for (const [metric, reading] of Object.entries(this.today())) if (reading) out[metric as HealthMetric] = true;
+    for (const u of this.unknowns()) if (u.day === day) out[u.metric] = true;
+    return out;
+  });
+
   /** Metrics the wearable can provide; the rest (mood, water) only come from the astronaut. */
   readonly wearableMetrics = WEARABLE_METRICS;
 
@@ -118,6 +130,7 @@ export class HealthStore {
   async init(): Promise<void> {
     const snap = await this.service.load();
     this.measurements.set(snap.measurements);
+    this.unknowns.set(snap.unknowns ?? []);
     this.goals.set(snap.goals ?? {});
     const synced = snap.measurements.filter((m) => m.source !== 'MANUAL').map((m) => m.measuredAt).sort();
     this.lastSyncAt.set(synced.at(-1) ?? null);
@@ -136,18 +149,26 @@ export class HealthStore {
     }
   }
 
-  /** Manual check-in with any subset of metrics. Resolves to the seeds it earned. */
-  async submitManual(values: Partial<Record<HealthMetric, number>>): Promise<number> {
+  /** Check-in with any subset of metrics (typed in, or read by a crew instrument). Resolves to the seeds it earned. */
+  async submitManual(values: Partial<Record<HealthMetric, number>>, source: MeasurementSource = 'MANUAL'): Promise<number> {
     const measuredAt = new Date().toISOString();
-    const readings: NewMeasurement[] = METRIC_ORDER.filter((m) => values[m] !== undefined).map((metric) => ({
+    const readings: NewMeasurement[] = ALL_METRICS.filter((m) => values[m] !== undefined).map((metric) => ({
       metric,
       value: values[metric]!,
       measuredAt,
-      source: 'MANUAL',
+      source,
     }));
     if (!readings.length) return 0;
     await this.save(readings);
     return this.lastResult()?.earned ?? 0;
+  }
+
+  /** "I don't know" to a crew question. Resolves to the seeds it earned. */
+  async answerUnknown(metric: HealthMetric): Promise<number> {
+    const { earned, unknowns } = await this.service.recordUnknown(metric);
+    this.unknowns.set(unknowns);
+    await this.garden.credit(earned);
+    return earned;
   }
 
   /** One metric over the last `windowDays` days (cards use a week; the detail view a week or a month). */

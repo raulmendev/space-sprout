@@ -6,6 +6,8 @@ import { dialoguesFor } from './dialogues';
 export interface Line extends Omit<Dialogue, 'trigger'> {
   speaker: NpcId;
   ask?: HealthMetric;
+  /** The speaker reads `ask` (and their other readings) with an instrument: the bubble offers a scan. */
+  scan?: boolean;
 }
 
 /**
@@ -47,10 +49,11 @@ export class NpcStore {
   }
 
   /** Someone says a line. Lines without a question fade on their own. */
-  sayAs(speaker: NpcId, text: string, ask?: HealthMetric): void {
+  sayAs(speaker: NpcId, text: string, ask?: HealthMetric, scan = false): void {
     clearTimeout(this.autoCloseTimer);
-    this.current.set({ id: `${speaker}:${ask ?? 'line'}`, speaker, text, ask });
-    if (!ask) this.autoCloseTimer = setTimeout(() => this.dismiss(), 4500);
+    this.current.set({ id: `${speaker}:${ask ?? 'line'}`, speaker, text, ask, scan });
+    // Longer lines stay up longer, so a reply with a breathing exercise can be read.
+    if (!ask) this.autoCloseTimer = setTimeout(() => this.dismiss(), Math.max(4500, text.length * 60));
   }
 
   dismiss(): void {

@@ -2,6 +2,7 @@ import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, i
 import type { HabitatInteraction } from '@garden/shared';
 import { AssetService } from '../shared/assets.service';
 import { HabitatStore } from './habitat.store';
+import { DecorStore } from '../decor/decor.store';
 import { HabitatRenderer, createHabitatRenderer } from '../garden/game/habitat-renderer';
 import { WORLD_H, WORLD_W, TileCoord } from '../garden/game/tile-manager';
 
@@ -24,6 +25,7 @@ export class HabitatCanvasComponent {
   protected readonly height = computed(() => Math.round(WORLD_H * this.zoom()));
 
   private readonly habitat = inject(HabitatStore);
+  private readonly decor = inject(DecorStore);
   private readonly assets = inject(AssetService);
   private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
   private readonly renderer = signal<HabitatRenderer | null>(null);
@@ -59,6 +61,7 @@ export class HabitatCanvasComponent {
     effect(() => this.renderer()?.setSelection(this.habitat.selectionRect()));
     effect(() => this.renderer()?.setFocus(this.habitat.reachable()?.rect ?? null));
     effect(() => this.renderer()?.setGhost(this.habitat.ghost()));
+    effect(() => this.renderer()?.setSpots(this.decor.spotTiles()));
     effect(() => this.renderer()?.setZoom(this.zoom()));
   }
 

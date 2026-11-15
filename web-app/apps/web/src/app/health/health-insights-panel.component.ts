@@ -1,5 +1,5 @@
 import { Component, DestroyRef, ElementRef, Injector, afterNextRender, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { HealthMeasurement, HealthMetric, METRICS, METRIC_ORDER, goalTarget, isGoalMetric } from '@garden/shared';
+import { HealthMeasurement, HealthMetric, METRICS, ALL_METRICS, goalTarget, isGoalMetric } from '@garden/shared';
 import { HealthStore } from './health.store';
 import { TrendChartComponent } from './trend-chart.component';
 import { MetricDetailComponent } from './metric-detail.component';
@@ -17,12 +17,12 @@ import { METRIC_ICON, SOURCE_LABEL, comparisonText, formatAmount, formatValue, t
  * hidden from assistive tech and the keyboard.
  */
 const PER_SLIDE = 2;
-const SLIDE_COUNT = Math.ceil(METRIC_ORDER.length / PER_SLIDE);
+const SLIDE_COUNT = Math.ceil(ALL_METRICS.length / PER_SLIDE);
 /** Cards in row order: [copy of last slide] real slides [copy of first slide]. */
 const LOOP = [
-  ...METRIC_ORDER.slice(-PER_SLIDE).map((metric) => ({ metric, copy: true })),
-  ...METRIC_ORDER.map((metric) => ({ metric, copy: false })),
-  ...METRIC_ORDER.slice(0, PER_SLIDE).map((metric) => ({ metric, copy: true })),
+  ...ALL_METRICS.slice(-PER_SLIDE).map((metric) => ({ metric, copy: true })),
+  ...ALL_METRICS.map((metric) => ({ metric, copy: false })),
+  ...ALL_METRICS.slice(0, PER_SLIDE).map((metric) => ({ metric, copy: true })),
 ];
 
 @Component({
@@ -265,7 +265,7 @@ export class HealthInsightsPanelComponent {
 
   /** "Heart rate and Sleep". */
   protected slideLabel(i: number): string {
-    return METRIC_ORDER.slice(i * PER_SLIDE, (i + 1) * PER_SLIDE).map((m) => METRICS[m].label).join(' and ');
+    return ALL_METRICS.slice(i * PER_SLIDE, (i + 1) * PER_SLIDE).map((m) => METRICS[m].label).join(' and ');
   }
 
   protected openDetail(metric: HealthMetric): void {

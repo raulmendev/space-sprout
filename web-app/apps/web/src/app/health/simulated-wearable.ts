@@ -6,7 +6,12 @@ const RANGES: Partial<Record<HealthMetric, [min: number, max: number, step: numb
   SLEEP: [6, 8.25, 0.25],
   ACTIVITY: [55, 120, 5],
   WATER: [1.5, 3, 0.25],
-  RADIATION: [0.4, 0.9, 0.01],
+  RADIATION: [0.35, 1.1, 0.01],
+  // Not read by the wearable; used for the demo history and the scientist's scan.
+  BODY_TEMP: [36.3, 37.1, 0.1],
+  STRESS: [2, 3, 1],
+  CALORIES: [2200, 2800, 50],
+  CO2: [1800, 5400, 10],
 };
 
 /** What the wearable (watch + personal dosimeter) can read. Mood and water only come from the astronaut. */

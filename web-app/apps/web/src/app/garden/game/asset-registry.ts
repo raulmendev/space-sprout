@@ -41,6 +41,7 @@ import {
   tallTree,
   wetSoilTile,
   woodPathTile,
+  DECOR_ART,
 } from './placeholders';
 
 const ASSET_ROOT = 'assets/game';
@@ -275,18 +276,39 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
   }
 }
 
+// ---------------------------------------------------------------- station decorations
+
+/** Map sprite of a placed decoration (a store item id, e.g. 'photo-frame'). */
+export const decorTextureKey = (itemId: string) => `decor-${itemId}`;
+for (const [itemId, art] of Object.entries(DECOR_ART)) {
+  register(decorTextureKey(itemId), 'social/decorations', art.size, BOTTOM_CENTER, art.draw);
+}
+
 // ---------------------------------------------------------------- characters & gui
 
 export const NPC_TEXTURE = 'npc-sprout';
 export const HINT_TEXTURE = 'gui-hint-plus';
-export const PLAYER_TEXTURE = 'player-astronaut';
+/** The astronaut: four walk frames per direction, a standing pose per direction, and a wave. */
+export type Facing = 'down' | 'up' | 'left' | 'right';
+const PLAYER_SIZE: [number, number] = [36, 50];
+const playerFrames = (anim: string, n: number) => Array.from({ length: n }, (_, i) => `player-astronaut-${anim}-${i + 1}`);
+export const PLAYER_FRAMES = {
+  walk: { down: playerFrames('down', 4), up: playerFrames('up', 4), left: playerFrames('left', 4), right: playerFrames('right', 4) },
+  /** Standing still, facing the way they last walked. */
+  idle: { down: 'player-astronaut-down-idle', up: 'player-astronaut-up-idle', left: 'player-astronaut-left-idle', right: 'player-astronaut-right-idle' },
+  wave: playerFrames('wave', 6),
+} as const satisfies { walk: Record<Facing, readonly string[]>; idle: Record<Facing, string>; wave: readonly string[] };
+/** Standing, facing the camera: the astronaut wherever a single picture is needed. */
+export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
 export const THIRST_TEXTURE = 'gui-thirst-bubble';
 export const TWINKLE_TEXTURE = 'fx-twinkle';
 export const NOTE_BUBBLE_TEXTURE = 'gui-note-bubble';
 /** Notes pinned on the message board, by who wrote them; `more` stands in for the overflow. */
 export const NOTE_TEXTURES = { astronaut: 'note-astronaut', family: 'note-family', more: 'note-more' } as const;
 register(NPC_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(NPC_SPROUT, 2, 32, 48));
-register(PLAYER_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, 32, 48));
+for (const key of [...Object.values(PLAYER_FRAMES.walk).flat(), ...Object.values(PLAYER_FRAMES.idle), ...PLAYER_FRAMES.wave]) {
+  register(key, 'characters', PLAYER_SIZE, BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, ...PLAYER_SIZE));
+}
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
 register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
 /** Station crew (placeholders until the design team's character art lands). */

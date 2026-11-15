@@ -1,8 +1,16 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { HealthMetric, METRICS, METRIC_ORDER, dayOf, validateMeasurement } from '@garden/shared';
+import { ALL_METRICS, CREW, CrewId, HealthMetric, METRICS, choicesFor, dayOf, validateMeasurement } from '@garden/shared';
 import { HealthStore } from './health.store';
 import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } from './format';
+
+/** Manual-entry tabs, one per crew member: icon and a label short enough for a phone. */
+const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
+  MEDIC: { icon: '🩺', label: 'Medic' },
+  TRAINER: { icon: '💪', label: 'Trainer' },
+  CHEF: { icon: '🍽️', label: 'Chef' },
+  SCIENTIST: { icon: '🔬', label: 'Science' },
+};
 
 /**
  * Measurement collection: simulated wearable sync, or manual entry of any subset.
@@ -22,7 +30,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
     </div>
 
     @if (tab() === 'sync') {
-      <div class="grid flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+      <div class="grid min-h-0 flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <div class="card riveted-card flex flex-col gap-2.5 short:gap-2">
           <div class="flex gap-3">
             <!-- The (simulated) wearable, drawn in the illustrated style: thick outline, soft shading. -->
@@ -64,12 +72,13 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
           <ng-container [ngTemplateOutlet]="privacy" />
         </div>
 
-        <section class="card riveted-card flex flex-col gap-2 short:gap-1" aria-labelledby="today-title">
+        <section class="card riveted-card flex min-h-0 flex-col gap-2 short:gap-1" aria-labelledby="today-title">
           <h3 id="today-title" class="flex items-center gap-2 font-bold short:text-sm">
             <span aria-hidden="true">📅</span>Today's check-in
             <span class="stripes ml-auto h-3 w-10" aria-hidden="true"></span>
           </h3>
-          <ul class="flex flex-col gap-1 text-sm short:gap-0.5">
+          <!-- Ten readings: the list scrolls inside its card, so the terminal itself never does. -->
+          <ul class="checklist flex min-h-0 flex-col gap-1 text-sm short:gap-0.5" tabindex="0" aria-label="Readings today">
             @for (metric of order; track metric) {
               @let reading = health.today()[metric];
               <!-- On short screens a missing mood is just the faces below (no room for both). -->
@@ -79,6 +88,12 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
                 @if (reading) {
                   <span class="whitespace-nowrap font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
                   <span class="w-10 text-[10px] text-bark/60" [title]="source[reading.source]">{{ sourceShort[reading.source] }}</span>
+                } @else if (health.answeredToday()[metric]) {
+                  <!-- Told a crew member "I don't know": answered, but nothing measured. -->
+                  <span class="whitespace-nowrap font-bold text-bark/70">? Don't know</span>
+                  @if (syncedToday() || !health.wearableMetrics.includes(metric)) {
+                    <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it</button>
+                  }
                 } @else {
                   @if (metric !== 'MOOD' && (syncedToday() || !health.wearableMetrics.includes(metric))) {
                     <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it</button>
@@ -99,33 +114,72 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
         </section>
       </div>
     } @else {
-      <form class="grid flex-1 gap-3 short:gap-2 @lg:grid-cols-2" (submit)="$event.preventDefault(); save()">
-        <div class="card riveted-card flex flex-col gap-1.5">
-          @for (m of numberMetrics; track m.id) {
-            <label class="row">
-              <span class="row-icon" aria-hidden="true">{{ icon[m.id] }}</span>
-              <span class="flex-1 whitespace-nowrap text-sm font-semibold">{{ m.label }}</span>
-              <input
-                type="number"
-                inputmode="decimal"
-                class="w-20 min-w-0 rounded-md border-2 border-bark/30 bg-cream px-2 py-1 text-right focus-visible:outline-2 focus-visible:outline-sun short:w-16 short:py-0"
-                [min]="m.min" [max]="m.max" [step]="m.step"
-                [value]="draft()[m.id] ?? ''"
-                (input)="setDraft(m.id, $any($event.target).value)"
-                [attr.aria-invalid]="!!errors()[m.id]"
-                [attr.aria-describedby]="'err-' + m.id"
-              />
-              <span class="w-7 text-xs text-bark/70">{{ m.unit }}</span>
-            </label>
-            @if (errors()[m.id]; as e) { <p [id]="'err-' + m.id" class="-mt-1 text-right text-xs font-bold text-alert">{{ e }}</p> }
-          }
-          <p class="text-xs text-bark/70 short:hidden">Fill in any of these; you don't need all of them.</p>
+      <form class="grid min-h-0 flex-1 gap-3 short:gap-2 @lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" (submit)="$event.preventDefault(); save()">
+        <!-- One tab per crew member, holding the readings they look after: never more than four at once. -->
+        <div class="card riveted-card flex min-h-0 flex-col gap-2 short:gap-1">
+          <div role="tablist" aria-label="Readings by crew member" class="grid grid-cols-4 gap-1">
+            @for (g of groups; track g.id) {
+              <button
+                type="button"
+                role="tab"
+                class="console-tab entry-tab btn-press"
+                [id]="'entry-tab-' + g.id"
+                [attr.aria-selected]="group() === g.id"
+                [title]="g.name"
+                aria-controls="entry-panel"
+                (click)="group.set(g.id)"
+              >
+                <span aria-hidden="true">{{ g.icon }}</span><span>{{ g.label }}</span>
+                @if (hasDraft(g.metrics)) { <span class="draft-dot" title="Has values to save"></span> }
+              </button>
+            }
+          </div>
+          <div id="entry-panel" role="tabpanel" [attr.aria-labelledby]="'entry-tab-' + group()" class="entry-panel flex min-h-0 flex-col gap-1.5 short:gap-1">
+            @for (metric of currentGroup().metrics; track metric) {
+              @if (metric === 'MOOD') {
+                <fieldset>
+                  <legend class="flex items-center gap-2 text-sm font-bold"><span aria-hidden="true">{{ icon['MOOD'] }}</span>Mood</legend>
+                  <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: false }" />
+                </fieldset>
+              } @else if (choices(metric).length) {
+                <!-- Other scales (stress): a word per step, tapped to toggle like the mood faces. -->
+                <fieldset>
+                  <legend class="flex items-center gap-2 text-sm font-bold"><span aria-hidden="true">{{ icon[metric] }}</span>{{ label(metric) }}</legend>
+                  <div class="mt-1 grid grid-cols-5 gap-1">
+                    @for (o of choices(metric); track o.id) {
+                      <button
+                        type="button"
+                        class="mood btn-press"
+                        [attr.aria-pressed]="draft()[metric] === '' + o.value"
+                        (click)="toggleChoice(metric, o.value!)"
+                      ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ o.icon }}</span><span class="word">{{ o.label }}</span></button>
+                    }
+                  </div>
+                </fieldset>
+              } @else {
+                @let m = def(metric);
+                <label class="row">
+                  <span class="row-icon" aria-hidden="true">{{ icon[m.id] }}</span>
+                  <span class="flex-1 whitespace-nowrap text-sm font-semibold">{{ m.label }}</span>
+                  <input
+                    type="number"
+                    inputmode="decimal"
+                    class="w-20 min-w-0 rounded-md border-2 border-bark/30 bg-cream px-2 py-1 text-right focus-visible:outline-2 focus-visible:outline-sun short:w-16 short:py-0"
+                    [min]="m.min" [max]="m.max" [step]="m.step"
+                    [value]="draft()[m.id] ?? ''"
+                    (input)="setDraft(m.id, $any($event.target).value)"
+                    [attr.aria-invalid]="!!errors()[m.id]"
+                    [attr.aria-describedby]="'err-' + m.id"
+                  />
+                  <span class="w-9 text-xs text-bark/70">{{ m.unit }}</span>
+                </label>
+                @if (errors()[m.id]; as e) { <p [id]="'err-' + m.id" class="-mt-1 text-right text-xs font-bold text-alert">{{ e }}</p> }
+              }
+            }
+          </div>
         </div>
         <div class="card riveted-card flex flex-col gap-2">
-          <fieldset>
-            <legend class="flex items-center gap-2 font-bold"><span aria-hidden="true">{{ icon['MOOD'] }}</span>Mood</legend>
-            <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: false }" />
-          </fieldset>
+          <p class="text-xs text-bark/70 short:hidden">Fill in any tab; you don't need all of them. One save stores everything you entered.</p>
           <button type="submit" class="chunky-btn btn-press" [disabled]="!canSave()">Save check-in</button>
           <ng-container [ngTemplateOutlet]="reward" />
           <ng-container [ngTemplateOutlet]="privacy" />
@@ -215,6 +269,15 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       font-size: 1rem;
     }
 
+    /* Crew tabs in manual entry: smaller than the main tabs, with a dot for unsaved values. */
+    .entry-tab { position: relative; gap: 0.3rem; padding: 0.3rem 0.25rem; font-size: 0.8rem; }
+    .draft-dot { position: absolute; top: 3px; right: 4px; width: 7px; height: 7px; border-radius: 999px; background: var(--color-leaf-dark); }
+    .entry-panel, .checklist { overflow-y: auto; overscroll-behavior: contain; }
+    .checklist { padding-right: 2px; }
+    /* Rows keep their height: the list scrolls rather than squeezing them. */
+    .checklist > .row, .entry-panel > * { flex-shrink: 0; }
+    .checklist:focus-visible { outline: 2px solid var(--color-sun); outline-offset: 2px; }
+
     .mood {
       --press: color-mix(in srgb, var(--color-bark) 15%, transparent);
       display: flex;
@@ -258,6 +321,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       .row[data-mood-pending] { display: none; }
       .quick .word { display: none; } /* faces only; each button keeps its "Mood: …" label */
       .mood { padding: 0.1rem 0; font-size: 10px; }
+      .entry-tab { padding: 0.15rem 0.25rem; font-size: 0.72rem; }
       /* One line on phones, whatever the result says (screen readers still get all of it). */
       .reward { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; padding: 0.2rem 0.5rem; font-size: 0.8rem; }
     }
@@ -273,14 +337,22 @@ export class MedicalTerminalPanelComponent {
   protected readonly icon = METRIC_ICON;
   protected readonly source = SOURCE_LABEL;
   protected readonly sourceShort = SOURCE_SHORT;
-  protected readonly order = METRIC_ORDER;
+  /** Every reading, the crew's included: what you put off with them can be finished here. */
+  protected readonly order = ALL_METRICS;
   /** Only offer "Enter it" for wearable metrics once today's sync has run (before that, Sync is the action). */
   protected readonly syncedToday = computed(() => {
     const at = this.health.lastSyncAt();
     return !!at && dayOf(at) === dayOf(new Date().toISOString());
   });
-  protected readonly allDone = computed(() => METRIC_ORDER.every((m) => this.health.today()[m]));
-  protected readonly numberMetrics = METRIC_ORDER.filter((m) => METRICS[m].input === 'number').map((m) => METRICS[m]);
+  protected readonly allDone = computed(() => ALL_METRICS.every((m) => this.health.answeredToday()[m]));
+  /** Manual entry, one tab per crew member with the readings they look after. */
+  protected readonly groups = CREW.map((c) => ({ id: c.id, ...CREW_TAB[c.id], name: c.name, metrics: c.metrics }));
+  protected readonly group = signal<CrewId>(CREW[0].id);
+  protected readonly currentGroup = computed(() => this.groups.find((g) => g.id === this.group())!);
+  protected choices = choicesFor;
+  protected def = (m: HealthMetric) => METRICS[m];
+  /** A tab whose readings have unsaved values gets a dot. */
+  protected hasDraft = (metrics: readonly HealthMetric[]) => metrics.some((m) => (this.draft()[m] ?? '') !== '');
   protected readonly draft = signal<Partial<Record<HealthMetric, string>>>({});
 
   protected readonly errors = computed(() => {
@@ -302,7 +374,11 @@ export class MedicalTerminalPanelComponent {
   }
 
   protected toggleMood(value: number): void {
-    this.setDraft('MOOD', this.draft()['MOOD'] === String(value) ? '' : String(value));
+    this.toggleChoice('MOOD', value);
+  }
+
+  protected toggleChoice(metric: HealthMetric, value: number): void {
+    this.setDraft(metric, this.draft()[metric] === String(value) ? '' : String(value));
   }
 
   protected async save(): Promise<void> {

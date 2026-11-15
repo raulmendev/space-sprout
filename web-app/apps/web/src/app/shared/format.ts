@@ -8,3 +8,7 @@ export const seeds = (n: number) => plural(n, 'seed');
 
 /** "1 more seed", "3 more seeds": how far short a purchase is. */
 export const moreSeeds = (n: number) => `${n} more seed${n === 1 ? '' : 's'}`;
+
+/** "you", or the household member's name ("Family"): who did something. */
+export const whoDid = (id: string | undefined, name: string | undefined, me: string) =>
+  id && id === me ? 'you' : (name ?? 'someone');

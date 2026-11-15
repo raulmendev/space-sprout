@@ -2,9 +2,12 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { HabitatPosition, PLAYER_START, Point, TileRect, doorAt, planReach, slide, tileCenter, tileOf } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { Ticker } from './ticker.service';
+import type { Facing } from '../garden/game/asset-registry';
 
 /** Walking speed, in tiles per second. */
 const SPEED = 6;
+/** How long a wave lasts: the six-frame wave, twice (see HabitatStore's player animation). */
+export const WAVE_MS = 1400;
 
 /**
  * The local player's avatar. Position (room + continuous point) is app state,
@@ -21,7 +24,12 @@ export class PlayerStore {
   readonly position = signal<HabitatPosition>(PLAYER_START);
   readonly room = computed(() => this.position().room);
   readonly facingLeft = signal(false);
+  /** Which way the astronaut looks (four directions, for the walk art). */
+  readonly facing = signal<Facing>('down');
   readonly moving = signal(false);
+  /** When the current wave started (performance.now()), or null. */
+  readonly waveAt = signal<number | null>(null);
+  private waveTimer?: ReturnType<typeof setTimeout>;
 
   private route: Point[] = [];
   private onArrive: (() => void) | null = null;
@@ -70,6 +78,13 @@ export class PlayerStore {
       this.stopRoute();
       this.ticker.add(this.tick);
     }
+  }
+
+  /** A friendly wave (e.g. saying hello to someone). Walking off cuts it short. */
+  wave(): void {
+    clearTimeout(this.waveTimer);
+    this.waveAt.set(performance.now());
+    this.waveTimer = setTimeout(() => this.waveAt.set(null), WAVE_MS);
   }
 
   reset(): void {
@@ -122,7 +137,9 @@ export class PlayerStore {
       this.route = [];
     }
     if (Math.abs(dx) > 1e-4) this.facingLeft.set(dx < 0);
+    this.faceToward(dx, dy);
     this.moving.set(true);
+    if (this.waveAt() !== null) this.waveAt.set(null);
 
     const t = tileOf(next);
     const door = doorAt(pos.room, t.x, t.y);
@@ -134,6 +151,16 @@ export class PlayerStore {
     }
     this.position.set({ room: pos.room, ...next });
   };
+
+  /** Keep the current axis unless the other clearly wins, so diagonals don't flicker. */
+  private faceToward(dx: number, dy: number): void {
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    const cur = this.facing();
+    const horizontal = cur === 'left' || cur === 'right' ? ax * 1.25 >= ay : ax > ay * 1.25;
+    const next: Facing = horizontal ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+    if (next !== cur) this.facing.set(next);
+  }
 
   private arrive(): void {
     const action = this.onArrive;
