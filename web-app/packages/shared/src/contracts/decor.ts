@@ -1,14 +1,15 @@
 import type { Actor } from '../types/domain';
 import { TileCoord, TileRect, anchorsCovering, footprintTiles, rectContains } from './geometry';
-import { ROOM_COLS, ROOM_ROWS, RoomId, TileKind, getTileKind, propAtTile } from './habitat';
-import { Inventory, getStoreItem, owned } from './store';
+import { ROOMS, ROOM_COLS, ROOM_ROWS, RoomId, TileKind, getTileKind, propAtTile } from './habitat';
+import { pottedPlantOf } from './potting';
+import { Inventory, owned } from './store';
 
 /**
- * Decorations placed in the station. A decoration is a store item: placing one takes it out of the
- * shared inventory, putting it away gives it back. Anyone in the household can place, move or put
- * away any of them (one shared station).
+ * Things placed in the station: decorations bought at the store, and potted plants (potting.ts).
+ * Placing one takes it out of the shared inventory, putting it away gives it back. Anyone in the
+ * household can place, move or put away any of them (one shared station).
  *
- * Decorations are looks only: characters walk over and past them.
+ * They're looks only: characters walk over and past them.
  */
 
 /** Hung on the back wall, or stood on the floor. */
@@ -21,6 +22,10 @@ export interface DecorSpec {
   h: number;
   /** Lies flat on the floor (a rug): drawn under characters and other decorations. */
   flat?: boolean;
+  /** Rooms it can go in. Default: DECOR_ROOMS. */
+  rooms?: readonly RoomId[];
+  /** Can be watered (potted plants): it shines until it's thirsty again. */
+  waterable?: boolean;
 }
 
 /** How each decoration store item is placed. Adding a decoration = a store item + one row here. */
@@ -35,10 +40,22 @@ export const DECOR_SPECS: Readonly<Record<string, DecorSpec>> = {
 /** Rooms decorations can go in. The Social Space for now. */
 export const DECOR_ROOMS: readonly RoomId[] = ['SOCIAL'];
 
+/** Potted plants: one tile of floor, in any room. */
+const POT_SPEC: DecorSpec = { mount: 'FLOOR', w: 1, h: 1, rooms: Object.keys(ROOMS) as RoomId[], waterable: true };
+
+/** How `itemId` is placed: a decoration's spec, or the pot spec for potted plants. */
+export function decorSpec(itemId: string): DecorSpec | undefined {
+  return DECOR_SPECS[itemId] ?? (pottedPlantOf(itemId) ? POT_SPEC : undefined);
+}
+
+/** Can `itemId` be placed in `room` at all? */
+export const canPlaceIn = (itemId: string, room: RoomId): boolean => (decorSpec(itemId)?.rooms ?? DECOR_ROOMS).includes(room);
+
 /** Tiles each mount can go on. */
 const SURFACES: Record<DecorMount, ReadonlySet<TileKind>> = {
   WALL: new Set<TileKind>(['WALL_FACE']),
-  FLOOR: new Set<TileKind>(['FLOOR_SOCIAL', 'RUG']),
+  // Any floor, and the Garden's paths and grass (not its soil: that's for planting).
+  FLOOR: new Set<TileKind>(['FLOOR_SOCIAL', 'RUG', 'FLOOR_MEDICAL', 'PATH_STONE', 'PATH_WOOD', 'GRASS', 'GRASS_FLOWERS']),
 };
 
 export interface PlacedDecor {
@@ -52,6 +69,8 @@ export interface PlacedDecor {
   placedAt: string;
   placedBy: string;
   placedByName: string;
+  /** Waterable things (potted plants): when it was last watered, and by whom (for its shine). */
+  care?: { lastWateredAt: string; by: string; byName: string };
 }
 
 export type DecorError =
@@ -64,19 +83,21 @@ export type DecorError =
   | 'TILE_OCCUPIED'
   /** None of it left in the household inventory. */
   | 'NONE_OWNED'
+  /** Only some things (potted plants) can be watered. */
+  | 'NOT_WATERABLE'
   | 'NOT_FOUND';
 
-export const isDecor = (itemId: string): boolean => itemId in DECOR_SPECS;
+export const isDecor = (itemId: string): boolean => !!decorSpec(itemId);
 
 export function decorRect(d: Pick<PlacedDecor, 'itemId' | 'x' | 'y'>): TileRect {
-  const spec = DECOR_SPECS[d.itemId];
+  const spec = decorSpec(d.itemId);
   return { x: d.x, y: d.y, w: spec?.w ?? 1, h: spec?.h ?? 1 };
 }
 
 /** The decoration covering tile (x, y) in `room`, if any (the top one when a rug lies underneath). */
 export function decorAt(placed: readonly PlacedDecor[], room: RoomId, x: number, y: number): PlacedDecor | undefined {
   const here = placed.filter((d) => d.room === room && rectContains(decorRect(d), x, y));
-  return here.find((d) => !DECOR_SPECS[d.itemId]?.flat) ?? here[0];
+  return here.find((d) => !decorSpec(d.itemId)?.flat) ?? here[0];
 }
 
 /**
@@ -91,11 +112,11 @@ export function decorSpotError(
   placed: readonly PlacedDecor[],
   ignoreId?: string,
 ): DecorError | null {
-  const spec = DECOR_SPECS[itemId];
+  const spec = decorSpec(itemId);
   if (!spec) return 'NOT_DECOR';
-  if (!DECOR_ROOMS.includes(room)) return 'WRONG_ROOM';
+  if (!canPlaceIn(itemId, room)) return 'WRONG_ROOM';
   // Flat things (rugs) only clash with other flat things; a lamp can stand on a rug.
-  const others = placed.filter((d) => d.id !== ignoreId && d.room === room && !!DECOR_SPECS[d.itemId]?.flat === !!spec.flat);
+  const others = placed.filter((d) => d.id !== ignoreId && d.room === room && !!decorSpec(d.itemId)?.flat === !!spec.flat);
   for (const t of footprintTiles({ x, y, w: spec.w, h: spec.h })) {
     const kind = getTileKind(room, t.x, t.y);
     if (!kind) return 'OUT_OF_BOUNDS';
@@ -125,7 +146,7 @@ export function decorAnchorFor(
   placed: readonly PlacedDecor[],
   ignoreId?: string,
 ): TileCoord | null {
-  const spec = DECOR_SPECS[itemId];
+  const spec = decorSpec(itemId);
   if (!spec) return null;
   for (const at of anchorsCovering(tile, spec.w, spec.h)) {
     if (!decorSpotError(itemId, room, at.x, at.y, placed, ignoreId)) return at;
@@ -153,7 +174,7 @@ export function placeDecor(
   at: string,
   id: string,
 ): DecorChange {
-  if (!getStoreItem(itemId) || !isDecor(itemId)) return { ok: false, error: 'NOT_DECOR' };
+  if (!isDecor(itemId)) return { ok: false, error: 'NOT_DECOR' };
   if (owned(state.inventory, itemId) < 1) return { ok: false, error: 'NONE_OWNED' };
   const error = decorSpotError(itemId, room, x, y, state.decorations);
   if (error) return { ok: false, error };
@@ -170,11 +191,22 @@ export function placeDecor(
 
 /** Move a placed decoration to a new top-left in the same room. */
 export function moveDecor(state: DecorState, decorId: string, x: number, y: number): DecorChange {
+  return updateDecor(state, decorId, (d) => decorSpotError(d.itemId, d.room, x, y, state.decorations, decorId) ?? { ...d, x, y });
+}
+
+/** Water a potted plant: it shines until it's thirsty again. Never needed; nothing wilts. */
+export function waterDecor(state: DecorState, decorId: string, actor: Actor, at: string): DecorChange {
+  return updateDecor(state, decorId, (d) =>
+    decorSpec(d.itemId)?.waterable ? { ...d, care: { lastWateredAt: at, by: actor.id, byName: actor.name } } : 'NOT_WATERABLE',
+  );
+}
+
+/** Change one placed decoration: `change` returns the new version, or why not. */
+function updateDecor(state: DecorState, decorId: string, change: (d: PlacedDecor) => PlacedDecor | DecorError): DecorChange {
   const current = state.decorations.find((d) => d.id === decorId);
   if (!current) return { ok: false, error: 'NOT_FOUND' };
-  const error = decorSpotError(current.itemId, current.room, x, y, state.decorations, decorId);
-  if (error) return { ok: false, error };
-  const decor = { ...current, x, y };
+  const decor = change(current);
+  if (typeof decor === 'string') return { ok: false, error: decor };
   return { ok: true, decor, state: { ...state, decorations: state.decorations.map((d) => (d.id === decorId ? decor : d)) } };
 }
 

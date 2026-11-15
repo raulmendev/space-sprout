@@ -13,7 +13,6 @@ import {
   tileCenter,
   tileOf,
 } from '@garden/shared';
-import { GardenStore } from '../garden/garden.store';
 import { PlayerStore } from '../habitat/player.store';
 import { Ticker } from '../habitat/ticker.service';
 import { NpcStore } from './npc.store';
@@ -58,7 +57,6 @@ interface Walker extends NpcView {
  */
 @Injectable({ providedIn: 'root' })
 export class NpcActorStore {
-  private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
   private readonly dialogue = inject(NpcStore);
   private readonly ticker = inject(Ticker);
@@ -166,8 +164,7 @@ export class NpcActorStore {
     // The player may be walking, so re-plan the route a few times a second.
     if (now >= approach.replanAt) {
       approach.replanAt = now + 400;
-      const objects = this.garden.objects();
-      w.route = clearLine(me.room, w.position, me, objects) ? [{ x: me.x, y: me.y }] : (planRoute(me.room, w.position, tileOf(me), objects) ?? []);
+      w.route = clearLine(me.room, w.position, me) ? [{ x: me.x, y: me.y }] : (planRoute(me.room, w.position, tileOf(me)) ?? []);
       if (!w.route.length) {
         w.approach = null; // can't get there from here
         return false;
@@ -196,11 +193,10 @@ export class NpcActorStore {
   /** Pick what to do after resting: stroll somewhere nearby, or (roamers only) head through a door. */
   private planNext(w: Walker): void {
     const room = w.position.room;
-    const objects = this.garden.objects();
     const doors = ROOMS[room].doors;
     if (!w.home && doors.length && Math.random() < TRAVEL_CHANCE) {
       const door = doors[Math.floor(Math.random() * doors.length)];
-      const route = planRoute(room, w.position, door, objects);
+      const route = planRoute(room, w.position, door);
       if (route?.length) {
         w.route = route;
         w.door = { room: door.to, ...tileCenter(door.arrive) };
@@ -212,7 +208,7 @@ export class NpcActorStore {
       const a = Math.random() * Math.PI * 2;
       const r = 0.8 + Math.random() * w.radius;
       const p = { x: centre.x + Math.cos(a) * r, y: centre.y + Math.sin(a) * r * 0.6 };
-      if (canStand(room, p, objects) && clearLine(room, w.position, p, objects)) {
+      if (canStand(room, p) && clearLine(room, w.position, p)) {
         w.route = [p];
         return;
       }

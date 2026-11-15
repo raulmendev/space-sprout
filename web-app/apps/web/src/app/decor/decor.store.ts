@@ -1,16 +1,18 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   DECOR_ROOMS,
-  DECOR_SPECS,
   DecorError,
   ROOMS,
   ROOM_ROWS,
   TileCoord,
+  canPlaceIn,
   decorAnchorFor,
   decorRect,
+  decorSpec,
   decorSpots,
+  describeItem,
   footprintTiles,
-  getStoreItem,
+  isThirsty,
 } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { PlayerStore } from '../habitat/player.store';
@@ -44,14 +46,22 @@ export class DecorStore {
 
   /** Placing, moving, or a decoration's menu: something decor-related is on screen. */
   readonly active = computed(() => !!this.mode() || !!this.selected());
-  /** Decorations can only go in some rooms (the Social Space for now). */
-  readonly canDecorateHere = computed(() => DECOR_ROOMS.includes(this.player.room()));
 
   /** The decoration on the bar: the one being placed or moved, or the selected one. */
   readonly itemId = computed(() => this.mode()?.itemId ?? this.selected()?.itemId ?? null);
   readonly item = computed(() => {
     const id = this.itemId();
-    return id ? getStoreItem(id) : undefined;
+    return id ? describeItem(id) : undefined;
+  });
+  /** The selected thing can be watered (a potted plant). */
+  readonly selectedWaterable = computed(() => {
+    const s = this.selected();
+    return !!s && !!decorSpec(s.itemId)?.waterable;
+  });
+  /** The selected potted plant wants water (it shines once watered; it never wilts). */
+  readonly selectedThirsty = computed(() => {
+    const s = this.selected();
+    return !!s && isThirsty(s, this.garden.now());
   });
 
   /** The decoration being moved (drawn as the preview instead of in its old spot). */
@@ -64,7 +74,7 @@ export class DecorStore {
   readonly spotTiles = computed<TileCoord[] | null>(() => {
     const mode = this.mode();
     if (!mode) return null;
-    const { w, h } = DECOR_SPECS[mode.itemId];
+    const { w, h } = decorSpec(mode.itemId)!;
     const seen = new Map<string, TileCoord>();
     for (const at of decorSpots(mode.itemId, this.player.room(), this.garden.decorations(), this.movingId())) {
       for (const t of footprintTiles({ ...at, w, h })) seen.set(`${t.x},${t.y}`, t);
@@ -95,8 +105,13 @@ export class DecorStore {
     const focus = this.focusRect();
     if (focus) return focus.y + focus.h > BAR_FLIP_ROW;
     const mode = this.mode();
-    return !!mode && DECOR_SPECS[mode.itemId]?.mount === 'FLOOR';
+    return !!mode && decorSpec(mode.itemId)?.mount === 'FLOOR';
   });
+
+  /** Can `itemId` be placed in the room you're in? (Decorations: the Social Space; pots: anywhere.) */
+  canPlaceHere(itemId: string): boolean {
+    return canPlaceIn(itemId, this.player.room());
+  }
 
   /** Start placing one `itemId` from the inventory. */
   start(itemId: string): void {
@@ -140,6 +155,14 @@ export class DecorStore {
     if (!result.ok) return result;
     this.clear();
     return { ok: true, message: `${name} is back in the inventory.` };
+  }
+
+  async water(): Promise<DecorOutcome | null> {
+    const d = this.selected();
+    if (!d) return null;
+    const result = await this.garden.waterDecor(d.id);
+    if (!result.ok) return result;
+    return { ok: true, message: `Watered the ${this.item()?.name.toLowerCase()}. 💧` };
   }
 
   /** Open a placed decoration's menu. */

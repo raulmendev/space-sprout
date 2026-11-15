@@ -31,6 +31,8 @@ export interface RenderDecal {
   dx: number;
   dy: number;
   angle?: number;
+  /** Rocks gently around its bottom edge, like a grown plant in the garden (a potted plant). */
+  sway?: boolean;
 }
 
 /** A moving character. Position is a continuous point (tile units) at its feet. */
@@ -302,7 +304,7 @@ export class HabitatScene extends Phaser.Scene {
     entry.tweens = [];
     img.setAngle(0).setScale(1);
     if (data.sway) {
-      entry.tweens.push(this.tweens.add({ targets: img, angle: { from: -1.5, to: 1.5 }, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: Math.random() * 1500 }));
+      entry.tweens.push(this.sway(img));
     }
     if (data.pulse) {
       entry.tweens.push(this.tweens.add({ targets: img, scaleY: 1.06, scaleX: 0.96, duration: 380, yoyo: true, repeat: -1, repeatDelay: 1200, ease: 'Quad.out' }));
@@ -472,6 +474,11 @@ export class HabitatScene extends Phaser.Scene {
         .setAngle(d.angle ?? 0)
         .setDepth(img.depth + 0.5 + i * 0.01);
       entry.decals.push(decal);
+      if (d.sway) {
+        // Pivot on the bottom edge (same spot on screen), then rock like a garden plant.
+        decal.setOrigin(0.5, 1).setY(decal.y + decal.displayHeight / 2);
+        if (!this.reducedMotion) this.sway(decal);
+      }
       const isNew = i >= before.length || before[i].texture !== d.texture;
       if (prev && isNew && !this.building && !this.reducedMotion) {
         decal.setScale(0.2);
@@ -480,8 +487,16 @@ export class HabitatScene extends Phaser.Scene {
     });
   }
 
+  /** A grown plant's gentle rocking (garden plants, and plants in pots). */
+  private sway(target: Phaser.GameObjects.Image): Phaser.Tweens.Tween {
+    return this.tweens.add({ targets: target, angle: { from: -1.5, to: 1.5 }, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: Math.random() * 1500 });
+  }
+
   private removeDecals(entry: SpriteEntry): void {
-    entry.decals.forEach((d) => d.destroy());
+    entry.decals.forEach((d) => {
+      this.tweens.killTweensOf(d);
+      d.destroy();
+    });
     entry.decals = [];
   }
 
@@ -598,5 +613,5 @@ function sameDecals(a: readonly RenderDecal[], b: readonly RenderDecal[]): boole
 }
 
 function decalsKey(decals: readonly RenderDecal[]): string {
-  return decals.map((d) => `${d.texture}@${d.dx},${d.dy},${d.angle ?? 0}`).join('|');
+  return decals.map((d) => `${d.texture}@${d.dx},${d.dy},${d.angle ?? 0},${d.sway ? 's' : ''}`).join('|');
 }
