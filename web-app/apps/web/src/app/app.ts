@@ -23,14 +23,17 @@ import { DecorStore, DecorOutcome } from './decor/decor.store';
 import { DecorBarComponent } from './decor/decor-bar.component';
 import { StartMenuComponent } from './session/start-menu.component';
 import { NEEDS_PROFILE } from './session/current-user';
+import { OFFLINE_MESSAGE } from './session/member-session';
 
-const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND', string>> = {
+const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND' | 'OFFLINE', string>> = {
+  OFFLINE: OFFLINE_MESSAGE,
   NO_FERTILIZER: 'Out of fertilizer. The Supply Store has more.',
   COOLDOWN: 'It needs a little rest first.',
   NOT_FOUND: 'That plant is gone.',
 };
 
-const GENTLE_ERRORS: Record<PlacementError, string> = {
+const GENTLE_ERRORS: Record<PlacementError | 'OFFLINE', string> = {
+  OFFLINE: OFFLINE_MESSAGE,
   NO_SEEDS: 'No packets of that one. The Supply Store has more.',
   TILE_OCCUPIED: 'That needs a bit more room.',
   NOT_PLANTABLE: 'That needs a bit more soil.',
@@ -38,7 +41,8 @@ const GENTLE_ERRORS: Record<PlacementError, string> = {
   UNKNOWN_ITEM: "Hmm, I don't recognise that seed.",
 };
 
-const DECOR_ERRORS: Record<DecorError, string> = {
+const DECOR_ERRORS: Record<DecorError | 'OFFLINE', string> = {
+  OFFLINE: OFFLINE_MESSAGE,
   TILE_OCCUPIED: "Something's already there.",
   WRONG_SURFACE: "That doesn't go there.",
   WRONG_ROOM: 'Decorations go in the Social Space.',
@@ -49,7 +53,8 @@ const DECOR_ERRORS: Record<DecorError, string> = {
   NOT_FOUND: 'That decoration is gone.',
 };
 
-const POT_ERRORS: Record<PotError, string> = {
+const POT_ERRORS: Record<PotError | 'OFFLINE', string> = {
+  OFFLINE: OFFLINE_MESSAGE,
   NO_POT: 'You need a clay pot. The Supply Store has them.',
   NOT_MATURE: 'Let it finish growing first.',
   NOT_FOUND: 'That plant is gone.',
@@ -202,7 +207,10 @@ export class App {
       talking = now;
     });
     this.health.init();
-    this.garden.init().then(() => setTimeout(() => this.npc.say('GREETING'), 600));
+    this.garden.init().then(
+      () => setTimeout(() => this.npc.say('GREETING'), 600),
+      () => this.flash(OFFLINE_MESSAGE), // the garden fills in once the station answers (coming back to the tab retries)
+    );
   }
 
   /**

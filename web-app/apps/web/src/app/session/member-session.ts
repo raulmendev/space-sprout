@@ -30,6 +30,9 @@ export const stationKey = (): string | null => (devPlayer ? null : (session?.sta
 /** Everyone in this station, for names and colours on shared things. */
 export const householdMembers = (): readonly Member[] => (devPlayer ? DEMO_MEMBERS : (session?.members ?? []));
 
+/** What players see when a request can't get through. */
+export const OFFLINE_MESSAGE = "Can't reach the station. Try again.";
+
 class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -50,7 +53,7 @@ async function call<T>(path: string, init: RequestInit = {}, token?: string): Pr
   } catch (e) {
     // Only a failed or timed-out request means the station is out of reach.
     if (e instanceof TypeError || (e instanceof DOMException && e.name === 'TimeoutError')) {
-      throw new ApiError(0, "Can't reach the station. Check your connection and try again.");
+      throw new ApiError(0, OFFLINE_MESSAGE);
     }
     throw e;
   }
@@ -59,6 +62,29 @@ async function call<T>(path: string, init: RequestInit = {}, token?: string): Pr
     throw new ApiError(res.status, [body?.message ?? res.statusText].flat().join(' '));
   }
   return (res.status === 204 ? undefined : await res.json()) as T;
+}
+
+/** True when this page talks to the station's server (a signed-in member, not the dev stand-in). */
+export const onStation = (): boolean => !!session && !devPlayer;
+
+/** "Can't reach the station": the request failed or timed out (not a refusal from the server). */
+export const isOffline = (e: unknown): boolean => e instanceof ApiError && e.status === 0;
+
+/**
+ * A call to the station's API as the signed-in member. A session that ended elsewhere
+ * reloads the page, which brings back the start menu.
+ */
+export async function stationCall<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (!session) throw new Error('Not signed in to a station.');
+  try {
+    return await call<T>(path, init, session.token);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) {
+      saveJson(SESSION_KEY, null);
+      location.reload();
+    }
+    throw e;
+  }
 }
 
 /**
