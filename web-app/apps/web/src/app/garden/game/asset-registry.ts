@@ -359,6 +359,27 @@ export const crewTextureKey = (id: CrewId) => `npc-${id.toLowerCase()}`;
 for (const [id, look] of Object.entries(CREW_LOOKS) as [CrewId, Parameters<typeof crewGrid>[0]][]) {
   register(crewTextureKey(id), 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(crewGrid(look), 2, 32, 48));
 }
+
+/**
+ * Crew members with delivered art: a standing pose per direction (npc-medic-left) and a happy
+ * one they show while talking to you (npc-medic-happy-left). The rest keep the placeholder,
+ * mirrored to face left or right.
+ */
+const CREW_POSES: Partial<Record<CrewId, [number, number]>> = {
+  MEDIC: [48, 50],
+};
+const FACINGS: readonly Facing[] = ['down', 'up', 'left', 'right'];
+export const hasCrewPoses = (id: CrewId): boolean => id in CREW_POSES;
+export const crewPoseKey = (id: CrewId, facing: Facing, happy = false) => `npc-${id.toLowerCase()}${happy ? '-happy' : ''}-${facing}`;
+/** The crew member's picture for the speech bubble: facing you, when there's art for it. */
+export const crewPortraitKey = (id: CrewId) => (hasCrewPoses(id) ? crewPoseKey(id, 'down') : crewTextureKey(id));
+for (const [id, size] of Object.entries(CREW_POSES) as [CrewId, [number, number]][]) {
+  for (const facing of FACINGS) {
+    for (const happy of [false, true]) {
+      register(crewPoseKey(id, facing, happy), 'characters', size, BOTTOM_CENTER, () => gridInCanvas(crewGrid(CREW_LOOKS[id]), 2, ...size));
+    }
+  }
+}
 register(TWINKLE_TEXTURE, 'gui/effects', [32, 32], [0.5, 0.5], () => gridToCanvas(TWINKLE));
 register(NOTE_BUBBLE_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, noteBubbleArt);
 register(NOTE_TEXTURES.astronaut, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.astronaut));

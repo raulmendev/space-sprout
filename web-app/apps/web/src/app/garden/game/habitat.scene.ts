@@ -335,6 +335,7 @@ export class HabitatScene extends Phaser.Scene {
         .setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS)
         .setData('interaction', a.interaction)
         .setData('anim', a.anim ?? null);
+      if (!a.anim && img.texture.key !== a.texture) img.setTexture(a.texture); // e.g. crew art that turns
       this.showFrame(img);
     }
     for (const [id, img] of this.actors) {

@@ -32,6 +32,8 @@ import {
   NOTE_TEXTURES,
   PLAYER_FRAMES,
   PLAYER_TEXTURE,
+  crewPoseKey,
+  hasCrewPoses,
   THIRST_TEXTURE,
   POT_SIZE,
   POT_FRONT_TEXTURE,
@@ -46,6 +48,7 @@ import { PlayerStore, WAVE_MS } from './player.store';
 import { DecorStore } from '../decor/decor.store';
 import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
+import { NpcStore } from '../npc/npc.store';
 import type { ActorAnim, HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
@@ -81,6 +84,7 @@ export class HabitatStore {
   private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
   private readonly npcs = inject(NpcActorStore);
+  private readonly npcDialogue = inject(NpcStore);
   private readonly notes = inject(NotesStore);
   private readonly decor = inject(DecorStore);
   /** NPCs in the room on screen. Unchanged while only NPCs in other rooms move, so those don't redraw this one. */
@@ -192,15 +196,19 @@ export class HabitatStore {
 
   /** Moving characters in the active room. Updates every frame, separately from the room. */
   readonly actors = computed<RenderActor[]>(() => {
-    const actors: RenderActor[] = this.npcsHere().map((n) => ({
-      id: `npc:${n.id}`,
-      texture: NPC_IDENTITY[n.id].texture,
-      x: n.position.x,
-      y: n.position.y,
-      flipX: n.facingLeft,
-      moving: n.moving,
-      interaction: { type: 'NPC_SELECTED', npcId: n.id },
-    }));
+    const speaking = this.npcDialogue.current()?.speaker;
+    const actors: RenderActor[] = this.npcsHere().map((n) => {
+      const posed = n.id !== 'SPROUT' && hasCrewPoses(n.id);
+      return {
+        id: `npc:${n.id}`,
+        texture: posed && n.id !== 'SPROUT' ? crewPoseKey(n.id, n.facing, speaking === n.id) : NPC_IDENTITY[n.id].texture,
+        x: n.position.x,
+        y: n.position.y,
+        flipX: posed ? false : n.facingLeft, // posed art is drawn for each way it faces
+        moving: n.moving,
+        interaction: { type: 'NPC_SELECTED', npcId: n.id },
+      };
+    });
     const { x, y } = this.player.position();
     actors.push({
       id: 'player',
