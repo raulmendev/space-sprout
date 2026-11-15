@@ -58,9 +58,29 @@ export const METRICS: Record<HealthMetric, MetricDefinition> = {
     input: 'scale',
     about: 'How you feel, on your own 1–5 scale. It is only for you, and nothing is inferred from it.',
   },
+  WATER: {
+    id: 'WATER',
+    label: 'Water',
+    unit: 'L',
+    min: 0,
+    max: 10,
+    step: 0.25,
+    input: 'number',
+    about: 'Litres you drank today. Fluids shift toward your head in microgravity, so thirst is a less reliable signal up here.',
+  },
+  RADIATION: {
+    id: 'RADIATION',
+    label: 'Radiation',
+    unit: 'mSv',
+    min: 0,
+    max: 20,
+    step: 0.01,
+    input: 'number',
+    about: 'Dose from your personal dosimeter over the last day. Logging it builds your own exposure record over the mission.',
+  },
 };
 
-export const METRIC_ORDER: readonly HealthMetric[] = ['HEART_RATE', 'SLEEP', 'ACTIVITY', 'MOOD'];
+export const METRIC_ORDER: readonly HealthMetric[] = ['HEART_RATE', 'SLEEP', 'ACTIVITY', 'MOOD', 'WATER', 'RADIATION'];
 
 /** A reading before it is stored (no id/user yet). */
 export interface NewMeasurement {
@@ -108,8 +128,8 @@ export const CHECK_IN_REWARD = {
   perReading: 3,
   /** Rewarded readings per metric per day. */
   perMetricPerDay: 1,
-  /** Seeds per day from check-ins, across all metrics. */
-  dailyCap: 12,
+  /** Seeds per day from check-ins, across all metrics (every reading pays once a day). */
+  dailyCap: 18,
 } as const;
 
 export type RewardOutcome = 'REWARDED' | 'ALREADY_REWARDED' | 'METRIC_DONE_TODAY' | 'DAILY_CAP';

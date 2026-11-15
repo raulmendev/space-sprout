@@ -29,6 +29,9 @@ const PALETTE: Record<string, string> = {
   a: '#d4eeff', // water highlight
   N: '#2f78c4', // water outline
   S: '#fff3a0', // shine
+  f: '#e9b38c', // skin
+  T: '#3a9e9a', // teal (scientist)
+  t: '#2a6f6c', // dark teal
 };
 
 type Grid = readonly string[];
@@ -146,6 +149,34 @@ export const NPC_SPROUT: Grid = [
   '....KKK..KKK....',
   '................',
 ];
+
+/** Crew placeholder: a person in a uniform. Letters U (uniform), X (badge), h (hair) are swapped per role. */
+const CREW_BASE: Grid = [
+  '.....KKKKKK.....',
+  '....KhhhhhhK....',
+  '...KhhhhhhhhK...',
+  '...KhffffffhK...',
+  '...KfKffffKfK...',
+  '...KffffffffK...',
+  '....KffssffK....',
+  '.....KKKKKK.....',
+  '...KKUUUUUUKK...',
+  '..KUUUUUUXXUUK..',
+  '..KUUKUUUXXKUK..',
+  '..KffKUUUUUKfK..',
+  '....KUUKKUUK....',
+  '....KUUKKUUK....',
+  '....KggKKggK....',
+  '....KKKKKKKK....',
+];
+
+/** A tall chef's hat over the head. */
+const CHEF_HAT: Grid = ['....KWWWWWWK....', '...KWWWWWWWWK...', '...KKWWWWWWKK...'];
+
+export function crewGrid(look: { uniform: string; badge: string; hair: string; hat?: boolean }): Grid {
+  const rows = CREW_BASE.map((r) => r.replaceAll('U', look.uniform).replaceAll('X', look.badge).replaceAll('h', look.hair));
+  return look.hat ? [...CHEF_HAT, ...rows.slice(3)] : rows;
+}
 
 export const ASTRONAUT: Grid = [
   '................',

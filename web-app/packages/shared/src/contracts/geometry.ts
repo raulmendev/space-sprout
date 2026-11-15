@@ -25,6 +25,11 @@ export function chebyshev(t: TileCoord, r: TileRect): number {
   return Math.max(dx, dy);
 }
 
+/** Straight-line distance between two continuous points (tile units). */
+export function distance(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
 /** Distance from a continuous point (tile units) to the nearest edge of a rect; 0 inside it. */
 export function distanceToRect(p: { x: number; y: number }, r: TileRect): number {
   const dx = Math.max(r.x - p.x, 0, p.x - (r.x + r.w));

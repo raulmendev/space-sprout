@@ -1,7 +1,7 @@
 import type { Point } from '../types/domain';
 import type { TileCoord, TileRect } from './geometry';
 import type { RoomId } from './habitat';
-import { isWalkable, pathToReach } from './movement';
+import { findPath, isWalkable, pathToReach } from './movement';
 import type { Placed } from './rules';
 
 /**
@@ -89,6 +89,13 @@ function stringPull(room: RoomId, from: Point, points: Point[], objects: readonl
 /** Smooth route to somewhere within reach of a footprint (null if unreachable). */
 export function planReach(room: RoomId, from: Point, rect: TileRect, objects: readonly Placed[]): Point[] | null {
   const tiles = pathToReach(room, tileOf(from), rect, objects);
+  if (!tiles) return null;
+  return stringPull(room, from, tiles.map(tileCenter), objects);
+}
+
+/** Smooth route to the centre of a tile in the same room (null if unreachable). */
+export function planRoute(room: RoomId, from: Point, to: TileCoord, objects: readonly Placed[]): Point[] | null {
+  const tiles = findPath(room, tileOf(from), to, objects);
   if (!tiles) return null;
   return stringPull(room, from, tiles.map(tileCenter), objects);
 }

@@ -5,7 +5,7 @@
  * To deliver final art: drop `public/assets/game/<folder>/<key>.png` and add
  * `<key>` to `public/assets/game/manifest.json` → `delivered`. No code changes.
  */
-import { ALL_PROPS, PlantStage, TileKind, getCatalogItem, plantStages } from '@garden/shared';
+import { ALL_PROPS, CrewId, PlantStage, TileKind, getCatalogItem, plantStages } from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
 import {
   ASTRONAUT,
@@ -17,6 +17,7 @@ import {
   THIRST_BUBBLE,
   TWINKLE,
   TILE_PLACEHOLDERS,
+  crewGrid,
   gridInCanvas,
   gridToCanvas,
   grassTile,
@@ -241,6 +242,17 @@ register(NPC_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(
 register(PLAYER_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, 32, 48));
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
 register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
+/** Station crew (placeholders until the design team's character art lands). */
+const CREW_LOOKS: Record<CrewId, Parameters<typeof crewGrid>[0]> = {
+  MEDIC: { uniform: 'W', badge: 'R', hair: 'b' },
+  TRAINER: { uniform: 'O', badge: 'Y', hair: 'K' },
+  CHEF: { uniform: 'W', badge: 'A', hair: 'B', hat: true },
+  SCIENTIST: { uniform: 'T', badge: 'Y', hair: 't' },
+};
+export const crewTextureKey = (id: CrewId) => `npc-${id.toLowerCase()}`;
+for (const [id, look] of Object.entries(CREW_LOOKS) as [CrewId, Parameters<typeof crewGrid>[0]][]) {
+  register(crewTextureKey(id), 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(crewGrid(look), 2, 32, 48));
+}
 register(TWINKLE_TEXTURE, 'gui/effects', [32, 32], [0.5, 0.5], () => gridToCanvas(TWINKLE));
 
 // ---------------------------------------------------------------- lookup
