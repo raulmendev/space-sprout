@@ -150,6 +150,9 @@ const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>>
       .console { padding: 8px 10px 10px; gap: 6px; }
       .console-close { width: 1.85rem; height: 1.85rem; font-size: 1rem; }
     }
+    /* Keyboard up: every pixel above it goes to what is being typed (Esc / Cancel still close). */
+    :host-context(.keyboard-open) header { display: none; }
+    :host-context(.keyboard-open) .console { padding: 4px; }
   `,
 })
 export class StationPanelComponent {

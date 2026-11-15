@@ -43,6 +43,11 @@ import { StationPanelComponent } from './station-panel.component';
       /* Keep scroll gestures from reaching the page behind (with the ::backdrop rule below). */
       overscroll-behavior: contain;
     }
+    /* Typing (keyboard up): fill the space left above the keyboard; the rest of the game stays put. */
+    :host-context(.keyboard-open) dialog:modal {
+      top: 50dvh;
+      height: min(36rem, 100dvh - 0.5rem);
+    }
     dialog::backdrop {
       background: rgb(29 27 58 / 0.55);
       overflow: hidden;

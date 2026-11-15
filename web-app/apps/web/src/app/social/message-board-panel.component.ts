@@ -289,6 +289,13 @@ const CONFIRM_MS = 4000;
       .photo, .star { font-size: 1.3rem; }
       .rocket { display: none; }
     }
+
+    /* Keyboard up (shared/keyboard.ts): just the text box and its buttons, above the keyboard. */
+    :host-context(.keyboard-open) { padding: 4px 8px; gap: 0; }
+    :host-context(.keyboard-open) :is(.info, .notes, .empty, .sticker) { display: none; }
+    :host-context(.keyboard-open) .tray { flex: 1; min-height: 0; margin: 0 -8px -4px; padding: 6px 8px 4px; gap: 0.3rem; border-top: 0; }
+    :host-context(.keyboard-open) textarea { flex: 1; min-height: 2.4rem; }
+    :host-context(.keyboard-open) .tray button { padding-block: 0.2rem; }
   `,
 })
 export class MessageBoardPanelComponent {
