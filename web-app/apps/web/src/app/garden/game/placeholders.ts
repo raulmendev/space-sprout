@@ -131,7 +131,7 @@ const TREE: Grid = [
   '................',
 ];
 
-export const NPC_SPROUT: Grid = [
+export const NPC_PLACEHOLDER: Grid = [
   '.......LL.......',
   '......LGGL.LL...',
   '.......LGLLGGL..',

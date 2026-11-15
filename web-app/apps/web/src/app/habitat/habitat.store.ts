@@ -294,7 +294,7 @@ export class HabitatStore {
       }
     }
     for (const n of this.npcsHere()) {
-      consider({ ...tileOf(n.position), w: 1, h: 1 }, { type: 'NPC_SELECTED', npcId: n.id }, `${isPet(n.id) ? 'Pet' : 'Talk to'} ${NPC_IDENTITY[n.id].name}`);
+      consider({ ...tileOf(n.position), w: 1, h: 1 }, { type: 'NPC_SELECTED', npcId: n.id }, `${isPet(n.id) && n.id !== 'RADISH' ? 'Pet' : 'Talk to'} ${NPC_IDENTITY[n.id].name}`);
     }
     return best;
   });
