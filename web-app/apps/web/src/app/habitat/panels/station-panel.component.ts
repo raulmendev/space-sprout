@@ -15,7 +15,10 @@ const EMOTES = [
 ];
 
 /** Panels drawn in the steel console frame; their content supplies its own cream screen. */
-const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED']);
+const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED', 'STORE_SELECTED']);
+
+/** A more specific subtitle than the room name, where one helps. */
+const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habitat Supplies' };
 
 /**
  * Panels opened from habitat objects. Medical panels are live; the social ones
@@ -24,21 +27,33 @@ const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SEL
 @Component({
   selector: 'app-station-panel',
   imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent, StorePanelComponent],
-  host: { '(document:keydown.escape)': 'closed.emit()' },
+  // Shrinks to the popup's height and scrolls when its content is taller. Content can opt into
+  // filling the space instead (min-h-0 on itself, a scrolling region inside), like the store catalog.
+  host: { class: 'flex min-h-0 flex-col', '(document:keydown.escape)': 'closed.emit()' },
   template: `
     <section
-      class="panel @container flex flex-col gap-3 p-4 short:gap-2 short:p-3"
+      class="panel @container flex min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain p-4 short:gap-2 short:p-3"
       [class.console]="console()"
       role="region"
       [attr.aria-labelledby]="'panel-title'"
     >
       <header class="flex items-start justify-between gap-2">
         <div class="flex min-w-0 flex-wrap items-center gap-x-2">
-          @if (console()) {
-            <!-- Medical cross badge (the medical terminal is the only console so far) -->
+          @if (panel() === 'MEDICAL_TERMINAL_SELECTED') {
+            <!-- Medical cross badge -->
             <svg class="size-8 shrink-0 short:size-7" viewBox="0 0 32 32" aria-hidden="true">
               <rect class="ink" x="1.5" y="1.5" width="29" height="29" rx="8" fill="#3fa7e8" stroke-width="3" />
               <path class="ink" d="M12.5 7h7v5.5H25v7h-5.5V25h-7v-5.5H7v-7h5.5z" fill="#fff" stroke-width="1.5" stroke-linejoin="round" />
+            </svg>
+          } @else if (panel() === 'STORE_SELECTED') {
+            <!-- Shop badge: a little storefront with a striped awning -->
+            <svg class="size-8 shrink-0 short:size-7" viewBox="0 0 32 32" aria-hidden="true">
+              <rect class="ink" x="5" y="13" width="22" height="16" rx="2" fill="#fff6e3" stroke-width="2.5" />
+              <rect class="ink" x="15" y="18" width="8" height="7" rx="1" fill="#8fc4f0" stroke-width="2" />
+              <rect class="ink" x="8" y="19" width="5" height="10" fill="#c98a5a" stroke-width="2" />
+              <path class="ink" d="M3 13l3-9h20l3 9z" fill="#fff" stroke-width="2.5" stroke-linejoin="round" />
+              <path d="M8.5 4.5L7 13M13.5 4.5L13 13M18.5 4.5L19 13M23.5 4.5L25 13" stroke="#e05a4f" stroke-width="3" />
+              <path class="ink" d="M3 13l3-9h20l3 9z" fill="none" stroke-width="2.5" stroke-linejoin="round" />
             </svg>
           }
           <h2 id="panel-title" #heading tabindex="-1" class="font-pixel text-2xl leading-tight outline-none short:text-xl">{{ meta().title }}</h2>
@@ -132,7 +147,7 @@ export class StationPanelComponent {
   /** Title and zone come from the habitat data for the prop that opens this panel. */
   protected readonly meta = computed(() => {
     const prop = ALL_PROPS.find((p) => p.interaction === this.panel())!;
-    return { title: prop.name, zone: ROOMS[prop.room].name };
+    return { title: prop.name, zone: SUBTITLES[this.panel()] ?? ROOMS[prop.room].name };
   });
 
   constructor() {

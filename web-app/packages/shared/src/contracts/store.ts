@@ -1,3 +1,4 @@
+import type { Actor } from '../types/domain';
 import { CATALOG } from './catalog';
 
 /**
@@ -52,15 +53,15 @@ export const STORE_ITEMS: readonly StoreItem[] = [
 ];
 
 export const STORE_SECTIONS: readonly { id: StoreSection; title: string; icon: string }[] = [
-  { id: 'GARDEN', title: 'Garden', icon: '🌱' },
+  { id: 'GARDEN', title: 'Gardening', icon: '🌱' },
   { id: 'DECORATIONS', title: 'Decorations', icon: '🖼️' },
 ];
 
 /** What a new household starts with, so the garden can be tried before the first check-in. */
 export const STARTER_INVENTORY: Inventory = { [seedItemId('flower')]: 2, [FERTILIZER]: 1 };
 
-/** Kept in the purchase history. */
-export const PURCHASE_LOG_SIZE = 8;
+/** Recent purchases kept (and shown in the store). */
+export const PURCHASE_LOG_SIZE = 3;
 
 export type PurchaseError = 'UNKNOWN_ITEM' | 'INSUFFICIENT_FUNDS';
 
@@ -70,9 +71,37 @@ export function getStoreItem(id: string): StoreItem | undefined {
 
 export const owned = (inventory: Inventory, itemId: string): number => inventory[itemId] ?? 0;
 
-/** Pure purchase rule (the server will run the same one). */
-export function checkPurchase(itemId: string, balance: number): PurchaseError | null {
+/** What a purchase reads and changes. */
+export interface StoreState {
+  balance: number;
+  inventory: Inventory;
+  purchases: Purchase[];
+}
+
+/**
+ * Pure purchase rule: check it, then return the state after it (the server will run the same one).
+ * Charges the price, adds one to the inventory and records who bought it.
+ */
+export function applyPurchase(
+  state: StoreState,
+  itemId: string,
+  actor: Actor,
+  at: string,
+): { ok: true; state: StoreState } | { ok: false; error: PurchaseError } {
   const item = getStoreItem(itemId);
-  if (!item) return 'UNKNOWN_ITEM';
-  return balance < item.price ? 'INSUFFICIENT_FUNDS' : null;
+  if (!item) return { ok: false, error: 'UNKNOWN_ITEM' };
+  if (state.balance < item.price) return { ok: false, error: 'INSUFFICIENT_FUNDS' };
+  return {
+    ok: true,
+    state: {
+      balance: state.balance - item.price,
+      inventory: { ...state.inventory, [itemId]: owned(state.inventory, itemId) + 1 },
+      purchases: [{ itemId, by: actor.id, byName: actor.name, at }, ...state.purchases].slice(0, PURCHASE_LOG_SIZE),
+    },
+  };
+}
+
+/** The inventory with one `itemId` used up (planting a packet, fertilizing). */
+export function consume(inventory: Inventory, itemId: string): Inventory {
+  return { ...inventory, [itemId]: Math.max(0, owned(inventory, itemId) - 1) };
 }

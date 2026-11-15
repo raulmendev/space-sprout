@@ -65,6 +65,48 @@ body {
   );
 }
 
+/*
+ * Station console pieces (Supply Store; the Medical Terminal has its own copy to fold in later).
+ * .console-screen: the cream screen inside the steel bezel. .console-tab: a chunky tab
+ * (with .btn-press). .riveted-card: a card with a screw in each corner.
+ */
+.console-screen {
+  --line: color-mix(in srgb, var(--color-bark) 22%, transparent);
+  color: var(--color-bark-dark);
+  background: var(--color-cream);
+  border: 3px solid var(--color-steel-dark);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: inset 0 3px 0 rgb(0 0 0 / 0.08);
+}
+.console-tab {
+  --press: color-mix(in srgb, var(--color-bark) 30%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  background: var(--color-parchment);
+  font-weight: 800;
+}
+.console-tab[aria-selected='true'] { --press: var(--color-bark-dark); background: var(--color-sun); }
+.console-tab:hover { filter: brightness(1.04); }
+.riveted-card {
+  --screw: radial-gradient(circle, color-mix(in srgb, var(--color-bark) 45%, transparent) 45%, transparent 55%);
+  border: 2px solid var(--line, color-mix(in srgb, var(--color-bark) 22%, transparent));
+  border-radius: 10px;
+  background:
+    var(--screw) left 4px top 4px / 7px 7px no-repeat,
+    var(--screw) right 4px top 4px / 7px 7px no-repeat,
+    var(--screw) left 4px bottom 4px / 7px 7px no-repeat,
+    var(--screw) right 4px bottom 4px / 7px 7px no-repeat,
+    #fffaf0;
+}
+@media (max-height: 500px) {
+  .console-screen { padding: 8px; }
+  .console-tab { padding: 0.2rem 0.5rem; }
+}
+
 .pixelated { image-rendering: pixelated; }
 
 @media (prefers-reduced-motion: reduce) {

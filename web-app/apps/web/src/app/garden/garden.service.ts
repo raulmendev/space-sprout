@@ -5,18 +5,17 @@ import {
   CareError,
   GardenObject,
   Inventory,
-  PURCHASE_LOG_SIZE,
   PlacementError,
   Purchase,
   PurchaseError,
   STARTER_INVENTORY,
   applyCare,
   careDay,
+  applyPurchase,
   checkCare,
-  checkPurchase,
+  consume,
   FERTILIZER,
   getCatalogItem,
-  getStoreItem,
   owned,
   seedItemId,
   validatePlacement,
@@ -105,7 +104,7 @@ export class GardenService {
       placedByName: actor.name,
     };
     snap.objects.push(object);
-    snap.inventory = use(snap.inventory, packet);
+    snap.inventory = consume(snap.inventory, packet);
     this.save(snap);
     return { ok: true, object, inventory: snap.inventory };
   }
@@ -113,13 +112,11 @@ export class GardenService {
   /** Buy one of a store item into the shared inventory. */
   async buy(itemId: string, actor: Actor = LOCAL_PLAYER): Promise<BuyResult> {
     const snap = await this.load();
-    const error = checkPurchase(itemId, snap.balance);
-    if (error) return { ok: false, error };
-    snap.balance -= getStoreItem(itemId)!.price;
-    snap.inventory = { ...snap.inventory, [itemId]: owned(snap.inventory, itemId) + 1 };
-    snap.purchases = [{ itemId, by: actor.id, byName: actor.name, at: new Date().toISOString() }, ...snap.purchases].slice(0, PURCHASE_LOG_SIZE);
+    const result = applyPurchase(snap, itemId, actor, new Date().toISOString());
+    if (!result.ok) return result;
+    Object.assign(snap, result.state);
     this.save(snap);
-    return { ok: true, balance: snap.balance, inventory: snap.inventory, purchases: snap.purchases };
+    return { ok: true, ...result.state };
   }
 
   /** Add seeds to the balance (health check-in rewards). Returns the new balance. */
@@ -145,7 +142,7 @@ export class GardenService {
     else snap.objects[idx] = object = applyCare(snap.objects[idx], action, now, actor);
 
     snap.balance += check.reward;
-    if (check.uses) snap.inventory = use(snap.inventory, check.uses);
+    if (check.uses) snap.inventory = consume(snap.inventory, check.uses);
     const total = already + check.reward;
     snap.earnings = { ...snap.earnings, [actor.id]: { day: careDay(now), amount: total } };
     this.save(snap);
@@ -168,11 +165,6 @@ export class GardenService {
       /* storage unavailable: state stays in memory for this session */
     }
   }
-}
-
-/** The inventory with one `itemId` used up. */
-function use(inventory: Inventory, itemId: string): Inventory {
-  return { ...inventory, [itemId]: Math.max(0, owned(inventory, itemId) - 1) };
 }
 
 function seedGarden(): GardenSnapshot {

@@ -1,4 +1,5 @@
 import { Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
+import { seeds } from '../../shared/format';
 import { plantStages, type CareAction, type CareCheck, type CareEvent, type PlantStage } from '@garden/shared';
 import type { CloseupInfo } from '../garden.store';
 import { CLOSEUP_GEOMETRY as G } from '../game/closeup-art';
@@ -26,7 +27,6 @@ const BLOCKED: Record<string, string> = {
 const STAGE_LABELS: Record<PlantStage, string> = { SEED: 'Seed', SPROUT: 'Sprout', GROWING: 'Growing', BUD: 'Bud', MATURE: 'Grown' };
 const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', GROWING: '🌿', BUD: '🌷', MATURE: '🌼' };
 
-const seeds = (n: number) => `${n} seed${n === 1 ? '' : 's'}`;
 
 /**
  * Close-up of one plant, game style: the plant centre stage with the four care actions
