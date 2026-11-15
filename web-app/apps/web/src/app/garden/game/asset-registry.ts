@@ -203,6 +203,7 @@ const PROP_VISUALS: Record<string, PropVisual> = {
   EMOTE_POINT: { folder: 'social/emotes', size: [64, 64], palette: SOCIAL },
   SOFA: { folder: 'social/decorations', size: [96, 48], palette: SOCIAL },
   COMM_TERMINAL: { folder: 'social/decorations', size: [64, 64], palette: SOCIAL },
+  SUPPLY_STORE: { folder: 'social/store', size: [64, 64], palette: SOCIAL },
   LAMP: { folder: 'garden/decorations', size: [32, 64], palette: GARDEN },
   PLANTER: { folder: 'garden/decorations', size: [32, 32], palette: GARDEN },
   WATERING_CAN: { folder: 'garden/decorations', size: [32, 32], palette: GARDEN },

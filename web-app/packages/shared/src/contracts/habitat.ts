@@ -142,6 +142,7 @@ export const ROOMS: Record<RoomId, Room> = {
       { id: 'emote-point', kind: 'EMOTE_POINT', name: 'Emote corner', x: 8, y: 2, w: 2, h: 2, interaction: 'EMOTE_AREA_SELECTED' },
       { id: 'comm-terminal', kind: 'COMM_TERMINAL', name: 'Earth Link', x: 17, y: 2, w: 2, h: 2, interaction: 'MESSAGE_BOARD_SELECTED' },
       { id: 'sofa', kind: 'SOFA', name: 'Sofa', x: 10, y: 6, w: 3, h: 1 },
+      { id: 'supply-store', kind: 'SUPPLY_STORE', name: 'Supply Store', x: 20, y: 2, w: 2, h: 2, interaction: 'STORE_SELECTED' },
     ],
     doors: [...sideDoor('W', 'GARDEN'), ...sideDoor('E', 'MEDICAL')],
   },
