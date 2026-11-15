@@ -3,7 +3,7 @@ import { AssetService } from '../shared/assets.service';
 import { suitPortraitKey } from '../garden/game/asset-registry';
 import { NAME_MAX, ROLE, SAVED_PROFILE, SUIT, SUITS, type PlayerProfile, type Suit, saveProfile } from './current-user';
 
-const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine' };
+const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine', purple: 'Purple', cactus: 'Cactus', leaf: 'Leaf' };
 
 /**
  * The start menu: astronaut (suit carousel), name, astronaut or family, and station

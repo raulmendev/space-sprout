@@ -5,7 +5,7 @@ export const ASTRONAUT_USER: User = { id: 'astronaut-demo', displayName: 'Astron
 export const FAMILY_USER: User = { id: 'family-demo', displayName: 'Family', role: 'FAMILY' };
 
 /** The astronaut's suit colours. Art only: nothing else changes. */
-export const SUITS = ['turquoise', 'green', 'black', 'wine'] as const;
+export const SUITS = ['turquoise', 'green', 'black', 'wine', 'purple', 'cactus', 'leaf'] as const;
 export type Suit = (typeof SUITS)[number];
 
 /**
@@ -85,7 +85,7 @@ export const CURRENT_USER: User = (() => {
 
 export const ROLE = CURRENT_USER.role;
 
-/** The suit this page shows: `?suit=green|black|wine`, else the profile's, else turquoise. */
+/** The suit this page shows: `?suit=green|black|wine|purple|cactus|leaf`, else the profile's, else turquoise. */
 export const SUIT: Suit = SUITS.find((s) => s === URL_PARAMS.get('suit')?.toLowerCase()) ?? SAVED_PROFILE?.suit ?? 'turquoise';
 
 export const IS_FAMILY = ROLE === 'FAMILY';
