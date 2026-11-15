@@ -18,6 +18,7 @@ import {
   TILE_SIZE,
   TileKind,
   getCatalogItem,
+  getStoreItem,
   plantStages,
   pottedPlantOf,
 } from '@garden/shared';
@@ -47,7 +48,6 @@ import {
   tallTree,
   wetSoilTile,
   woodPathTile,
-  DECOR_ART,
   groundShadowArt,
   potArt,
   potFrontArt,
@@ -417,8 +417,40 @@ register(POT_FRONT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potFr
 
 /** Map sprite of a placed decoration (e.g. 'photo-frame'); potted plants use the pot. */
 export const decorTextureKey = (itemId: string) => (pottedPlantOf(itemId) ? POT_TEXTURE : `decor-${itemId}`);
-for (const [itemId, art] of Object.entries(DECOR_ART)) {
-  register(decorTextureKey(itemId), 'social/decorations', art.size, BOTTOM_CENTER, art.draw);
+
+/** One fairy-lights bulb's twinkle, centred on (x, y). */
+const bulb = (x: number, y: number): PropFx => ({ type: 'glow', rect: [x - 5, y - 5, 10, 10], color: WARM, alpha: 0.6, inMs: 700, restMs: 500, ellipse: true });
+
+/**
+ * Each decoration's map sprite, at the game size tools/import_decor.py prints (drawn at this size;
+ * it may overhang its footprint), with light effects for the ones that glow (rects as in PROP_VISUALS).
+ * Not delivered yet: a labelled box.
+ */
+const DECOR_VISUALS: Record<string, Pick<PropVisual, 'size' | 'fx'>> = {
+  'photo-frame': { size: [30, 24] },
+  'earth-poster': { size: [25, 31] },
+  // Each bulb twinkles on its own (glows start at random, so they fall out of step).
+  'fairy-lights': { size: [62, 16], fx: [bulb(6.5, 8), bulb(14, 10.5), bulb(22, 12.5), bulb(30.5, 14), bulb(39, 12.5), bulb(47, 10.5), bulb(55, 8)] },
+  'cozy-rug': { size: [92, 58] },
+  'star-lamp': {
+    size: [26, 38],
+    fx: [{ type: 'glow', rect: [-3, -4, 32, 28], color: WARM, alpha: 0.5, inMs: 1800, restMs: 200, ellipse: true }],
+  },
+  terrarium: { size: [30, 29] },
+  'holo-globe': {
+    size: [28, 33],
+    fx: [{ type: 'glow', rect: [0, -2, 28, 26], color: CYAN, alpha: 0.35, inMs: 1400, restMs: 300, ellipse: true }],
+  },
+  'keepsake-shelf': { size: [30, 32] },
+  'memory-board': { size: [56, 45] },
+  'galaxy-lamp': {
+    size: [20, 35],
+    fx: [{ type: 'glow', rect: [-4, -2, 28, 30], color: 0xc9a2ff, alpha: 0.4, inMs: 2200, restMs: 0, ellipse: true }],
+  },
+};
+for (const [itemId, { size, fx }] of Object.entries(DECOR_VISUALS)) {
+  const label = getStoreItem(itemId)?.name ?? itemId;
+  register(decorTextureKey(itemId), 'social/decorations', size, BOTTOM_CENTER, () => labelledBox(size[0], size[1], SOCIAL, label), false, { fx });
 }
 
 // ---------------------------------------------------------------- characters & gui

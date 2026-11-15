@@ -34,7 +34,10 @@ Two people work on this repo with Claude, each in their own checkout, and both m
 - **#30, #31:** the API deployed on Railway.
 - **#32:** live updates: every change reaches the rest of the station as it happens.
 - **#33:** the emote wheel (§5), plus the #26 cleanups (prop states fall back to the idle picture).
-- **The room effects PR** (`feat/medical-bay-fx`): Medical Bay and Social Space props come alive (§3).
+- **#36:** Medical Bay and Social Space props come alive (§3).
+- **#37:** the web app deployed as a Cloudflare Worker (garden.raulmen.dev).
+- **#38:** presence: everyone in the station walks around in their suits, and emotes reach them.
+- **The decorations PR** (`feat/decorations-art`): real art and shop icons for the 5 store decorations, plus 5 new ones (§4).
 
 Also on `main` without a PR (chucordova):
 - the new astronaut and the family user;
@@ -187,6 +190,7 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
 | `import_windows.py <room> <pack folder>` | Copies a pack's window overlay frames, marks them delivered, prints the `roomWindows(...)` line. Reads both manifest layouts the design team has used. |
 | `import_board.py <pack folder>` | Board, three notes, unread bubble |
 | `import_pot.py` | The potted-plant pot's two layers (behind and in front of the plant) |
+| `import_decor.py <folder>` | Store decorations: map sprite `decor-<item>` (sized to the astronaut, shadow if it stands on the floor) and store card `store-<item>` (the pack's `<item>_icon.png`, else the sprite fitted). Prints sizes for `DECOR_VISUALS`. |
 | `art.py` | Shared steps: `trim`, `clear_background`, `drop_glow`, `components`/`only`, `drop_strays`, `seat_shadows`, `add_shadow`, `save_scaled`, `mark_delivered`, `HI_RES = 2` |
 
 **Cleanup steps per sprite** (4th field of a `PROPS` entry):
@@ -221,7 +225,7 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
 **Emotes** (Raúl's session; `contracts/emotes.ts`, `habitat/emote-wheel.component.ts`):
 - The 😊 HUD button opens a wheel: 8 emotes on a see-through pink ring, purple slots, a dark centre that names the one under the pointer or focus. One tap sends; Escape or a tap outside closes; arrow keys go round.
 - The emote shows in a cream bubble above the name tag for 3 s (`EMOTE_MS`), with a wave if standing. Walking keeps it.
-- Local only for now: `EMOTES` ids live in `shared/` so live updates can relay them to the station later.
+- Presence (#38) sends them, so everyone in the station sees them; `EMOTES` ids live in `shared/`.
 - The user iterated on the look against a design-team concept (an "Emote Wheel Preview" image). Settled: 💚 Love, 😊, 👋, 🌱, ⭐, 🤗 Hug (🫂 renders grey on some devices), ✅ Yes, ❌ No.
 - Below 768 px the HUD shows only the player's icon, not their name, so the extra button fits at 667 px.
 
@@ -283,19 +287,22 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
   - The furniture may want to be ~15–25% larger (the design guide's last step); not tried yet.
   - The station states have no art of their own yet, so the map no longer shows the ↻/✓ glyphs.
 - **Health** must stay astronaut-only on the server.
-- **Emotes** aren't sent to other players yet.
 - **Station keys:** no password, and `POST /api/join` isn't rate-limited.
+- **Decorations:**
+  - Wall ones can only go on row 1 of the Social Space (`V` tiles), the top band of the painted wall; rows 2-3 would look more natural, but moving them invalidates wall decorations already placed.
+  - The 5 new items (terrarium 14, holo globe 22, keepsake shelf 16, memory board 12, galaxy lamp 18) got names and prices from Claude; confirm with the user. Their store cards are the sprite fitted, since no minis were drawn.
+  - Decorations are allowed in the Social Space only (`DECOR_ROOMS`).
 - **Social Space back wall:** the empty middle, under the Earth window, could take the unused hanging baskets or wall shelf from `Jardin_Comunal_Planters_and_Pots_Sprites.zip`.
 - **Devices:** not tested on real phones. No app icons.
 
 ## 9. Suggested next steps
 
 1. Drop `stash@{0}` on Raúl's checkout (an old copy of this file).
-2. Send emotes through live updates (#32) so the rest of the station sees them.
+2. Confirm the 5 new decorations' names and prices, and whether wall decorations should hang lower (§8).
 3. Medical Bay polish:
    - the ~20% furniture size test, with before/after side by side;
    - place or drop the side-view bench;
    - ask the design team for per-state terminal and insights pictures.
 4. Confirm the open check-in questions and the "mid-stride" report with chucordova.
 5. Health privacy and the family role on the server.
-6. Demo prep: seed data, a 2–3 minute script, web deployment, app icons.
+6. Demo prep: seed data, a 2–3 minute script, app icons.

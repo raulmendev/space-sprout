@@ -209,6 +209,7 @@ export class HabitatScene extends Phaser.Scene {
     });
     const delivered = new Set(this.bridge.deliveredKeys);
     for (const asset of allAssets()) {
+      if (asset.uiOnly) continue; // Angular shows those itself (store cards, close-ups)
       // Not delivered but with a delivered fallback (a prop state drawn as idle): load that picture under its key.
       const path = delivered.has(asset.key) ? asset.path : asset.fallback && delivered.has(asset.fallback) ? getAsset(asset.fallback)?.path : undefined;
       if (!path) continue;

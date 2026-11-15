@@ -1,7 +1,17 @@
 {
   "delivered": [
+    "decor-cozy-rug",
+    "decor-earth-poster",
+    "decor-fairy-lights",
+    "decor-galaxy-lamp",
+    "decor-holo-globe",
+    "decor-keepsake-shelf",
+    "decor-memory-board",
+    "decor-photo-frame",
     "decor-pot",
     "decor-pot-front",
+    "decor-star-lamp",
+    "decor-terrarium",
     "gui-note-bubble",
     "note-astronaut",
     "note-family",
@@ -381,6 +391,16 @@
     "room-social-window-6",
     "room-social-window-7",
     "store-clay-pot",
-    "store-fertilizer"
+    "store-cozy-rug",
+    "store-earth-poster",
+    "store-fairy-lights",
+    "store-fertilizer",
+    "store-galaxy-lamp",
+    "store-holo-globe",
+    "store-keepsake-shelf",
+    "store-memory-board",
+    "store-photo-frame",
+    "store-star-lamp",
+    "store-terrarium"
   ]
 }
