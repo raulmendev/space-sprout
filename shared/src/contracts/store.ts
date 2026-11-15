@@ -61,6 +61,11 @@ export const STORE_ITEMS: readonly StoreItem[] = [
   { id: 'fairy-lights', section: 'DECORATIONS', name: 'Fairy lights', description: 'A warm glow for long station nights.', price: 15, icon: '✨' },
   { id: 'cozy-rug', section: 'DECORATIONS', name: 'Cozy rug', description: 'Soft underfoot, even in orbit.', price: 18, icon: '🧶' },
   { id: 'star-lamp', section: 'DECORATIONS', name: 'Star lamp', description: 'Paints constellations on the ceiling.', price: 20, icon: '🌟' },
+  { id: 'terrarium', section: 'DECORATIONS', name: 'Terrarium', description: 'A tiny garden under glass.', price: 14, icon: '🪴' },
+  { id: 'holo-globe', section: 'DECORATIONS', name: 'Holo globe', description: 'Home, spinning in light.', price: 22, icon: '🌐' },
+  { id: 'keepsake-shelf', section: 'DECORATIONS', name: 'Keepsake shelf', description: 'Books, a plant and little treasures.', price: 16, icon: '📚' },
+  { id: 'memory-board', section: 'DECORATIONS', name: 'Memory board', description: 'Pin up photos and happy days.', price: 12, icon: '📌' },
+  { id: 'galaxy-lamp', section: 'DECORATIONS', name: 'Galaxy lamp', description: 'Slow swirls of starry light.', price: 18, icon: '🫧' },
 ];
 
 /** Everything the store has ever sold: also packets of retired plants, which households may still own. */

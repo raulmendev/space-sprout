@@ -34,7 +34,8 @@ Two people work on this repo with Claude, each in their own checkout, and both m
 - **#30, #31:** the API deployed on Railway.
 - **#32:** live updates: every change reaches the rest of the station as it happens.
 - **#33:** the emote wheel (§5), plus the #26 cleanups (prop states fall back to the idle picture).
-- **The room effects PR** (`feat/medical-bay-fx`): Medical Bay and Social Space props come alive (§3).
+- **#36:** Medical Bay and Social Space props come alive (§3).
+- **The decorations PR** (`feat/decorations-art`): real art and shop icons for the 5 store decorations, plus 5 new ones (§4).
 
 Also on `main` without a PR (chucordova):
 - the new astronaut and the family user;
@@ -187,6 +188,7 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
 | `import_windows.py <room> <pack folder>` | Copies a pack's window overlay frames, marks them delivered, prints the `roomWindows(...)` line. Reads both manifest layouts the design team has used. |
 | `import_board.py <pack folder>` | Board, three notes, unread bubble |
 | `import_pot.py` | The potted-plant pot's two layers (behind and in front of the plant) |
+| `import_decor.py <folder>` | Store decorations: map sprite `decor-<item>` (sized to the astronaut, shadow if it stands on the floor) and store card `store-<item>` (the pack's `<item>_icon.png`, else the sprite fitted). Prints sizes for `DECOR_VISUALS`. |
 | `art.py` | Shared steps: `trim`, `clear_background`, `drop_glow`, `components`/`only`, `drop_strays`, `seat_shadows`, `add_shadow`, `save_scaled`, `mark_delivered`, `HI_RES = 2` |
 
 **Cleanup steps per sprite** (4th field of a `PROPS` entry):
@@ -285,6 +287,10 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
 - **Health** must stay astronaut-only on the server.
 - **Emotes** aren't sent to other players yet.
 - **Station keys:** no password, and `POST /api/join` isn't rate-limited.
+- **Decorations:**
+  - Wall ones can only go on row 1 of the Social Space (`V` tiles), the top band of the painted wall; rows 2-3 would look more natural, but moving them invalidates wall decorations already placed.
+  - The 5 new items (terrarium 14, holo globe 22, keepsake shelf 16, memory board 12, galaxy lamp 18) got names and prices from Claude; confirm with the user. Their store cards are the sprite fitted, since no minis were drawn.
+  - Decorations are allowed in the Social Space only (`DECOR_ROOMS`).
 - **Social Space back wall:** the empty middle, under the Earth window, could take the unused hanging baskets or wall shelf from `Jardin_Comunal_Planters_and_Pots_Sprites.zip`.
 - **Devices:** not tested on real phones. No app icons.
 

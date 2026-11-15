@@ -35,6 +35,11 @@ export const DECOR_SPECS: Readonly<Record<string, DecorSpec>> = {
   'fairy-lights': { mount: 'WALL', w: 2, h: 1 },
   'cozy-rug': { mount: 'FLOOR', w: 2, h: 2, flat: true },
   'star-lamp': { mount: 'FLOOR', w: 1, h: 1 },
+  terrarium: { mount: 'FLOOR', w: 1, h: 1 },
+  'holo-globe': { mount: 'FLOOR', w: 1, h: 1 },
+  'keepsake-shelf': { mount: 'WALL', w: 1, h: 1 },
+  'memory-board': { mount: 'WALL', w: 2, h: 1 },
+  'galaxy-lamp': { mount: 'FLOOR', w: 1, h: 1 },
 };
 
 /** Rooms decorations can go in. The Social Space for now. */
