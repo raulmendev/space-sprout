@@ -52,10 +52,12 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
             </div>
             <div class="flex min-w-0 flex-1 flex-col gap-1">
               <p class="font-bold leading-tight short:truncate short:text-[13px]">{{ health.wearable.label }}</p>
-              <p><span class="rounded-md bg-dusk/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-dusk">Demo data</span></p>
+              @if (health.wearable.isSimulated) {
+                <p><span class="rounded-md bg-dusk/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-dusk">Demo data</span></p>
+              }
               <p class="flex items-center gap-1.5 text-sm font-bold text-leaf-dark">
                 <span class="size-2.5 rounded-full border border-leaf-dark bg-leaf" [class.animate-pulse]="health.syncing()"></span>
-                {{ health.syncing() ? 'Syncing…' : 'Connected' }}
+                {{ health.syncing() ? 'Syncing…' : health.wearable.isSimulated ? 'Connected' : 'On this phone' }}
               </p>
               <p class="border-t border-bark/15 pt-1 text-xs text-bark/70">
                 @if (health.lastSyncAt(); as at) { Last synced {{ ago(at) }} } @else { Not synced yet }
@@ -69,7 +71,11 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
             </svg>
             {{ health.syncing() ? 'Syncing…' : 'Sync now' }}
           </button>
-          <ng-container [ngTemplateOutlet]="reward" />
+          @if (health.syncError(); as e) {
+            <p class="text-xs font-bold leading-tight text-alert" role="alert">{{ e }}</p>
+          } @else {
+            <ng-container [ngTemplateOutlet]="reward" />
+          }
           <ng-container [ngTemplateOutlet]="privacy" />
         </div>
 
