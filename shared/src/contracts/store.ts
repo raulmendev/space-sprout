@@ -36,6 +36,8 @@ export const FERTILIZER = 'fertilizer';
 export const POST_IT = 'post-it';
 /** An empty pot: potting a grown plant uses one (see potting.ts). */
 export const CLAY_POT = 'clay-pot';
+/** A sign that names a plant: naming one uses it (see labels.ts). */
+export const PLANT_LABEL = 'plant-label';
 export const seedItemId = (plant: string) => `seed:${plant}`;
 
 const PLANTS = CATALOG.filter((p) => p.type === 'PLANT');
@@ -55,6 +57,7 @@ export const STORE_ITEMS: readonly StoreItem[] = [
   ...PLANTS.filter((p) => !p.retired).map(seedPacket),
   { id: FERTILIZER, section: 'GARDEN', name: 'Fertilizer', description: 'One scoop helps a growing plant along.', price: 2, icon: '🧪' },
   { id: CLAY_POT, section: 'GARDEN', name: 'Clay pot', description: 'Pot a grown plant and bring it indoors.', price: 4, icon: '🏺' },
+  { id: PLANT_LABEL, section: 'GARDEN', name: 'Plant label', description: 'Name a plant after someone or something special.', price: 3, icon: '🏷️' },
   { id: POST_IT, section: 'MESSAGES', name: 'Post-it', description: 'One note for the message board, home and back.', price: 3, icon: '📝' },
   { id: 'photo-frame', section: 'DECORATIONS', name: 'Photo frame', description: 'For a favourite picture from home.', price: 12, icon: '🖼️' },
   { id: 'earth-poster', section: 'DECORATIONS', name: 'Earth poster', description: 'The view from the window, to keep.', price: 10, icon: '🌍' },
@@ -77,8 +80,8 @@ export const STORE_SECTIONS: readonly { id: StoreSection; title: string; icon: s
   { id: 'DECORATIONS', title: 'Decorations', icon: '🖼️' },
 ];
 
-/** What a new household starts with, so the garden and the message board can be tried before the first check-in. */
-export const STARTER_INVENTORY: Inventory = { [seedItemId('lettuce')]: 2, [FERTILIZER]: 1, [POST_IT]: 1 };
+/** What a new household starts with, so the garden, labels and the message board can be tried before the first check-in. */
+export const STARTER_INVENTORY: Inventory = { [seedItemId('lettuce')]: 2, [FERTILIZER]: 1, [POST_IT]: 1, [PLANT_LABEL]: 1 };
 
 /** Recent purchases kept (and shown in the store). */
 export const PURCHASE_LOG_SIZE = 3;

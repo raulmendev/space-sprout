@@ -116,6 +116,8 @@
     "plant-fern-growing",
     "plant-fern-mature",
     "plant-fern-sprout",
+    "plant-label",
+    "plant-label-mini",
     "plant-lettuce-bud",
     "plant-lettuce-growing",
     "plant-lettuce-mature",
@@ -400,6 +402,7 @@
     "store-keepsake-shelf",
     "store-memory-board",
     "store-photo-frame",
+    "store-plant-label",
     "store-star-lamp",
     "store-terrarium"
   ]
