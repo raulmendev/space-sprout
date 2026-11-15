@@ -2,7 +2,7 @@ import { Component, ElementRef, effect, inject, output, signal } from '@angular/
 import { ROOMS, RoomId } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from './habitat.store';
-import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, IS_FAMILY, SUIT, SUITS, urlWith } from '../session/current-user';
+import { CURRENT_USER, IS_FAMILY } from '../session/current-user';
 
 /**
  * Slim overlay along the top of the screen: rooms, seeds, fullscreen and a small
@@ -68,10 +68,7 @@ import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, IS_FAMILY, SUIT, SUITS, urlW
               <input type="checkbox" class="accent-leaf-dark" [checked]="habitat.showLayout()" (change)="habitat.showLayout.set(!habitat.showLayout())" />
               Show layout
             </label>
-            <a class="rounded-md px-2 py-1.5 hover:bg-parchment" [href]="switchTo.href">Play as {{ switchTo.name }}</a>
-            @for (s of suitSwitch; track s.label) {
-              <a class="rounded-md px-2 py-1.5 hover:bg-parchment" [href]="s.href">{{ s.label }}</a>
-            }
+            <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); changePlayer.emit()">Change player</button>
             <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); reset.emit()">Reset demo</button>
           </div>
         }
@@ -88,17 +85,11 @@ export class HudComponent {
   protected readonly roomOrder: RoomId[] = ['GARDEN', 'SOCIAL', 'MEDICAL'];
   protected readonly rooms = ROOMS;
   protected readonly menuOpen = signal(false);
-  /** Who is playing (from the URL), and the link that reloads as the other player. */
+  /** Opens the start menu again (name, astronaut or family, suit). */
+  readonly changePlayer = output<void>();
+  /** Who is playing (start menu profile, or the URL). */
   protected readonly me = CURRENT_USER;
   protected readonly meIcon = IS_FAMILY ? '🏡' : '🧑‍🚀';
-  protected readonly switchTo = IS_FAMILY
-    ? { name: ASTRONAUT_USER.displayName, href: urlWith('user', null) }
-    : { name: FAMILY_USER.displayName, href: urlWith('user', 'family') };
-  /** Try the other suit colours (art only). Turquoise is the default, so it drops the parameter. */
-  protected readonly suitSwitch = SUITS.filter((s) => s !== SUIT).map((s) => ({
-    label: `${s[0].toUpperCase()}${s.slice(1)} suit`,
-    href: urlWith('suit', s === 'turquoise' ? null : s),
-  }));
   private readonly host = inject(ElementRef<HTMLElement>);
   protected readonly isFullscreen = signal(false);
   /** iPhone Safari has no element fullscreen; there, "Add to Home Screen" gives full screen instead. */

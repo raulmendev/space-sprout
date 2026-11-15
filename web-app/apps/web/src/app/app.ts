@@ -21,6 +21,8 @@ import { StationDialogComponent } from './habitat/panels/station-dialog.componen
 import type { TileCoord } from './garden/game/tile-manager';
 import { DecorStore, DecorOutcome } from './decor/decor.store';
 import { DecorBarComponent } from './decor/decor-bar.component';
+import { StartMenuComponent } from './session/start-menu.component';
+import { NEEDS_PROFILE } from './session/current-user';
 
 const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND', string>> = {
   NO_FERTILIZER: 'Out of fertilizer. The Supply Store has more.',
@@ -78,6 +80,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     StationDialogComponent,
     DialogueBubbleComponent,
     DecorBarComponent,
+    StartMenuComponent,
   ],
   template: `
     <div class="fixed inset-0 overflow-hidden" [style.padding]="safeArea">
@@ -98,7 +101,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 
       <!-- Overlays pinned to the screen edges (in the margins when there are any). -->
       <!-- While placing a decoration the top bar steps aside: on phones it covers the back wall. -->
-      <app-hud class="absolute inset-x-2 top-2 z-30 transition-opacity" [class.stepped-aside]="!!decor.mode()" [inert]="!!decor.mode()" (reset)="reset()" />
+      <app-hud class="absolute inset-x-2 top-2 z-30 transition-opacity" [class.stepped-aside]="!!decor.mode()" [inert]="!!decor.mode()" (reset)="reset()" (changePlayer)="startMenu.set('change')" />
       <!-- The picker already says what this plot is for; don't let the card cover it. -->
       @if (!garden.pickerTile()) {
         <app-tile-info class="absolute left-2 top-14 z-20 max-w-[min(18rem,calc(100%-1rem))]" />
@@ -127,6 +130,10 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
 
       @if (habitat.openPanel(); as p) {
         <app-station-dialog [panel]="p" [anchor]="roomView" (closed)="habitat.openPanel.set(null)" />
+      }
+
+      @if (startMenu(); as m) {
+        <app-start-menu [canCancel]="m === 'change'" (closed)="startMenu.set(null)" />
       }
 
       <!-- Phones are played sideways; in portrait, ask to rotate instead of squeezing the room. -->
@@ -165,6 +172,8 @@ export class App {
   protected readonly decor = inject(DecorStore);
   private readonly health = inject(HealthStore);
   protected readonly notice = signal<string | null>(null);
+  /** The start menu: on the first visit (must choose), or reopened from the HUD menu (can cancel). */
+  protected readonly startMenu = signal<'first' | 'change' | null>(NEEDS_PROFILE ? 'first' : null);
   /** Keep clear of notches and home indicators on phones. */
   protected readonly safeArea =
     'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';

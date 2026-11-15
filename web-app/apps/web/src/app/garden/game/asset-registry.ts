@@ -347,6 +347,9 @@ function suitFrames(prefix: string, wave: boolean): PlayerFrames {
   };
 }
 
+/** Each suit standing, facing the camera (the start menu's suit picker). */
+export const suitPortraitKey = (suit: Suit) => `${SUITS[suit].prefix}-down-idle`;
+
 /** The suit this page shows. */
 export const PLAYER_FRAMES: PlayerFrames = suitFrames(SUITS[SUIT].prefix, SUITS[SUIT].wave);
 /** Standing, facing the camera: the astronaut wherever a single picture is needed. */
