@@ -32,6 +32,12 @@ import { HabitatStore } from './habitat.store';
 
     <div class="flex items-center gap-1.5">
       <span class="panel px-2.5 py-0.5 text-base font-extrabold text-bark-dark sm:text-lg" aria-label="Seeds balance">🌱 {{ garden.balance() }}</span>
+      <button
+        type="button"
+        class="grid size-9 place-items-center rounded-full bg-night/60 text-lg backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
+        aria-label="Inventory"
+        (click)="habitat.openPanel.set('INVENTORY')"
+      >🎒</button>
       @if (canFullscreen) {
         <button
           type="button"

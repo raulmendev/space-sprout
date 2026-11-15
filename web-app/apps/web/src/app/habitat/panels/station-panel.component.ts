@@ -4,6 +4,7 @@ import type { HabitatPanel } from '../habitat.store';
 import { MedicalTerminalPanelComponent } from '../../health/medical-terminal-panel.component';
 import { HealthInsightsPanelComponent } from '../../health/health-insights-panel.component';
 import { StorePanelComponent } from '../../store/store-panel.component';
+import { InventoryPanelComponent } from '../../store/inventory-panel.component';
 
 const EMOTES = [
   { glyph: '❤️', label: 'Love' },
@@ -15,10 +16,13 @@ const EMOTES = [
 ];
 
 /** Panels drawn in the steel console frame; their content supplies its own cream screen. */
-const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED', 'STORE_SELECTED']);
+const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED', 'STORE_SELECTED', 'INVENTORY']);
 
 /** A more specific subtitle than the room name, where one helps. */
 const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habitat Supplies' };
+
+/** Popups that aren't opened from a prop bring their own title. */
+const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>> = { INVENTORY: { title: 'Inventory', zone: 'Household' } };
 
 /**
  * Panels opened from habitat objects. Medical panels are live; the social ones
@@ -26,7 +30,7 @@ const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habi
  */
 @Component({
   selector: 'app-station-panel',
-  imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent, StorePanelComponent],
+  imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent, StorePanelComponent, InventoryPanelComponent],
   // Shrinks to the popup's height and scrolls when its content is taller. Content can opt into
   // filling the space instead (min-h-0 on itself, a scrolling region inside), like the store catalog.
   host: { class: 'flex min-h-0 flex-col', '(document:keydown.escape)': 'closed.emit()' },
@@ -54,6 +58,15 @@ const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habi
               <path class="ink" d="M3 13l3-9h20l3 9z" fill="#fff" stroke-width="2.5" stroke-linejoin="round" />
               <path d="M8.5 4.5L7 13M13.5 4.5L13 13M18.5 4.5L19 13M23.5 4.5L25 13" stroke="#e05a4f" stroke-width="3" />
               <path class="ink" d="M3 13l3-9h20l3 9z" fill="none" stroke-width="2.5" stroke-linejoin="round" />
+            </svg>
+          } @else if (panel() === 'INVENTORY') {
+            <!-- Backpack badge -->
+            <svg class="size-8 shrink-0 short:size-7" viewBox="0 0 32 32" aria-hidden="true">
+              <path class="ink" d="M12 7V5a4 4 0 0 1 8 0v2" fill="none" stroke-width="2.5" />
+              <rect class="ink" x="5" y="7" width="22" height="22" rx="7" fill="#e58a4a" stroke-width="2.5" />
+              <rect class="ink" x="9" y="16" width="14" height="10" rx="3" fill="#f7b267" stroke-width="2" />
+              <path class="ink" d="M9 20h14" stroke-width="2" />
+              <rect class="ink" x="14" y="18.5" width="4" height="3" rx="1" fill="#fbd23a" stroke-width="1.5" />
             </svg>
           }
           <h2 id="panel-title" #heading tabindex="-1" class="font-pixel text-2xl leading-tight outline-none short:text-xl">{{ meta().title }}</h2>
@@ -86,6 +99,9 @@ const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habi
         }
         @case ('STORE_SELECTED') {
           <app-store-panel />
+        }
+        @case ('INVENTORY') {
+          <app-inventory-panel />
         }
         @case ('EMOTE_AREA_SELECTED') {
           <ul class="grid grid-cols-3 gap-2">
@@ -144,8 +160,10 @@ export class StationPanelComponent {
   /** Panels drawn as a station console (steel bezel, cream screen). */
   protected readonly console = computed(() => CONSOLE_PANELS.has(this.panel()));
 
-  /** Title and zone come from the habitat data for the prop that opens this panel. */
+  /** Title and zone: the panel's own, or from the habitat data for the prop that opens it. */
   protected readonly meta = computed(() => {
+    const own = OWN_TITLES[this.panel()];
+    if (own) return own;
     const prop = ALL_PROPS.find((p) => p.interaction === this.panel())!;
     return { title: prop.name, zone: SUBTITLES[this.panel()] ?? ROOMS[prop.room].name };
   });

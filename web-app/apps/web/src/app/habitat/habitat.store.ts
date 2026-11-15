@@ -36,8 +36,8 @@ import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
 import type { HabitatRenderState, RenderActor, RenderSprite } from '../garden/game/habitat.scene';
 
-/** A panel is identified by the station interaction that opens it. */
-export type HabitatPanel = PropInteraction;
+/** A popup: a station's (opened from its prop), or one opened from the top bar (the inventory). */
+export type HabitatPanel = PropInteraction | 'INVENTORY';
 
 /** Something the player can use from where they stand. */
 export interface Reachable {
