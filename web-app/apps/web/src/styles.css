@@ -2,6 +2,8 @@
 
 /* Short screens (landscape phones): tighter spacing, fewer extras. Usage: short:p-2 */
 @custom-variant short (@media (max-height: 500px));
+/* Very short screens (16:9 phones, big system font, keyboard up). Usage: tiny:p-1 */
+@custom-variant tiny (@media (max-height: 380px));
 
 @theme {
   --font-pixel: "Pixelify Sans", ui-monospace, monospace;

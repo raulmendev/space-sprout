@@ -23,16 +23,17 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
       (cancel)="onCancel($event)"
       (close)="closed.emit()"
     >
-      <form class="panel relative flex max-h-full flex-col gap-4 overflow-y-auto p-5 short:gap-2 short:p-3" novalidate (submit)="$event.preventDefault(); start()">
+      <!-- Only the fields scroll when the screen is too short for them: Start always stays in view. -->
+      <form class="panel relative flex min-h-0 max-h-full flex-col gap-4 p-5 short:gap-2 short:p-3 tiny:gap-1.5 tiny:p-2" novalidate (submit)="$event.preventDefault(); start()">
         <h1 id="start-title" class="sr-only">Jardín Comunal: who's coming aboard?</h1>
         @if (canCancel()) {
           <button type="button" class="soft-btn btn-press absolute right-1.5 top-1.5 z-10 grid size-7 place-items-center rounded-lg text-xs" aria-label="Close" (click)="dialog.close()">✕</button>
         }
 
-        <div class="grid gap-4 sm:grid-cols-[auto_1fr] sm:gap-5 short:gap-3">
+        <div class="fields grid min-h-0 flex-1 gap-4 overflow-y-auto min-[520px]:grid-cols-[auto_1fr] min-[520px]:gap-5 short:gap-3">
           <!-- Astronaut: one suit at a time, its neighbours peeking in at the sides. -->
           <section class="flex h-full flex-col items-center gap-2 short:gap-1" aria-roledescription="carousel" aria-labelledby="suit-title" (keydown.arrowleft)="step(-1)" (keydown.arrowright)="step(1)">
-            <h2 id="suit-title" class="flex items-center gap-2 self-start font-pixel text-xl leading-tight short:text-lg">
+            <h2 id="suit-title" class="flex items-center gap-2 self-start font-pixel text-xl leading-tight short:text-lg tiny:text-base">
               <span class="grid size-8 place-items-center rounded-lg bg-steel-dark text-lg" aria-hidden="true">🧑‍🚀</span>Choose your astronaut
             </h2>
             <p class="sr-only" aria-live="polite">{{ label(suit()) }} suit</p>
@@ -41,7 +42,7 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
               <!-- The strip: every slot slides together; drag it sideways to browse. -->
               <div
                 #stage
-                class="stage relative h-full min-h-36 w-60 shrink-0 cursor-grab touch-pan-y select-none short:min-h-28 short:w-44"
+                class="stage relative h-full min-h-36 w-60 shrink-0 cursor-grab touch-pan-y select-none short:min-h-28 short:w-44 tiny:min-h-24 tiny:w-40"
                 [class.cursor-grabbing]="dragging"
                 (pointerdown)="dragStart($event)"
                 (pointermove)="dragMove($event)"
@@ -86,7 +87,7 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
             </div>
           </section>
 
-          <div class="flex min-w-0 flex-col gap-3 border-bark/25 sm:border-l-2 sm:pl-5 short:gap-2">
+          <div class="flex min-w-0 flex-col gap-3 border-bark/25 min-[520px]:border-l-2 min-[520px]:pl-5 tiny:min-[520px]:pl-3 short:gap-2 tiny:gap-1">
             <label class="flex flex-col gap-1">
               <span class="field-title"><span aria-hidden="true">👤</span>Your name</span>
               <input
@@ -112,7 +113,7 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
               <div class="grid grid-cols-2 gap-2">
                 @for (r of roles; track r.value) {
                   @let on = role() === r.value;
-                  <label class="role flex cursor-pointer items-center justify-center gap-1.5 px-2 py-2 text-sm font-extrabold short:py-1.5" [class.on]="on">
+                  <label class="role flex cursor-pointer items-center justify-center gap-1.5 px-2 py-2 text-sm font-extrabold short:py-1.5 tiny:py-1" [class.on]="on">
                     <input type="radio" name="role" class="sr-only" [value]="r.value" [checked]="on" (change)="role.set(r.value)" />
                     <span class="text-lg leading-none" aria-hidden="true">{{ r.icon }}</span>{{ r.label }}
                     @if (on) { <span class="tick" aria-hidden="true">✓</span> }
@@ -170,7 +171,7 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
         @if (error()) {
           <p class="text-center text-sm font-bold text-alert" role="alert">{{ error() }}</p>
         }
-        <button type="submit" class="chunky-btn btn-press start-btn" [disabled]="busy()" [attr.aria-busy]="busy()">
+        <button type="submit" class="chunky-btn btn-press start-btn shrink-0" [disabled]="busy()" [attr.aria-busy]="busy()">
           @if (busy()) { Boarding… } @else { 🚀 Start <span aria-hidden="true">›</span> }
         </button>
       </form>
@@ -298,6 +299,20 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
 
     .start-btn { font-family: var(--font-pixel); font-size: 1.5rem; padding-block: 0.6rem; }
     @media (max-height: 500px) { .start-btn { font-size: 1.25rem; padding-block: 0.35rem; } }
+
+    /* The scrolling fields keep room for focus rings and the role check badge. */
+    .fields { padding: 0.45rem 0.45rem 0.25rem; margin: -0.45rem -0.45rem -0.25rem; scrollbar-width: thin; }
+
+    /*
+     * Very short screens (16:9 phones, a large system font size, the keyboard up):
+     * smaller card, tighter fields, so the whole menu still fits without scrolling.
+     */
+    @media (max-height: 380px) {
+      .stage { --card: 5.6rem; --step: 4rem; }
+      .field { padding-block: 0.2rem; font-size: 0.95rem; }
+      .field-title { font-size: 0.85rem; }
+      .start-btn { font-size: 1.1rem; padding-block: 0.2rem; }
+    }
   `,
 })
 export class StartMenuComponent {

@@ -15,6 +15,9 @@ public class MainActivity extends BridgeActivity {
         // Local plugins must be registered before the bridge starts.
         registerPlugin(HealthConnectPlugin.class);
         super.onCreate(savedInstanceState);
+        // The game is laid out for a fixed landscape screen: the system font size would
+        // scale every rem in the WebView and push menus off the screen, so keep it at 100%.
+        getBridge().getWebView().getSettings().setTextZoom(100);
     }
 
     /** Full screen: hide the status and navigation bars; a swipe from the edge shows them for a moment. */
