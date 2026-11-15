@@ -24,8 +24,10 @@ from art import ASSETS, add_shadow, clear_background, drop_glow, drop_strays, ga
 #   shadow  draw a contact shadow to match the furniture pack's (for art delivered without one)
 #   feet    the same, centred on the piece's feet line instead of its lowest pixel (a desk with a stool)
 #
-# delivered file name → (HabitatProp.kind, asset folder, scale, cleanup steps). Packs drawn at
-# 64 px per tile import at half; concept-art packs are scaled to the astronaut (36x50).
+# delivered file name → (HabitatProp.kind, asset folder, scale, cleanup steps). A prop with visual
+# states (PROP_VISUALS in asset-registry.ts) takes the state too, as KIND_STATE: states without their
+# own picture are drawn with the idle one. Packs drawn at 64 px per tile import at half; concept-art
+# packs are scaled to the astronaut (36x50).
 PROPS: dict[str, tuple[str, str, float, set[str]]] = {
     'r07_02_sign_watering.png': ('WATERING_CAN', 'garden/decorations', 0.5, {'shadow'}),
     'r08_06_greenhouse.png': ('GREENHOUSE', 'garden/decorations', 0.5, {'shadow'}),
@@ -54,10 +56,10 @@ PROPS: dict[str, tuple[str, str, float, set[str]]] = {
     'coffee_table_decorated.png': ('COFFEE_TABLE', 'social/decorations', 0.175, {'glow'}),
     # Medical Station desk ("Pixel-Art Sci-Fi Medical Station.png", renamed): desk at the
     # astronaut's waist, the stool knee-high.
-    'medical_terminal.png': ('MEDICAL_TERMINAL', 'medical/terminal', 0.074, {'feet'}),
+    'medical_terminal.png': ('MEDICAL_TERMINAL_IDLE', 'medical/terminal', 0.074, {'feet'}),
     # Health Insights console ("Pixel-Art Futuristic Health Console.png", renamed): the same scale
     # as the terminal, so their stools match.
-    'health_insights.png': ('HEALTH_INSIGHTS', 'medical/insights', 0.074, {'feet'}),
+    'health_insights.png': ('HEALTH_INSIGHTS_IDLE', 'medical/insights', 0.074, {'feet'}),
     # Medical Bay furniture pack (Medical_Bay_Furniture_Export.zip): one sheet, so one scale keeps
     # the pieces matched; the scan pod's figure is about the astronaut's height.
     '01_patient_bed_alcove.png': ('MED_BED', 'medical/decorations', 0.2, {'feet'}),
@@ -70,13 +72,6 @@ PROPS: dict[str, tuple[str, str, float, set[str]]] = {
     'bench_rear.png': ('MED_BENCH_BACK', 'medical/decorations', 0.054, {'feet'}),
     '10_large_leafy_plant.png': ('MED_POT_LEAFY', 'medical/decorations', 0.18, {'shadow'}),
     '11_lavender_potted_plant.png': ('MED_POT_LAVENDER', 'medical/decorations', 0.18, {'shadow'}),
-}
-
-# Props with visual states (PROP_VISUALS states in asset-registry.ts): one delivered picture is
-# written for every state until the design team draws each one.
-STATES: dict[str, list[str]] = {
-    'MEDICAL_TERMINAL': ['idle', 'syncing', 'complete', 'attention'],
-    'HEALTH_INSIGHTS': ['idle', 'new_data', 'active'],
 }
 
 
@@ -100,10 +95,9 @@ def main() -> None:
         if steps & {'shadow', 'feet'}:
             im = add_shadow(im, feet='feet' in steps)
         size = game_size(im, scale)
-        base = 'prop-' + kind.lower().replace('_', '-')  # propTextureKey(kind, state)
-        for key in [f"{base}-{state.replace('_', '-')}" for state in STATES.get(kind, [])] or [base]:
-            save_scaled(im, size, ASSETS / folder / f'{key}.png')
-            keys.append(key)
+        key = 'prop-' + kind.lower().replace('_', '-')  # propTextureKey(kind, state)
+        save_scaled(im, size, ASSETS / folder / f'{key}.png')
+        keys.append(key)
         print(f'{kind:14} {size[0]}x{size[1]}')
     mark_delivered(*keys)
 
