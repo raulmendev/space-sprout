@@ -1,5 +1,5 @@
 import { Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
-import { seeds } from '../../shared/format';
+import { seeds, whoDid } from '../../shared/format';
 import { plantStages, type CareAction, type CareCheck, type CareEvent, type PlantStage } from '@garden/shared';
 import type { CloseupInfo } from '../garden.store';
 import { CLOSEUP_GEOMETRY as G } from '../game/closeup-art';
@@ -416,8 +416,7 @@ export class PlantCloseupComponent {
   }
 
   protected who(id: string | undefined, name: string | undefined): string {
-    if (id && id === this.info().me) return 'you';
-    return name ?? 'someone';
+    return whoDid(id, name, this.info().me);
   }
 
   /** Relative time against the shared growth clock. */

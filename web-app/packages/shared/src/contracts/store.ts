@@ -4,7 +4,7 @@ import { CATALOG } from './catalog';
 /**
  * The station store: where seeds go to be spent. Seed packets, fertilizer and post-its go
  * into one shared household inventory; planting, fertilizing and pinning a note use them up.
- * Decorations are incentives to save toward (owned for now; placing them comes later).
+ * Decorations are incentives to save toward; they get placed in the station (see decor.ts).
  */
 export type StoreSection = 'GARDEN' | 'MESSAGES' | 'DECORATIONS';
 

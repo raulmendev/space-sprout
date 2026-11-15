@@ -29,6 +29,7 @@ import {
   tallTree,
   wetSoilTile,
   woodPathTile,
+  DECOR_ART,
 } from './placeholders';
 
 const ASSET_ROOT = 'assets/game';
@@ -248,6 +249,14 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
       labelledBox(v.size[0], v.size[1], v.palette, label, badge || undefined),
     );
   }
+}
+
+// ---------------------------------------------------------------- station decorations
+
+/** Map sprite of a placed decoration (a store item id, e.g. 'photo-frame'). */
+export const decorTextureKey = (itemId: string) => `decor-${itemId}`;
+for (const [itemId, art] of Object.entries(DECOR_ART)) {
+  register(decorTextureKey(itemId), 'social/decorations', art.size, BOTTOM_CENTER, art.draw);
 }
 
 // ---------------------------------------------------------------- characters & gui

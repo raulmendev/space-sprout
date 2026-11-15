@@ -1,15 +1,22 @@
 import { Component, computed, inject } from '@angular/core';
-import { STORE_ITEMS, StoreItem, getCatalogItem, owned } from '@garden/shared';
+import { STORE_ITEMS, StoreItem, getCatalogItem, isDecor, owned } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { AssetService } from '../shared/assets.service';
 import { previewTextureKey } from '../garden/game/asset-registry';
+import { DECOR_ROOM_NAMES, DecorStore } from '../decor/decor.store';
+import { HabitatStore } from '../habitat/habitat.store';
 
 /** Inventory groups, each with where its things get used. */
-const GROUPS: readonly { title: string; hint: string; has: (i: StoreItem) => boolean }[] = [
+const GROUPS: readonly { title: string; hint: string; awayHint?: string; has: (i: StoreItem) => boolean }[] = [
   { title: 'Seed packets', hint: 'Tap any empty soil in the Garden to plant one.', has: (i) => !!i.plant },
   { title: 'Supplies', hint: "Use from a plant's close-up.", has: (i) => i.section === 'GARDEN' && !i.plant },
   { title: 'Messages', hint: 'Write one on the Message Board in the Social Space.', has: (i) => i.section === 'MESSAGES' },
-  { title: 'Decorations', hint: 'Yours to keep. Placing them in the station comes soon.', has: (i) => i.section === 'DECORATIONS' },
+  {
+    title: 'Decorations',
+    hint: 'Tap Place, then pick a spot in the room.',
+    awayHint: `Place them from the ${DECOR_ROOM_NAMES}.`,
+    has: (i) => i.section === 'DECORATIONS',
+  },
 ];
 
 /**
@@ -26,7 +33,7 @@ const GROUPS: readonly { title: string; hint: string; has: (i: StoreItem) => boo
         <section class="mb-3 last:mb-0 short:mb-2" [attr.aria-label]="g.title">
           <h3 class="flex flex-wrap items-baseline gap-x-2 font-extrabold">
             {{ g.title }}
-            <span class="text-xs font-normal text-bark/70">{{ g.items.length ? g.hint : 'None yet. The Supply Store in the Social Space has some.' }}</span>
+            <span class="text-xs font-normal text-bark/70">{{ g.items.length ? ((!decor.canDecorateHere() && g.awayHint) || g.hint) : 'None yet. The Supply Store in the Social Space has some.' }}</span>
           </h3>
           @if (g.items.length) {
             <ul class="mt-1.5 grid grid-cols-2 gap-2 @lg:grid-cols-3 short:gap-1.5 short:@lg:grid-cols-2">
@@ -39,8 +46,22 @@ const GROUPS: readonly { title: string; hint: string; has: (i: StoreItem) => boo
                       <span class="icon">{{ row.item.icon }}</span>
                     }
                   </span>
-                  <span class="min-w-0 flex-1 truncate font-bold leading-tight" [title]="row.item.name">{{ row.label }}</span>
-                  <span class="shrink-0 text-lg font-extrabold" [attr.aria-label]="row.count + ' owned'">×{{ row.count }}</span>
+                  <span class="min-w-0 flex-1 leading-tight">
+                    <span class="block truncate font-bold" [title]="row.item.name">{{ row.label }}</span>
+                    @if (row.up) { <span class="block truncate text-xs text-bark/70">{{ row.up }} up in the station</span> }
+                  </span>
+                  @if (row.count) {
+                    <span class="shrink-0 text-lg font-extrabold" [attr.aria-label]="row.count + ' owned'">×{{ row.count }}</span>
+                  }
+                  @if (row.placeable) {
+                    <button
+                      type="button"
+                      class="btn-press shrink-0 bg-sun px-2 py-0.5 text-sm font-bold disabled:bg-parchment disabled:opacity-50"
+                      [disabled]="!row.count || !decor.canDecorateHere()"
+                      [attr.aria-label]="'Place ' + row.item.name"
+                      (click)="place(row.item.id)"
+                    >Place</button>
+                  }
                 </li>
               }
             </ul>
@@ -76,18 +97,34 @@ const GROUPS: readonly { title: string; hint: string; has: (i: StoreItem) => boo
 export class InventoryPanelComponent {
   protected readonly garden = inject(GardenStore);
   protected readonly assets = inject(AssetService);
+  protected readonly decor = inject(DecorStore);
+  private readonly habitat = inject(HabitatStore);
 
   /** Owned items (count > 0) per group, in store order. */
   protected readonly groups = computed(() => {
     const inv = this.garden.inventory();
+    const decorations = this.garden.decorations();
     return GROUPS.map((g) => ({
       ...g,
       items: STORE_ITEMS.filter(g.has)
-        // Under "Seed packets", the plant's name is enough ("Wildflower", not "Wildflower seeds").
-        .map((item) => ({ item, label: item.plant ? (getCatalogItem(item.plant)?.name ?? item.name) : item.name, count: owned(inv, item.id) }))
-        .filter((r) => r.count > 0),
+        .map((item) => ({
+          item,
+          // Under "Seed packets", the plant's name is enough ("Wildflower", not "Wildflower seeds").
+          label: item.plant ? (getCatalogItem(item.plant)?.name ?? item.name) : item.name,
+          count: owned(inv, item.id),
+          /** How many are up in the station (decorations): still the household's, so still listed. */
+          up: decorations.filter((d) => d.itemId === item.id).length,
+          placeable: isDecor(item.id),
+        }))
+        .filter((r) => r.count > 0 || r.up > 0),
     }));
   });
+
+  /** Close the inventory and start placing one in the room. */
+  protected place(itemId: string): void {
+    this.habitat.openPanel.set(null);
+    this.decor.start(itemId);
+  }
 
 
   protected preview = (plant: string) => previewTextureKey(plant, 'MATURE');

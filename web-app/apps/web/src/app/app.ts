@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { CareAction, CareError, HabitatInteraction, PlacementError } from '@garden/shared';
+import { CareAction, CareError, DecorError, HabitatInteraction, PlacementError } from '@garden/shared';
 import { GardenStore } from './garden/garden.store';
 import { PlantPickerComponent } from './garden/components/plant-picker.component';
 import { PlantCloseupComponent } from './garden/components/plant-closeup.component';
@@ -19,6 +19,8 @@ import { TouchPadComponent } from './habitat/touch-pad.component';
 import { ActionButtonComponent } from './habitat/action-button.component';
 import { StationDialogComponent } from './habitat/panels/station-dialog.component';
 import type { TileCoord } from './garden/game/tile-manager';
+import { DecorStore, DecorOutcome } from './decor/decor.store';
+import { DecorBarComponent } from './decor/decor-bar.component';
 
 const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND', string>> = {
   NO_FERTILIZER: 'Out of fertilizer. The Supply Store has more.',
@@ -32,6 +34,16 @@ const GENTLE_ERRORS: Record<PlacementError, string> = {
   NOT_PLANTABLE: 'That needs a bit more soil.',
   OUT_OF_BOUNDS: "That's outside the garden.",
   UNKNOWN_ITEM: "Hmm, I don't recognise that seed.",
+};
+
+const DECOR_ERRORS: Record<DecorError, string> = {
+  TILE_OCCUPIED: "Something's already there.",
+  WRONG_SURFACE: "That doesn't go there.",
+  WRONG_ROOM: 'Decorations go in the Social Space.',
+  OUT_OF_BOUNDS: "That's outside the room.",
+  NONE_OWNED: 'None of those left in the inventory.',
+  NOT_DECOR: "That isn't a decoration.",
+  NOT_FOUND: 'That decoration is gone.',
 };
 
 const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
@@ -58,6 +70,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     TileInfoComponent,
     StationDialogComponent,
     DialogueBubbleComponent,
+    DecorBarComponent,
   ],
   template: `
     <div class="fixed inset-0 overflow-hidden" [style.padding]="safeArea">
@@ -77,7 +90,8 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       </div>
 
       <!-- Overlays pinned to the screen edges (in the margins when there are any). -->
-      <app-hud class="absolute inset-x-2 top-2 z-30" (reset)="reset()" />
+      <!-- While placing a decoration the top bar steps aside: on phones it covers the back wall. -->
+      <app-hud class="absolute inset-x-2 top-2 z-30 transition-opacity" [class.stepped-aside]="!!decor.mode()" [inert]="!!decor.mode()" (reset)="reset()" />
       <!-- The picker already says what this plot is for; don't let the card cover it. -->
       @if (!garden.pickerTile()) {
         <app-tile-info class="absolute left-2 top-14 z-20 max-w-[min(18rem,calc(100%-1rem))]" />
@@ -87,7 +101,12 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       }
       <app-action-button class="absolute bottom-4 left-4 z-20 [@media(max-height:420px)]:left-2" (act)="onAction()" />
       <app-touch-pad class="absolute bottom-3 right-3 z-20" />
-      @if (!garden.closeup()) {
+      @if (decor.active()) {
+        <!-- Kept clear of the spot being decorated: below the top bar, or down between the corner controls. -->
+        <div class="absolute z-30" [class]="decor.barAtTop() ? 'decor-top' : 'bubble-slot'">
+          <app-decor-bar (done)="onDecorDone($event)" />
+        </div>
+      } @else if (!garden.closeup()) {
         <div class="bubble-slot pointer-events-none absolute z-20 [&>*]:pointer-events-auto">
           <app-dialogue-bubble
             (action)="onDialogueAction($event)"
@@ -119,6 +138,8 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     }
     /* The speech bubble (Sprout's and the crew's): between the corner controls when there's room, above them when there isn't. */
     .bubble-slot { left: 0.5rem; right: 0.5rem; bottom: 10.5rem; }
+    .stepped-aside { opacity: 0; pointer-events: none; }
+    .decor-top { top: 3.5rem; left: 50%; width: min(30rem, 100% - 1rem); translate: -50% 0; }
     @media (min-width: 640px) {
       .bubble-slot { left: 50%; right: auto; bottom: 0.75rem; width: min(30rem, 100% - 21rem); translate: -50% 0; }
     }
@@ -134,6 +155,7 @@ export class App {
   protected readonly player = inject(PlayerStore);
   private readonly npcActors = inject(NpcActorStore);
   protected readonly crewReminders = inject(CrewReminders);
+  protected readonly decor = inject(DecorStore);
   private readonly health = inject(HealthStore);
   protected readonly notice = signal<string | null>(null);
   /** Keep clear of notches and home indicators on phones. */
@@ -152,6 +174,7 @@ export class App {
         this.habitat.openPanel.set(null);
         this.garden.pickerTile.set(null);
         this.garden.closeupId.set(null);
+        this.decor.clear();
         this.npc.dismiss();
       });
     });
@@ -164,11 +187,26 @@ export class App {
    * walk up to it, then act on it. The thing tapped is the thing acted on.
    */
   onInteraction(raw: HabitatInteraction): void {
-    this.use(this.habitat.resolve(raw), true);
+    // Placing a decoration: every tap picks a spot (the scene reports plain tiles meanwhile).
+    if (this.decor.mode()) {
+      if (raw.type === 'TILE_SELECTED' && !this.decor.pick(raw)) this.canvas().flashTile(raw);
+      return;
+    }
+    const i = this.habitat.resolve(raw);
+    this.decor.clear();
+    if (i.type === 'DECOR_SELECTED') {
+      // Rearranging is household admin, not a walk-up action: the menu opens where you stand.
+      this.garden.pickerTile.set(null);
+      this.garden.closeupId.set(null);
+      this.decor.select(i.decorId);
+      return;
+    }
+    this.use(i, true);
   }
 
   /** Action button / E / Space: use whatever is in reach, right where you stand. */
   onAction(): void {
+    if (this.decor.active()) return;
     const target = this.habitat.reachable();
     if (target) this.use(target.interaction, false);
   }
@@ -226,9 +264,18 @@ export class App {
     this.npc.maybeSay('PLANT_CREATED');
   }
 
+  /** Place / move / put away finished: say how it went. */
+  onDecorDone(outcome: DecorOutcome): void {
+    this.flash(outcome.ok ? outcome.message : DECOR_ERRORS[outcome.error]);
+  }
+
   /** Hold arrow keys / WASD to walk. Ignored while typing in a field. */
   onKey(e: KeyboardEvent, down: boolean): void {
     const el = e.target as HTMLElement | null;
+    if (e.key === 'Escape' && down && this.decor.active() && !el?.closest('dialog')) {
+      this.decor.clear();
+      return;
+    }
     if ((e.key === 'e' || e.key === 'E' || e.key === ' ') && down && !e.repeat) {
       // Let focused buttons and fields keep their own Space behaviour.
       if (el?.closest('input, textarea, select, button, [contenteditable], [role="menu"], dialog')) return;
@@ -267,6 +314,7 @@ export class App {
     await this.health.reset();
     this.player.reset();
     this.crewReminders.reset();
+    this.decor.clear();
     this.habitat.selection.set(null);
     this.habitat.openPanel.set(null);
     this.npc.say('GREETING');
