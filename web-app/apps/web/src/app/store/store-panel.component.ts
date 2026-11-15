@@ -31,8 +31,8 @@ function boughtText(item: StoreItem): string {
  */
 @Component({
   selector: 'app-store-panel',
-  // min-h-0: shrink to the popup's height, so the catalog (not the whole popup) scrolls.
-  host: { class: 'console-screen flex min-h-0 flex-col gap-3 short:gap-2' },
+  // min-h-0 flex-1: fill the popup's fixed height, so the catalog (not the whole popup) scrolls.
+  host: { class: 'console-screen flex min-h-0 flex-1 flex-col gap-3 short:gap-2' },
   template: `
     <div class="strip">
       <p class="flex shrink-0 items-baseline gap-1.5">
