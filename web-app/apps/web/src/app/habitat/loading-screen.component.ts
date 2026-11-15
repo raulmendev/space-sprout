@@ -19,7 +19,7 @@ import { Component, computed, input } from '@angular/core';
     <div class="boot-earth" aria-hidden="true"></div>
     <div class="boot-body">
       <img class="boot-station" src="assets/loading/station.webp" alt="" width="384" height="157" />
-      <p class="boot-title">Jardín Comunal</p>
+      <p class="boot-title">Space Sprout</p>
       <div class="boot-bar" [class.waiting]="!percent()" aria-hidden="true">
         <div class="boot-fill" [style.width.%]="percent() || null"></div>
       </div>

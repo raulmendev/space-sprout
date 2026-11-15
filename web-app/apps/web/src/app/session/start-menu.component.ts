@@ -25,7 +25,7 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
     >
       <!-- Only the fields scroll when the screen is too short for them: Start always stays in view. -->
       <form class="panel relative flex min-h-0 max-h-full flex-col gap-4 p-5 short:gap-2 short:p-3 tiny:gap-1.5 tiny:p-2" novalidate (submit)="$event.preventDefault(); start()">
-        <h1 id="start-title" class="sr-only">Jardín Comunal: who's coming aboard?</h1>
+        <h1 id="start-title" class="sr-only">Space Sprout: who's coming aboard?</h1>
         @if (canCancel()) {
           <button type="button" class="soft-btn btn-press absolute right-1.5 top-1.5 z-10 grid size-7 place-items-center rounded-lg text-xs" aria-label="Close" (click)="dialog.close()">✕</button>
         }
