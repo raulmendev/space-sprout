@@ -269,9 +269,6 @@ export function propInteraction(p: HabitatProp): HabitatInteraction {
   return p.interaction ? { type: p.interaction } : { type: 'PROP_SELECTED', propId: p.id };
 }
 
-/** Where the NPC lives and wanders around (centre of a tile, in tile units). */
-export const NPC_HOME = { room: 'GARDEN' as RoomId, x: 12, y: 5 };
-
 /** Where each station pet starts; they roam every room like the crew. */
 export const PET_START = {
   DOG: { room: 'SOCIAL' as RoomId, x: 9.5, y: 13.5 },

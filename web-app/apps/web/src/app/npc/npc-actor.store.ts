@@ -2,7 +2,6 @@ import { Injectable, inject, signal } from '@angular/core';
 import {
   CREW,
   HabitatPosition,
-  NPC_HOME,
   PETS,
   PET_START,
   NpcId,
@@ -37,15 +36,13 @@ const TRAVEL_CHANCE = 0.3;
 /** Close enough to talk (tiles, feet to feet). */
 const TALK_DISTANCE = 1.3;
 
-/** How each NPC moves: Sprout potters around its spot in the garden; the pets and the crew roam the station. */
-const MOVES: readonly { id: NpcId; start: HabitatPosition; home?: Point; radius: number }[] = [
-  { id: 'SPROUT', start: NPC_HOME, home: NPC_HOME, radius: 2.5 },
+/** How each NPC moves: the pets and the crew all roam the station. */
+const MOVES: readonly { id: NpcId; start: HabitatPosition; radius: number }[] = [
   ...PETS.map((id) => ({ id, start: PET_START[id], radius: 3.5 })),
   ...CREW.map((c) => ({ id: c.id, start: c.start, radius: 3 })),
 ];
 
 interface Walker extends NpcView {
-  home?: Point;
   radius: number;
   route: Point[];
   /** Set while walking to a door: where it leads. */
@@ -201,11 +198,11 @@ export class NpcActorStore {
     w.moving = true;
   }
 
-  /** Pick what to do after resting: stroll somewhere nearby, or (roamers only) head through a door. */
+  /** Pick what to do after resting: stroll somewhere nearby, or head through a door. */
   private planNext(w: Walker): void {
     const room = w.position.room;
     const doors = ROOMS[room].doors;
-    if (!w.home && doors.length && Math.random() < TRAVEL_CHANCE) {
+    if (doors.length && Math.random() < TRAVEL_CHANCE) {
       const door = doors[Math.floor(Math.random() * doors.length)];
       const route = planRoute(room, w.position, door);
       if (route?.length) {
@@ -214,7 +211,7 @@ export class NpcActorStore {
         return;
       }
     }
-    const centre = w.home ?? w.position;
+    const centre = w.position;
     for (let i = 0; i < 8; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = 0.8 + Math.random() * w.radius;
