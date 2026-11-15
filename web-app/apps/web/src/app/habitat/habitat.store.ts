@@ -75,6 +75,8 @@ export class HabitatStore {
   readonly hover = signal<HabitatInteraction | null>(null);
   readonly selection = signal<HabitatInteraction | null>(null);
   readonly openPanel = signal<HabitatPanel | null>(null);
+  /** A tab the next panel should open on (e.g. the store's Messages tab); that panel takes it once. */
+  readonly panelTab = signal<string | null>(null);
   /** Something is open over the room (a panel, plant close-up or picker), so NPCs shouldn't walk over to chat. */
   readonly busy = computed(() => !!(this.openPanel() || this.garden.closeupId() || this.garden.pickerTile()));
   /** Debug aid for the layout checkpoint: outline zones and footprints. */
@@ -230,6 +232,21 @@ export class HabitatStore {
     }
     return null;
   });
+
+  /**
+   * Go to a station from inside another panel: close it, walk over (as tapping the station in
+   * the room does) and open it, on `tab` if given.
+   */
+  visit(panel: HabitatPanel, tab?: string): void {
+    const target: HabitatInteraction = { type: panel };
+    this.openPanel.set(null);
+    this.panelTab.set(tab ?? null);
+    this.selection.set(target);
+    const open = () => this.openPanel.set(panel);
+    const rect = this.targetRect(target);
+    if (rect) this.player.approach(rect, open);
+    else open();
+  }
 
   /** Footprint of whatever an interaction refers to (what the player walks up to). */
   targetRect(i: HabitatInteraction | null): TileRect | null {

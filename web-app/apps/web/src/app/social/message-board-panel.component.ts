@@ -3,6 +3,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { NOTE_RULES, POST_IT, owned, type SocialNote } from '@garden/shared';
 import { NotesStore } from './notes.store';
 import { GardenStore } from '../garden/garden.store';
+import { HabitatStore } from '../habitat/habitat.store';
 import { NOTE_COLORS } from '../garden/game/notice-board';
 import { timeAgo } from '../health/format';
 import { plural } from '../shared/format';
@@ -14,7 +15,8 @@ const CONFIRM_MS = 4000;
  * The board up close: a cork "screen" inside the station console, every note pinned as a
  * post-it in two rows (newest first; scrolling sideways only past what fits), and a tray to
  * write one. Post-its show the start of a note; tapping one opens it full size.
- * Writing uses a post-it from the household inventory (the Supply Store sells them).
+ * Writing uses a post-it from the household inventory; when there are none, the main button
+ * takes you to the Supply Store's Messages tab.
  * Opening it marks notes as read.
  */
 @Component({
@@ -90,12 +92,15 @@ const CONFIRM_MS = 4000;
           <button type="button" class="cancel soft-btn btn-press" (click)="cancel()">Cancel</button>
           <button type="submit" class="chunky-btn btn-press" [disabled]="!draft().trim() || busy()">📌 Pin note</button>
         </div>
+      } @else if (postIts()) {
+        <button type="button" class="chunky-btn btn-press write" (click)="writing.set(true)">✏️ Write a note</button>
       } @else {
-        <button type="button" class="chunky-btn btn-press write" [disabled]="!postIts()" (click)="writing.set(true)">✏️ Write a note</button>
+        <!-- Out of post-its: the button takes you to where they are (walks over, opens the store's Messages tab). -->
+        <button type="button" class="chunky-btn btn-press write" (click)="habitat.visit('STORE_SELECTED', 'MESSAGES')">🛒 Get post-its at the Supply Store</button>
       }
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-bark/75">
         <span class="font-bold text-bark-dark">📝 {{ postItsLabel() }}</span>
-        <span role="status" class="min-w-0">{{ status() }}</span>
+        <span role="status" class="min-w-0" [class.out]="!postIts()">{{ status() }}</span>
         <span class="ml-auto tabular-nums" [class.font-bold]="draft().length > max - 20">{{ draft().length }} / {{ max }}</span>
       </div>
     </form>
@@ -261,6 +266,7 @@ const CONFIRM_MS = 4000;
     }
     textarea:focus-visible { outline: 2px solid var(--color-steel); outline-offset: 1px; }
     .cancel { padding: 0.4rem 1rem; }
+    .out { color: var(--color-alert); font-weight: 800; }
 
     /* Same breakpoint as the short: variant in styles.css: fit landscape phones. */
     @media (max-height: 500px) {
@@ -284,6 +290,7 @@ const CONFIRM_MS = 4000;
 export class MessageBoardPanelComponent {
   protected readonly notes = inject(NotesStore);
   protected readonly garden = inject(GardenStore);
+  protected readonly habitat = inject(HabitatStore);
   private readonly injector = inject(Injector);
   protected readonly max = NOTE_RULES.maxLength;
   protected readonly ago = timeAgo;
@@ -303,7 +310,7 @@ export class MessageBoardPanelComponent {
 
   private readonly message = signal('');
   /** Out of post-its: say where to get more. Otherwise the latest result. */
-  protected readonly status = computed(() => (this.postIts() ? this.message() : 'Out of post-its. The Supply Store has more.'));
+  protected readonly status = computed(() => (this.postIts() ? this.message() : 'Out of post-its. The Supply Store, in this room, has more.'));
 
   private readonly noteText = viewChild<ElementRef<HTMLTextAreaElement>>('noteText');
   private readonly readerClose = viewChild<ElementRef<HTMLButtonElement>>('readerClose');

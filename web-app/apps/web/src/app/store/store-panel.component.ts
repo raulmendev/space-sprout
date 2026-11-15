@@ -1,6 +1,7 @@
-import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal, untracked } from '@angular/core';
 import { STORE_ITEMS, STORE_SECTIONS, StoreItem, StoreSection, getStoreItem, owned } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
+import { HabitatStore } from '../habitat/habitat.store';
 import { LOCAL_PLAYER } from '../garden/garden.service';
 import { AssetService } from '../shared/assets.service';
 import { moreSeeds, seeds } from '../shared/format';
@@ -165,7 +166,8 @@ export class StorePanelComponent {
   protected readonly garden = inject(GardenStore);
   protected readonly assets = inject(AssetService);
   protected readonly sections = STORE_SECTIONS;
-  protected readonly section = signal<StoreSection>('GARDEN');
+  /** Opens on the tab another panel asked for (the board sends you to Messages), else Gardening. */
+  protected readonly section = signal<StoreSection>(startTab(inject(HabitatStore)));
   /** The item being bought right now: every Buy is disabled until it settles, so nothing is bought twice. */
   protected readonly purchasing = signal<string | null>(null);
   protected readonly feedback = signal<Feedback | null>(null);
@@ -215,4 +217,10 @@ export class StorePanelComponent {
     }
     if (this.feedback()?.itemId) this.feedbackTimer = setTimeout(() => this.feedback.set(null), 4000);
   }
+}
+
+function startTab(habitat: HabitatStore): StoreSection {
+  const tab = untracked(habitat.panelTab);
+  habitat.panelTab.set(null);
+  return STORE_SECTIONS.find((s) => s.id === tab)?.id ?? 'GARDEN';
 }
