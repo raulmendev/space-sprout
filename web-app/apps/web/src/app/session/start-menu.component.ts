@@ -66,7 +66,15 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
                       <span class="sparkle left-2 top-3">✦</span>
                       <span class="sparkle bottom-9 right-2">✦</span>
                     }
-                    <img [src]="assets.url(portrait(slot.suit))" alt="" draggable="false" class="pixelated h-[68%] max-h-36 w-auto" />
+                    <!-- A skeleton until the real portrait has loaded (not the generic placeholder first). -->
+                    @let src = assets.manifestLoaded() ? assets.url(portrait(slot.suit)) : null;
+                    @let shown = !!src && shownPortraits().has(src);
+                    @if (!shown) {
+                      <span class="portrait-skeleton h-[68%] max-h-36"></span>
+                    }
+                    @if (src) {
+                      <img [src]="src" alt="" draggable="false" class="pixelated h-[68%] max-h-36 w-auto" [class.hidden]="!shown" (load)="portraitShown(src)" (error)="portraitShown(src)" />
+                    }
                     <span class="slot-name">{{ label(slot.suit) }} suit</span>
                   </div>
                 }
@@ -163,6 +171,15 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
                     </li>
                   }
                 </ul>
+              </div>
+            } @else if (lookingUp()) {
+              <div class="flex flex-col gap-1 short:gap-0.5" role="status">
+                <span class="text-xs font-bold text-bark">Looking up the station…</span>
+                <div class="flex gap-1.5 pb-1 short:pb-0.5" aria-hidden="true">
+                  @for (w of [5.5, 7, 4.5]; track $index) {
+                    <span class="chip-skeleton" [style.width.rem]="w"></span>
+                  }
+                </div>
               </div>
             }
           </div>
@@ -297,6 +314,26 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
     .sparkle { position: absolute; color: var(--color-sun); font-size: 0.9rem; text-shadow: 0 0 2px var(--color-bark); opacity: var(--f); }
     @media (prefers-reduced-motion: reduce) { .slot.smooth { transition: none; } }
 
+    /* Loading stand-ins: an astronaut silhouette (helmet over body) and member chips, shimmering. */
+    .portrait-skeleton, .chip-skeleton {
+      background: linear-gradient(100deg, var(--color-parchment) 35%, #fff8e8 50%, var(--color-parchment) 65%) 100% 0 / 250% 100%;
+      animation: skeleton 1.4s ease-in-out infinite;
+    }
+    .portrait-skeleton {
+      aspect-ratio: 36 / 50;
+      filter: brightness(0.88);
+      /* A big round helmet, a narrower suit, two boots. */
+      mask:
+        radial-gradient(closest-side, #000 96%, transparent) 50% 0 / 84% 60% no-repeat,
+        radial-gradient(closest-side, #000 96%, transparent) 50% 82% / 66% 42% no-repeat,
+        linear-gradient(#000 0 0) 28% 100% / 20% 17% no-repeat,
+        linear-gradient(#000 0 0) 72% 100% / 20% 17% no-repeat;
+    }
+    .chip-skeleton { display: block; height: 1.75rem; border-radius: 999px; border: 2px solid var(--color-parchment); background-color: var(--color-cream); }
+    @keyframes skeleton { to { background-position: 0 0; } }
+    /* The global rule only shortens animations; a looping one would flicker. */
+    @media (prefers-reduced-motion: reduce) { .portrait-skeleton, .chip-skeleton { animation: none; } }
+
     .start-btn { font-family: var(--font-pixel); font-size: 1.5rem; padding-block: 0.6rem; }
     @media (max-height: 500px) { .start-btn { font-size: 1.25rem; padding-block: 0.35rem; } }
 
@@ -345,7 +382,11 @@ export class StartMenuComponent {
   protected readonly keyError = signal('');
   /** Who this page is playing as, marked "(you)" in the list. */
   protected readonly me = SAVED_PROFILE ? CURRENT_USER.id : null;
+  /** A whole key was typed and the station hasn't answered yet. */
+  protected readonly lookingUp = signal(false);
   private lookups = 0;
+  /** Portrait URLs that have finished loading; until then their slot shows a skeleton. */
+  protected readonly shownPortraits = signal<ReadonlySet<string>>(new Set());
   /** Set once Start is pressed without a name; cleared as soon as one is typed. */
   private readonly triedStart = signal(false);
   protected readonly showNameError = computed(() => this.triedStart() && !this.name().trim());
@@ -371,13 +412,20 @@ export class StartMenuComponent {
     const n = ++this.lookups;
     this.aboard.set(null);
     this.keyError.set('');
+    this.lookingUp.set(key.length === STATION_KEY_LENGTH);
     if (key.length !== STATION_KEY_LENGTH) return;
     try {
       const members = await stationMembers(key);
       if (n === this.lookups) this.aboard.set({ key, members });
     } catch (e) {
       if (n === this.lookups) this.keyError.set((e as Error).message);
+    } finally {
+      if (n === this.lookups) this.lookingUp.set(false);
     }
+  }
+
+  protected portraitShown(src: string): void {
+    this.shownPortraits.update((s) => (s.has(src) ? s : new Set(s).add(src)));
   }
 
   /** "That's me": play as someone already in the station (yourself: just carry on). */
