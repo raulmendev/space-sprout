@@ -1,4 +1,4 @@
-import { ROOM_COLS, ROOM_ROWS, RoomId, TileKind, doorAt, getTileKind, propAtTile } from './habitat';
+import { FloorEdges, ROOMS, ROOM_COLS, ROOM_ROWS, RoomId, TileKind, doorAt, getTileKind, propAtTile } from './habitat';
 import type { Point } from '../types/domain';
 import { TileCoord, TileRect, chebyshev } from './geometry';
 
@@ -44,6 +44,73 @@ export function isWalkable(room: RoomId, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < ROOM_COLS && y < ROOM_ROWS && walkableGrid(room)[y * ROOM_COLS + x] === 1;
 }
 
+/** Half-size of a character's feet, in tiles. Small enough to pass 1-tile gaps. */
+export const FOOT = { hw: 0.28, hh: 0.18 } as const;
+
+/**
+ * How far a character's sprite reaches past its feet: sideways, and down (the drawn feet
+ * and shadow sit a little below the position). Props only stop the feet; walls keep the
+ * whole sprite off them.
+ */
+const BODY = { hw: 0.5, below: 0.25 } as const;
+
+const OUTER_WALLS: FloorEdges = { left: 1, top: 0, right: ROOM_COLS - 1, bottom: ROOM_ROWS - 1 };
+
+/** Do the feet, at height `y`, only touch rows where this side wall has a door? */
+function inDoorway(room: RoomId, side: 'W' | 'E', y: number): boolean {
+  const x = side === 'W' ? 0 : ROOM_COLS - 1;
+  return !!doorAt(room, x, Math.floor(y - FOOT.hh)) && !!doorAt(room, x, Math.floor(y + FOOT.hh));
+}
+
+/** Where the feet can go at height `y` with the sprite clear of the painted walls. */
+function footRange(room: RoomId, y: number) {
+  const f = ROOMS[room].floor ?? OUTER_WALLS;
+  return {
+    minX: inDoorway(room, 'W', y) ? -Infinity : f.left + BODY.hw,
+    maxX: inDoorway(room, 'E', y) ? Infinity : f.right - BODY.hw,
+    minY: f.top + FOOT.hh,
+    maxY: f.bottom - BODY.below,
+  };
+}
+
+/** Can feet at `p` stand there without the sprite overlapping a wall? */
+export function clearOfWalls(room: RoomId, p: Point): boolean {
+  const r = footRange(room, p.y);
+  return p.x >= r.minX && p.x <= r.maxX && p.y >= r.minY && p.y <= r.maxY;
+}
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+
+/**
+ * Where a character stands on a tile: its centre, pulled in off any wall painted over
+ * it. Null if the painted wall covers the whole tile.
+ */
+export function standPoint(room: RoomId, t: TileCoord): Point | null {
+  const rows = footRange(room, t.y + 0.5);
+  const y = clamp(t.y + 0.5, rows.minY, rows.maxY);
+  const { minX, maxX } = footRange(room, y);
+  const x = clamp(t.x + 0.5, minX, maxX);
+  return x >= t.x && x < t.x + 1 && y >= t.y && y < t.y + 1 ? { x, y } : null;
+}
+
+/** Which tiles routes may pass through: walkable, and not hidden under a painted wall. */
+const routeGrids = new Map<RoomId, Uint8Array>();
+function routeGrid(room: RoomId): Uint8Array {
+  let grid = routeGrids.get(room);
+  if (!grid) {
+    const walkable = walkableGrid(room);
+    grid = new Uint8Array(ROOM_COLS * ROOM_ROWS);
+    for (let y = 0; y < ROOM_ROWS; y++) {
+      for (let x = 0; x < ROOM_COLS; x++) {
+        const i = y * ROOM_COLS + x;
+        grid[i] = +(walkable[i] === 1 && !!standPoint(room, { x, y }));
+      }
+    }
+    routeGrids.set(room, grid);
+  }
+  return grid;
+}
+
 const DIRS = [
   [1, 0],
   [-1, 0],
@@ -56,7 +123,7 @@ const index = (t: TileCoord) => t.y * ROOM_COLS + t.x;
 /** Breadth-first search within one room. Returns the steps after `from`, or null. */
 function search(room: RoomId, from: TileCoord, isGoal: (t: TileCoord) => boolean): TileCoord[] | null {
   if (isGoal(from)) return [];
-  const walkable = walkableGrid(room);
+  const walkable = routeGrid(room);
 
   const prev = new Map<number, TileCoord | null>([[index(from), null]]);
   const queue: TileCoord[] = [from];
