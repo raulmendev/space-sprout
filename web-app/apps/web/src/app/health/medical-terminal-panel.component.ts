@@ -2,142 +2,314 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { HealthMetric, METRICS, METRIC_ORDER, dayOf, validateMeasurement } from '@garden/shared';
 import { HealthStore } from './health.store';
-import { MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } from './format';
+import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } from './format';
 
-/** Measurement collection: simulated wearable sync, or manual entry of any subset. */
+/**
+ * Measurement collection: simulated wearable sync, or manual entry of any subset.
+ * Drawn as the cream "screen" inside the station's steel console frame.
+ */
 @Component({
   selector: 'app-medical-terminal-panel',
   imports: [NgTemplateOutlet],
   template: `
-    <div role="tablist" aria-label="How to add readings" class="flex gap-1 rounded-lg bg-parchment p-1 text-sm font-bold">
-      <button type="button" role="tab" class="flex-1 rounded-md px-2 py-1" [class.bg-cream]="tab() === 'sync'" [attr.aria-selected]="tab() === 'sync'" (click)="tab.set('sync')">Wearable sync</button>
-      <button type="button" role="tab" class="flex-1 rounded-md px-2 py-1" [class.bg-cream]="tab() === 'manual'" [attr.aria-selected]="tab() === 'manual'" (click)="tab.set('manual')">Enter manually</button>
+    <div role="tablist" aria-label="How to add readings" class="grid grid-cols-2 gap-2">
+      <button type="button" role="tab" class="tab btn-press" [attr.aria-selected]="tab() === 'sync'" (click)="tab.set('sync')">
+        <span aria-hidden="true">⌚</span>Wearable sync
+      </button>
+      <button type="button" role="tab" class="tab btn-press" [attr.aria-selected]="tab() === 'manual'" (click)="tab.set('manual')">
+        <span aria-hidden="true">✏️</span>Enter manually
+      </button>
     </div>
 
     @if (tab() === 'sync') {
-      <div class="grid gap-3 short:gap-2 @lg:grid-cols-2">
-        <div class="flex flex-col gap-2 rounded-lg bg-parchment/70 p-3 short:p-2.5">
-          <p class="flex flex-wrap items-center gap-2 text-sm">
-            <span aria-hidden="true">⌚</span><b>{{ health.wearable.label }}</b>
-            <span class="rounded bg-night/10 px-1.5 text-[11px] font-bold uppercase tracking-wide">Demo data</span>
-          </p>
-          <p class="text-xs text-bark/70">
-            @if (health.lastSyncAt(); as at) { Last synced {{ ago(at) }} } @else { Not synced yet }
-          </p>
-          <button
-            type="button"
-            class="w-full rounded-lg border-2 border-bark-dark bg-sun px-3 py-2 font-bold enabled:hover:brightness-105 disabled:opacity-60 short:py-1.5"
-            [disabled]="health.syncing()"
-            (click)="health.syncWearable()"
-          >{{ health.syncing() ? 'Syncing…' : 'Sync now' }}</button>
+      <div class="grid gap-3 short:gap-2 @lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+        <div class="card flex flex-col gap-2.5 short:gap-2">
+          <div class="flex gap-3">
+            <!-- The (simulated) wearable, drawn in the illustrated style: thick outline, soft shading. -->
+            <div class="watch-tile" aria-hidden="true">
+              <svg viewBox="0 0 80 100" class="h-full w-full">
+                <path class="ink" d="M26 4h28l3 22H23z" fill="#4a4f6e" stroke-width="3" stroke-linejoin="round" />
+                <path class="ink" d="M23 74h34l-3 22H26z" fill="#4a4f6e" stroke-width="3" stroke-linejoin="round" />
+                <path d="M30 8v14M40 8v14M50 8v14M30 78v14M40 78v14M50 78v14" stroke="#3a3f5c" stroke-width="2" />
+                <rect class="ink" x="14" y="22" width="52" height="56" rx="12" fill="#9aa2c4" stroke-width="3" />
+                <rect class="ink" x="66" y="40" width="5" height="12" rx="2" fill="#9aa2c4" stroke-width="2.5" />
+                <rect class="ink" x="20" y="28" width="40" height="44" rx="8" fill="#1d2b45" stroke-width="2" />
+                <path d="M23 50h8l3-7 5 15 4-12 3 4h11" fill="none" stroke="#6fe0e8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                  [class.pulse]="health.syncing()" />
+                <path d="M24 31h12" stroke="#ffffff" stroke-opacity=".25" stroke-width="3" stroke-linecap="round" />
+              </svg>
+              <span class="spark left-1.5 top-2">✦</span>
+              <span class="spark bottom-3 right-1.5 text-[9px]">✦</span>
+            </div>
+            <div class="flex min-w-0 flex-1 flex-col gap-1">
+              <p class="font-bold leading-tight short:truncate short:text-[13px]">{{ health.wearable.label }}</p>
+              <p><span class="rounded-md bg-dusk/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-dusk">Demo data</span></p>
+              <p class="flex items-center gap-1.5 text-sm font-bold text-leaf-dark">
+                <span class="size-2.5 rounded-full border border-leaf-dark bg-leaf" [class.animate-pulse]="health.syncing()"></span>
+                {{ health.syncing() ? 'Syncing…' : 'Connected' }}
+              </p>
+              <p class="border-t border-bark/15 pt-1 text-xs text-bark/70">
+                @if (health.lastSyncAt(); as at) { Last synced {{ ago(at) }} } @else { Not synced yet }
+              </p>
+            </div>
+          </div>
+          <button type="button" class="chunky-btn btn-press" [disabled]="health.syncing()" (click)="health.syncWearable()">
+            <svg viewBox="0 0 24 24" class="size-5" [class.animate-spin]="health.syncing()" aria-hidden="true">
+              <path d="M20 12a8 8 0 0 1-14.3 4.9M4 12a8 8 0 0 1 14.3-4.9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
+              <path d="M19.5 3v4.5H15M4.5 21v-4.5H9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            {{ health.syncing() ? 'Syncing…' : 'Sync now' }}
+          </button>
           <ng-container [ngTemplateOutlet]="reward" />
+          <ng-container [ngTemplateOutlet]="privacy" />
         </div>
 
-        <section class="rounded-lg border-2 border-bark/15 p-3 short:p-2.5" aria-labelledby="today-title">
-          <h3 id="today-title" class="text-sm font-bold">Today's check-in</h3>
-          <ul class="mt-1 flex flex-col gap-1 text-sm">
+        <section class="card flex flex-col gap-2 short:gap-1.5" aria-labelledby="today-title">
+          <h3 id="today-title" class="flex items-center gap-2 font-bold short:text-sm">
+            <span aria-hidden="true">📅</span>Today's check-in
+            <span class="stripes ml-auto h-3 w-10" aria-hidden="true"></span>
+          </h3>
+          <ul class="flex flex-col gap-1 text-sm short:gap-0.5">
             @for (metric of order; track metric) {
               @let reading = health.today()[metric];
-              <li>
-                <div class="flex items-center justify-between gap-2">
-                  <span>{{ label(metric) }}</span>
-                  @if (reading) {
-                    <span class="font-bold text-leaf-dark">✓ {{ value(reading) }}<span class="ml-1 text-[10px] font-normal text-bark/60" [title]="source[reading.source]">{{ sourceShort[reading.source] }}</span></span>
-                  } @else {
-                    <span class="rounded bg-sun/50 px-1.5 text-xs font-bold">Missing</span>
+              <li class="row">
+                <span class="row-icon" aria-hidden="true">{{ icon[metric] }}</span>
+                <span class="flex-1 font-semibold">{{ label(metric) }}</span>
+                @if (reading) {
+                  <span class="font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
+                  <span class="w-10 text-[10px] text-bark/60" [title]="source[reading.source]">{{ sourceShort[reading.source] }}</span>
+                } @else {
+                  @if (metric !== 'MOOD' && syncedToday()) {
+                    <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it</button>
                   }
-                </div>
-                @if (!reading) {
-                  @if (metric === 'MOOD') {
-                    <p class="mt-0.5 text-xs text-bark/80">The wearable can't read mood. How are you feeling?</p>
-                    <div class="mt-1 flex justify-between gap-1" role="group" aria-label="Quick mood check-in">
-                      @for (mood of moods; track mood.value) {
-                        <button
-                          type="button"
-                          class="flex flex-1 flex-col items-center rounded-md border-2 border-transparent bg-parchment/70 py-0.5 text-[10px] hover:border-bark/40 focus-visible:outline-2 focus-visible:outline-sun"
-                          [attr.aria-label]="'Mood: ' + mood.label"
-                          (click)="quickMood(mood.value)"
-                        ><span class="text-lg leading-tight" aria-hidden="true">{{ mood.face }}</span>{{ mood.label }}</button>
-                      }
-                    </div>
-                  } @else if (syncedToday()) {
-                    <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it manually</button>
-                  }
+                  <span class="rounded-md bg-sun/60 px-1.5 text-xs font-extrabold">Missing</span>
                 }
               </li>
             }
           </ul>
-          @if (allDone()) {
-            <p class="mt-1.5 text-sm font-bold text-leaf-dark">All done for today 🌱</p>
+          @if (!health.today()['MOOD']) {
+            <div class="rounded-lg bg-parchment/40 p-1.5">
+              <p class="px-1 text-xs text-bark/80"><span class="short:hidden">The wearable can't read mood. </span>How are you feeling?</p>
+              <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: true }" />
+            </div>
+          } @else if (allDone()) {
+            <p class="text-sm font-bold text-leaf-dark">All done for today 🌱</p>
           }
         </section>
       </div>
     } @else {
       <form class="grid gap-3 short:gap-2 @lg:grid-cols-2" (submit)="$event.preventDefault(); save()">
-        <div class="flex flex-col gap-2">
+        <div class="card flex flex-col gap-1.5">
           @for (m of numberMetrics; track m.id) {
-            <label class="flex items-center justify-between gap-2 text-sm">
-              <span class="font-bold">{{ m.label }}</span>
-              <span class="flex items-center gap-1">
-                <input
-                  type="number"
-                  inputmode="decimal"
-                  class="w-20 rounded-md border-2 border-bark/30 bg-cream px-2 py-1 text-right focus-visible:outline-2 focus-visible:outline-sun short:py-0.5"
-                  [min]="m.min" [max]="m.max" [step]="m.step"
-                  [value]="draft()[m.id] ?? ''"
-                  (input)="setDraft(m.id, $any($event.target).value)"
-                  [attr.aria-invalid]="!!errors()[m.id]"
-                  [attr.aria-describedby]="'err-' + m.id"
-                />
-                <span class="w-7 text-xs text-bark/70">{{ m.unit }}</span>
-              </span>
+            <label class="row">
+              <span class="row-icon" aria-hidden="true">{{ icon[m.id] }}</span>
+              <span class="flex-1 whitespace-nowrap text-sm font-semibold">{{ m.label }}</span>
+              <input
+                type="number"
+                inputmode="decimal"
+                class="w-20 min-w-0 rounded-md border-2 border-bark/30 bg-cream px-2 py-1 text-right focus-visible:outline-2 focus-visible:outline-sun short:w-16 short:py-0.5"
+                [min]="m.min" [max]="m.max" [step]="m.step"
+                [value]="draft()[m.id] ?? ''"
+                (input)="setDraft(m.id, $any($event.target).value)"
+                [attr.aria-invalid]="!!errors()[m.id]"
+                [attr.aria-describedby]="'err-' + m.id"
+              />
+              <span class="w-7 text-xs text-bark/70">{{ m.unit }}</span>
             </label>
-            @if (errors()[m.id]; as e) { <p [id]="'err-' + m.id" class="-mt-1 text-right text-xs font-bold text-[#a33]">{{ e }}</p> }
+            @if (errors()[m.id]; as e) { <p [id]="'err-' + m.id" class="-mt-1 text-right text-xs font-bold text-alert">{{ e }}</p> }
           }
           <p class="text-xs text-bark/70">Fill in any of these; you don't need all of them.</p>
         </div>
-        <div class="flex flex-col gap-2">
-          <fieldset class="text-sm">
-            <legend class="font-bold">Mood</legend>
-            <div class="mt-1 flex justify-between gap-1">
-              @for (mood of moods; track mood.value) {
-                <button
-                  type="button"
-                  class="flex flex-1 flex-col items-center rounded-md border-2 py-1 text-[11px] short:py-0.5"
-                  [class]="draft()['MOOD'] === '' + mood.value ? 'border-bark-dark bg-sun/60' : 'border-transparent bg-parchment/70'"
-                  [attr.aria-pressed]="draft()['MOOD'] === '' + mood.value"
-                  (click)="setDraft('MOOD', draft()['MOOD'] === '' + mood.value ? '' : '' + mood.value)"
-                ><span class="text-xl leading-tight" aria-hidden="true">{{ mood.face }}</span>{{ mood.label }}</button>
-              }
-            </div>
+        <div class="card flex flex-col gap-2">
+          <fieldset>
+            <legend class="flex items-center gap-2 font-bold"><span aria-hidden="true">{{ icon['MOOD'] }}</span>Mood</legend>
+            <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: false }" />
           </fieldset>
-          <button type="submit" class="rounded-lg border-2 border-bark-dark bg-sun px-3 py-2 font-bold disabled:opacity-50 short:py-1.5" [disabled]="!canSave()">Save check-in</button>
+          <button type="submit" class="chunky-btn btn-press" [disabled]="!canSave()">Save check-in</button>
           <ng-container [ngTemplateOutlet]="reward" />
+          <ng-container [ngTemplateOutlet]="privacy" />
         </div>
       </form>
     }
 
+    <!-- Mood faces. Quick: one tap saves the mood. Otherwise: toggles the mood in the manual draft. -->
+    <ng-template #moodPicker let-quick>
+      <div class="mt-1 grid grid-cols-5 gap-1" [attr.role]="quick ? 'group' : null" [attr.aria-label]="quick ? 'Quick mood check-in' : null">
+        @for (mood of moods; track mood.value) {
+          <button
+            type="button"
+            class="mood btn-press"
+            [attr.aria-label]="quick ? 'Mood: ' + mood.label : null"
+            [attr.aria-pressed]="quick ? null : draft()['MOOD'] === '' + mood.value"
+            (click)="quick ? quickMood(mood.value) : toggleMood(mood.value)"
+          ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ mood.face }}</span>{{ mood.label }}</button>
+        }
+      </div>
+    </ng-template>
+
+    <!-- Inside a card's spare space, so it costs no height on short screens. -->
+    <ng-template #privacy>
+      <p class="mt-auto text-[11px] leading-tight text-bark/70">🔒 Only you can see your health data.</p>
+    </ng-template>
+
     <!-- The checklist already shows the values; the result is just the seeds. -->
     <ng-template #reward>
       @if (health.lastResult(); as r) {
-        <p class="rounded-md border-2 border-leaf/50 bg-leaf/10 px-2 py-1 text-sm font-bold" role="status">
-          @if (r.earned > 0) { +{{ r.earned }} seeds for checking in 🌱 }
-          @else if (r.alreadyRewarded) { Saved. Today's seeds for these are already yours 🌱 }
+        <p class="reward" role="status">
+          <span class="text-xl short:text-base" aria-hidden="true">🌱</span>
+          @if (r.earned > 0) { <span>+{{ r.earned }} seeds<span class="short:hidden"> for checking in</span><span class="hidden short:inline"> earned</span></span> }
+          @else if (r.alreadyRewarded) { Saved. Today's seeds for these are already yours }
           @else { Saved. }
         </p>
+      } @else {
+        <p class="reward muted"><span class="text-xl short:text-base" aria-hidden="true">🌱</span>Check in to earn seeds</p>
       }
     </ng-template>
   `,
   host: { class: 'flex flex-col gap-3 short:gap-2' },
+  styles: `
+    /* The cream screen set into the station's console bezel. */
+    :host {
+      --line: color-mix(in srgb, var(--color-bark) 22%, transparent);
+      --stripe: color-mix(in srgb, var(--color-steel) 25%, transparent); /* the bezel's cream stripes would vanish on the screen */
+      color: var(--color-bark-dark);
+      background: var(--color-cream);
+      border: 3px solid var(--color-steel-dark);
+      border-radius: 10px;
+      padding: 12px;
+      box-shadow: inset 0 3px 0 rgb(0 0 0 / 0.08);
+    }
+
+    .tab {
+      --press: color-mix(in srgb, var(--color-bark) 30%, transparent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0.75rem;
+      background: var(--color-parchment);
+      font-weight: 800;
+    }
+    .tab[aria-selected='true'] { --press: var(--color-bark-dark); background: var(--color-sun); }
+    .tab:hover, .chunky-btn:enabled:hover { filter: brightness(1.04); }
+
+    /* Riveted card: a screw in each corner. */
+    .card {
+      --screw: radial-gradient(circle, color-mix(in srgb, var(--color-bark) 45%, transparent) 45%, transparent 55%);
+      padding: 12px;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      background:
+        var(--screw) left 4px top 4px / 7px 7px no-repeat,
+        var(--screw) right 4px top 4px / 7px 7px no-repeat,
+        var(--screw) left 4px bottom 4px / 7px 7px no-repeat,
+        var(--screw) right 4px bottom 4px / 7px 7px no-repeat,
+        #fffaf0;
+    }
+
+    /* Illustration colours for the watch art; the outline uses the console ink. */
+    .watch-tile {
+      position: relative;
+      flex-shrink: 0;
+      width: 6rem;
+      height: 7rem;
+      padding: 6px 10px;
+      border: 2px solid #8fb2d9;
+      border-radius: 10px;
+      background: linear-gradient(160deg, #d6e8f8, #a9c8ec);
+    }
+    .ink { stroke: var(--color-steel-dark); }
+    .spark { position: absolute; color: #fff; font-size: 12px; line-height: 1; }
+    .pulse { animation: pulse 0.8s ease-in-out infinite alternate; }
+    @keyframes pulse { to { stroke: #fff; } }
+
+    .chunky-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.5rem 0.75rem;
+      background: var(--color-sun);
+      font-weight: 800;
+      font-size: 1.05rem;
+    }
+    .chunky-btn:disabled { opacity: 0.55; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding-right: 0.5rem;
+      border: 1px solid color-mix(in srgb, var(--color-bark) 12%, transparent);
+      border-radius: 8px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .row-icon {
+      display: grid;
+      place-items: center;
+      align-self: stretch;
+      width: 2rem;
+      min-height: 1.9rem;
+      background: color-mix(in srgb, var(--color-parchment) 60%, transparent);
+      font-size: 1rem;
+    }
+
+    .mood {
+      --press: color-mix(in srgb, var(--color-bark) 15%, transparent);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 0.35rem 0;
+      background: #fff;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .mood:hover { background: color-mix(in srgb, var(--color-sun) 30%, transparent); }
+    .mood[aria-pressed='true'] { --press: var(--color-bark-dark); background: color-mix(in srgb, var(--color-sun) 70%, transparent); }
+
+    .reward {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.75rem;
+      border: 2px solid var(--color-leaf);
+      border-radius: 10px;
+      background: color-mix(in srgb, var(--color-leaf) 12%, transparent);
+      font-weight: 800;
+      font-size: 0.9rem;
+    }
+    .reward.muted {
+      border-style: dashed;
+      border-color: color-mix(in srgb, var(--color-leaf) 50%, transparent);
+      font-weight: 700;
+      color: color-mix(in srgb, var(--color-bark-dark) 70%, transparent);
+    }
+
+    /* Same breakpoint as the short: variant in styles.css: compact everything to fit landscape phones. */
+    @media (max-height: 500px) {
+      :host { padding: 8px; }
+      .tab { padding: 0.2rem 0.5rem; }
+      .card { padding: 8px 10px; }
+      .watch-tile { width: 3.5rem; height: 4.5rem; padding: 3px 4px; }
+      .chunky-btn { padding: 0.3rem 0.75rem; font-size: 1rem; }
+      .row-icon { min-height: 1.45rem; }
+      .mood { padding: 0.1rem 0; font-size: 10px; }
+      .reward { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
+    }
+  `,
 })
 export class MedicalTerminalPanelComponent {
   protected readonly health = inject(HealthStore);
   protected readonly tab = signal<'sync' | 'manual'>('sync');
   protected readonly moods = MOODS;
+  protected readonly icon = METRIC_ICON;
   protected readonly source = SOURCE_LABEL;
   protected readonly sourceShort = SOURCE_SHORT;
   protected readonly order = METRIC_ORDER;
-  /** Only offer "Enter it manually" for wearable metrics once today's sync has run (before that, Sync is the action). */
+  /** Only offer "Enter it" for wearable metrics once today's sync has run (before that, Sync is the action). */
   protected readonly syncedToday = computed(() => {
     const at = this.health.lastSyncAt();
     return !!at && dayOf(at) === dayOf(new Date().toISOString());
@@ -162,6 +334,10 @@ export class MedicalTerminalPanelComponent {
 
   protected setDraft(metric: HealthMetric, raw: string): void {
     this.draft.update((d) => ({ ...d, [metric]: raw }));
+  }
+
+  protected toggleMood(value: number): void {
+    this.setDraft('MOOD', this.draft()['MOOD'] === String(value) ? '' : String(value));
   }
 
   protected async save(): Promise<void> {
