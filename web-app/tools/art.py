@@ -128,20 +128,30 @@ def seat_shadows(im: Image.Image) -> Image.Image:
     return out
 
 
-def add_shadow(im: Image.Image) -> Image.Image:
+def add_shadow(im: Image.Image, feet: bool = False) -> Image.Image:
     """Draw a contact shadow under a trimmed sprite, in the style of the furniture pack: the same
     dark purple in stepped rings (darkest in the middle), a flat ellipse centred on the sprite's
-    bottom edge and drawn behind it. The canvas grows to fit the half that shows below."""
+    bottom edge and drawn behind it. The canvas grows to fit what shows below.
+
+    `feet`: centre it on the lowest row the piece spans most of its width (a desk's feet) rather
+    than its lowest pixel, so smaller bits that reach lower (a stool in front) stand in it too."""
     im = im.convert('RGBA')
     w, h = im.size
     sw, sh = round(w * 0.9), max(4, round(min(w * 0.16, h * 0.14)))  # wide pieces stay flat
-    out = Image.new('RGBA', (w, h + sh // 2), (0, 0, 0, 0))
+    cx, cy = w / 2, h - 1
+    if feet:
+        alpha = im.split()[3]
+        for y in range(h - 1, -1, -1):
+            box = alpha.crop((0, y, w, y + 1)).getbbox()
+            if box and box[2] - box[0] >= w * 0.6:
+                cy = y
+                break
+    out = Image.new('RGBA', (w, max(h, cy + sh // 2 + 1)), (0, 0, 0, 0))  # h + sh // 2 without feet
     shadow = Image.new('RGBA', out.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(shadow)
-    cx, cy = w / 2, h - 1
-    for scale, alpha in ((1.0, 32), (0.82, 78), (0.62, 128), (0.42, 169)):
+    for scale, a in ((1.0, 32), (0.82, 78), (0.62, 128), (0.42, 169)):
         rx, ry = sw * scale / 2, sh * scale / 2
-        draw.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), fill=(52, 31, 79, alpha))
+        draw.ellipse((cx - rx, cy - ry, cx + rx, cy + ry), fill=(52, 31, 79, a))
     out.alpha_composite(shadow)
     out.alpha_composite(im, (0, 0))
     return out

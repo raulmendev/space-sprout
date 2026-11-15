@@ -385,8 +385,9 @@ export class HabitatScene extends Phaser.Scene {
     }
   }
 
-  /** Phaser's per-frame hook: advance every animated character and keep the robots hovering. */
+  /** Phaser's per-frame hook: advance every animated character and keep the robots hovering; play the room's windows (still under reduced motion). */
   override update(): void {
+    if (!this.reducedMotion) this.ground.forEach((g) => this.showFrame(g));
     for (const [id, img] of this.actors) {
       this.showFrame(img);
       this.applyHover(id, img);

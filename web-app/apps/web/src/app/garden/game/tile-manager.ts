@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { ROOM_COLS, ROOM_ROWS, RoomId, TILE_SIZE, TileCoord, TileRect, getTileKind } from '@garden/shared';
-import { getAsset, roomTextureKey, tileTextureKey } from './asset-registry';
+import { ROOM_WINDOWS, getAsset, roomTextureKey, roomWindowKey, tileTextureKey } from './asset-registry';
 
 export type { TileCoord, TileRect };
 
@@ -47,7 +47,10 @@ export class TileManager {
   drawGround(room: RoomId, depth: number): Phaser.GameObjects.Image[] {
     // The room's painted picture, when the design team has delivered one; else tile by tile.
     const picture = roomTextureKey(room);
-    if (this.scene.textures.exists(picture)) return [fitToGame(this.scene.add.image(0, 0, picture)).setOrigin(0).setDepth(depth)];
+    if (this.scene.textures.exists(picture)) {
+      const windows = this.drawWindows(room, depth + 1);
+      return [fitToGame(this.scene.add.image(0, 0, picture)).setOrigin(0).setDepth(depth), ...(windows ? [windows] : [])];
+    }
     const images: Phaser.GameObjects.Image[] = [];
     for (let y = 0; y < ROOM_ROWS; y++) {
       for (let x = 0; x < ROOM_COLS; x++) {
@@ -56,6 +59,16 @@ export class TileManager {
       }
     }
     return images;
+  }
+
+  /** The room's animated windows over its picture; the scene plays the frames in its `anim` data. */
+  private drawWindows(room: RoomId, depth: number): Phaser.GameObjects.Image | null {
+    const spec = ROOM_WINDOWS[room];
+    if (!spec) return null;
+    const frames = Array.from({ length: spec.frames }, (_, i) => roomWindowKey(room, i));
+    if (!frames.every((key) => this.scene.textures.exists(key))) return null;
+    const anim = { frames, fps: 1000 / spec.frameMs, loop: true, startedAt: performance.now() };
+    return fitToGame(this.scene.add.image(spec.at[0], spec.at[1], frames[0])).setOrigin(0).setDepth(depth).setData('anim', anim);
   }
 
   toTile(px: number, py: number): TileCoord | null {

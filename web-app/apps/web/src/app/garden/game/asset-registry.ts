@@ -144,6 +144,25 @@ for (const room of Object.keys(ROOMS) as RoomId[]) {
   register(roomTextureKey(room), 'habitat/rooms', [ROOM_COLS * TILE_SIZE, ROOM_ROWS * TILE_SIZE], TERRAIN, null);
 }
 
+/**
+ * Animated windows drawn over a room's picture (tools/import_windows.py prints the entry): frames
+ * played in a loop, top-left at `at` in game pixels. Only the stars twinkle and the planet's glow
+ * pulses. No placeholder: until every frame is delivered the picture's own windows show.
+ */
+export interface RoomWindows {
+  at: [number, number];
+  size: [number, number];
+  frames: number;
+  frameMs: number;
+}
+export const ROOM_WINDOWS: Partial<Record<RoomId, RoomWindows>> = {
+  MEDICAL: { at: [224, 56], size: [320, 56], frames: 8, frameMs: 170 },
+};
+export const roomWindowKey = (room: RoomId, frame: number) => `${roomTextureKey(room)}-window-${frame}`;
+for (const [room, w] of Object.entries(ROOM_WINDOWS) as [RoomId, RoomWindows][]) {
+  for (let i = 0; i < w.frames; i++) register(roomWindowKey(room, i), 'habitat/rooms', w.size, TERRAIN, null);
+}
+
 // ---------------------------------------------------------------- plants
 
 interface PlantVisual {
@@ -232,20 +251,20 @@ interface PropVisual {
 
 /** Keyed by HabitatProp.kind. Sprite size may exceed the footprint (e.g. the watering station). */
 const PROP_VISUALS: Record<string, PropVisual> = {
+  // The delivered desks are one picture for every state (tools/import_props.py STATES).
   MEDICAL_TERMINAL: {
     folder: 'medical/terminal',
-    size: [96, 64],
+    size: [62, 75],
     palette: MEDICAL,
     states: { idle: { badge: '' }, syncing: { badge: '↻' }, complete: { badge: '✓' }, attention: { badge: '!', pulse: true } },
   },
   HEALTH_INSIGHTS: {
     folder: 'medical/insights',
-    size: [96, 64],
+    size: [86, 83],
     palette: MEDICAL,
     states: { idle: { badge: '' }, new_data: { badge: '•' }, active: { badge: '▸' } },
   },
   // Sizes below are the game sizes tools/import_props.py prints: delivered 2x art is drawn at this size (fitToGame).
-  POTTED_PLANT: { folder: 'medical/terminal', size: [45, 73], palette: GARDEN },
   // Notes are separate sprites pinned on it (see notice-board.ts); unread shows as a floating bubble.
   MESSAGE_BOARD: { folder: 'social/board', size: BOARD_SIZE, palette: SOCIAL },
   SUPPLY_STORE: { folder: 'social/store', size: [75, 96], palette: SOCIAL },
@@ -264,6 +283,15 @@ const PROP_VISUALS: Record<string, PropVisual> = {
   PLANTER_RED_FLOWERS: { folder: 'social/decorations', size: [54, 43], palette: GARDEN },
   VINES_LEFT: { folder: 'social/decorations', size: [69, 79], palette: SOCIAL },
   VINES_RIGHT: { folder: 'social/decorations', size: [70, 76], palette: SOCIAL },
+  // Medical Bay furniture, sized as the import tool prints (one sheet, one scale).
+  MED_BED: { folder: 'medical/decorations', size: [82, 75], palette: MEDICAL },
+  MED_SHELF: { folder: 'medical/decorations', size: [50, 76], palette: MEDICAL },
+  MED_LOCKER: { folder: 'medical/decorations', size: [36, 75], palette: MEDICAL },
+  MED_SCAN_POD: { folder: 'medical/decorations', size: [53, 78], palette: MEDICAL },
+  MED_CART: { folder: 'medical/decorations', size: [42, 44], palette: MEDICAL },
+  MED_BENCH_BACK: { folder: 'medical/decorations', size: [63, 31], palette: MEDICAL },
+  MED_POT_LEAFY: { folder: 'medical/decorations', size: [36, 39], palette: GARDEN },
+  MED_POT_LAVENDER: { folder: 'medical/decorations', size: [26, 39], palette: GARDEN },
   // Garden furniture
   WATERING_CAN: { folder: 'garden/decorations', size: [62, 70], palette: GARDEN },
   GREENHOUSE: { folder: 'garden/decorations', size: [94, 61], palette: GARDEN },
