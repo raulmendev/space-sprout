@@ -12,7 +12,7 @@ export function nextFacing(cur: Facing, dx: number, dy: number): Facing {
 }
 
 /** Walking speed, in tiles per second. */
-const SPEED = 6;
+export const SPEED = 6;
 /** How long a wave lasts: the six-frame wave, twice (see HabitatStore's player animation). */
 export const WAVE_MS = 1400;
 

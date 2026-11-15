@@ -1,0 +1,12 @@
+// Cloudflare Worker that serves the built web app as static files.
+// Build first (npm run build:cloudflare), then `npx wrangler deploy` from this folder.
+{
+  "name": "astro-garden",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist/web/browser",
+    // Any path that isn't a file gets index.html, so the app's own routes work on reload.
+    "not_found_handling": "single-page-application"
+  },
+  "routes": [{ "pattern": "garden.raulmen.dev", "custom_domain": true }]
+}
