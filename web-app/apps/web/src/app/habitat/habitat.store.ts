@@ -27,6 +27,7 @@ import {
   propAtTile,
   propInteraction,
   tileOf,
+  emoteGlyph,
 } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import {
@@ -236,8 +237,14 @@ export class HabitatStore {
       anim: this.playerAnim(),
       shadow: true,
       label: CURRENT_USER.displayName,
+      emote: this.playerEmote(),
     });
     return actors;
+  });
+
+  private readonly playerEmote = computed(() => {
+    const e = this.player.emote();
+    return e ? { glyph: emoteGlyph(e.id), at: e.at } : undefined;
   });
 
   /** Walking: four frames in the way they face. Standing: that direction's standing pose. Waving: the wave, twice. */

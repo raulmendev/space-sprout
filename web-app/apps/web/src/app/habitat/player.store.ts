@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { HabitatPosition, PLAYER_START, Point, TileRect, doorAt, planReach, slide, tileCenter, tileOf } from '@garden/shared';
+import { EMOTE_MS, EmoteId, HabitatPosition, PLAYER_START, Point, TileRect, doorAt, planReach, slide, tileCenter, tileOf } from '@garden/shared';
 import { Ticker } from './ticker.service';
 import type { Facing } from '../garden/game/asset-registry';
 
@@ -36,6 +36,9 @@ export class PlayerStore {
   /** When the current wave started (performance.now()), or null. */
   readonly waveAt = signal<number | null>(null);
   private waveTimer?: ReturnType<typeof setTimeout>;
+  /** The emote showing over the astronaut right now, or null. */
+  readonly emote = signal<{ id: EmoteId; at: number } | null>(null);
+  private emoteTimer?: ReturnType<typeof setTimeout>;
 
   private route: Point[] = [];
   private onArrive: (() => void) | null = null;
@@ -91,6 +94,14 @@ export class PlayerStore {
     clearTimeout(this.waveTimer);
     this.waveAt.set(performance.now());
     this.waveTimer = setTimeout(() => this.waveAt.set(null), WAVE_MS);
+  }
+
+  /** Show an emote over the astronaut for a few seconds, with a wave when standing. Walking keeps it. */
+  sendEmote(id: EmoteId): void {
+    clearTimeout(this.emoteTimer);
+    this.emote.set({ id, at: performance.now() }); // a new `at`: the same emote again pops in again
+    this.emoteTimer = setTimeout(() => this.emote.set(null), EMOTE_MS);
+    if (!this.moving()) this.wave();
   }
 
   reset(): void {
