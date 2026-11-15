@@ -152,6 +152,49 @@ body {
   color: var(--color-cream);
 }
 .boot.loading-out { transition: opacity 450ms ease-out; opacity: 0; }
+/*
+ * A shooting star every few seconds: two of them, on different timers (5.5 s and 8 s) and from
+ * different spots, so they don't fall into a rhythm. Each streak lasts 14% of its timer: under a second.
+ */
+.boot::before,
+.boot::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 9rem;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.85) 80%, #fff);
+  filter: drop-shadow(0 0 4px rgb(255 255 255 / 0.7));
+  opacity: 0;
+  pointer-events: none;
+  animation: boot-shoot 5.5s linear 1.5s infinite;
+  /* From the top right, falling to the left. */
+  --from-x: 88vw;
+  --from-y: 2vh;
+  --dx: -40vw;
+  --angle: 156deg;
+}
+.boot::after {
+  animation-duration: 8s;
+  animation-delay: 4s;
+  /* From the top middle, falling to the right. */
+  --from-x: 46vw;
+  --from-y: -4vh;
+  --dx: 40vw;
+  --angle: 24deg;
+}
+/* Travels 40vw sideways and 17.8vw down: along its 24° slant. */
+@keyframes boot-shoot {
+  0% { opacity: 0; transform: translate(var(--from-x), var(--from-y)) rotate(var(--angle)); }
+  2% { opacity: 1; }
+  14%, 100% { opacity: 0; transform: translate(calc(var(--from-x) + var(--dx)), calc(var(--from-y) + 17.8vw)) rotate(var(--angle)); }
+}
+/* The global reduced-motion rule shortens animations, which would make these flicker: just leave them out. */
+@media (prefers-reduced-motion: reduce) {
+  .boot::before, .boot::after { display: none; }
+}
 .boot-stars {
   position: absolute;
   inset: 0;
@@ -172,6 +215,39 @@ body {
     radial-gradient(1px 1px at 50% 52%, #fff, transparent);
   animation: boot-twinkle 3s ease-in-out infinite alternate;
 }
+/*
+ * Two more layers of stars, tiled at odd sizes so the repeat doesn't show: a field of small
+ * dots, and one big tile (1000x640, so it rarely repeats) of pixel sparkles like the logo's,
+ * each twinkling on its own rhythm.
+ */
+.boot-stars::before,
+.boot-stars::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  animation: boot-twinkle 4.2s ease-in-out infinite alternate;
+}
+.boot-stars::before {
+  background-image:
+    radial-gradient(circle at 17px 23px, #fff 1.2px, transparent 1.6px),
+    radial-gradient(circle at 93px 61px, rgb(255 255 255 / 0.75) 1px, transparent 1.4px),
+    radial-gradient(circle at 151px 12px, #fff 1px, transparent 1.4px),
+    radial-gradient(circle at 48px 128px, #9cd2ff 1.2px, transparent 1.6px),
+    radial-gradient(circle at 186px 104px, rgb(255 255 255 / 0.75) 1px, transparent 1.4px),
+    radial-gradient(circle at 121px 157px, #fff 1.2px, transparent 1.6px),
+    radial-gradient(circle at 6px 88px, var(--color-petal) 1px, transparent 1.4px);
+  background-size: 211px 173px;
+  animation-delay: -1.3s;
+}
+.boot-stars::after {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='640' shape-rendering='crispEdges'><g fill='%23ffd84a'><rect x='340' y='160' width='3' height='9'/><rect x='337' y='163' width='9' height='3'/></g><g fill='%23ffffff'><rect x='83' y='554' width='3' height='9'/><rect x='80' y='557' width='9' height='3'/></g><g fill='%23fbf3e4'><rect x='228' y='44' width='3' height='9'/><rect x='225' y='47' width='9' height='3'/></g><g fill='%23fbf3e4'><rect x='80' y='252' width='3' height='9'/><rect x='77' y='255' width='9' height='3'/></g><g fill='%23ffffff'><rect x='654' y='603' width='2' height='6'/><rect x='652' y='605' width='6' height='2'/></g><g fill='%23ffd84a'><rect x='608' y='412' width='3' height='9'/><rect x='605' y='415' width='9' height='3'/></g><g fill='%23ffd84a'><rect x='888' y='142' width='3' height='9'/><rect x='885' y='145' width='9' height='3'/></g><g fill='%23ffffff'><rect x='562' y='127' width='2' height='6'/><rect x='560' y='129' width='6' height='2'/></g><g fill='%23fbf3e4'><rect x='446' y='327' width='3' height='9'/><rect x='443' y='330' width='9' height='3'/></g><g fill='%23fbf3e4'><rect x='724' y='255' width='3' height='9'/><rect x='721' y='258' width='9' height='3'/></g><g fill='%23fbf3e4'><rect x='905' y='358' width='2' height='6'/><rect x='903' y='360' width='6' height='2'/></g><g fill='%23fbf3e4'><rect x='79' y='102' width='2' height='6'/><rect x='77' y='104' width='6' height='2'/></g><g fill='%23ffffff'><rect x='722' y='72' width='3' height='9'/><rect x='719' y='75' width='9' height='3'/></g><g fill='%23fbf3e4'><rect x='326' y='598' width='2' height='6'/><rect x='324' y='600' width='6' height='2'/></g><rect x='291' y='395' width='2' height='2' fill='%23ffd84a'/><rect x='963' y='472' width='2' height='2' fill='%23fbf3e4'/><rect x='625' y='119' width='3' height='3' fill='%23ffd84a'/><rect x='223' y='294' width='2' height='2' fill='%23fbf3e4'/><rect x='407' y='400' width='3' height='3' fill='%23ffd84a'/><rect x='170' y='459' width='3' height='3' fill='%23f6a5c0'/><rect x='284' y='140' width='3' height='3' fill='%23f6a5c0'/><rect x='285' y='425' width='2' height='2' fill='%239cd2ff'/><rect x='980' y='236' width='2' height='2' fill='%23ffd84a'/><rect x='180' y='154' width='2' height='2' fill='%23fbf3e4'/><rect x='12' y='496' width='2' height='2' fill='%23ffffff'/><rect x='288' y='4' width='2' height='2' fill='%239cd2ff'/><rect x='547' y='378' width='2' height='2' fill='%23fbf3e4'/><rect x='707' y='527' width='2' height='2' fill='%239cd2ff'/><rect x='921' y='572' width='3' height='3' fill='%239cd2ff'/><rect x='408' y='403' width='2' height='2' fill='%239cd2ff'/><rect x='649' y='410' width='2' height='2' fill='%23fbf3e4'/><rect x='68' y='213' width='3' height='3' fill='%23fbf3e4'/><rect x='112' y='348' width='2' height='2' fill='%23ffd84a'/><rect x='0' y='580' width='2' height='2' fill='%23f6a5c0'/><rect x='103' y='372' width='2' height='2' fill='%23ffd84a'/><rect x='895' y='212' width='3' height='3' fill='%23fbf3e4'/><rect x='649' y='258' width='2' height='2' fill='%23f6a5c0'/><rect x='372' y='485' width='2' height='2' fill='%23ffd84a'/><rect x='869' y='499' width='3' height='3' fill='%239cd2ff'/><rect x='495' y='319' width='2' height='2' fill='%23fbf3e4'/><rect x='104' y='350' width='2' height='2' fill='%239cd2ff'/><rect x='848' y='165' width='2' height='2' fill='%23fbf3e4'/><rect x='973' y='540' width='2' height='2' fill='%23fbf3e4'/><rect x='706' y='556' width='2' height='2' fill='%23f6a5c0'/><rect x='305' y='93' width='2' height='2' fill='%23f6a5c0'/><rect x='375' y='171' width='2' height='2' fill='%23fbf3e4'/><rect x='545' y='554' width='2' height='2' fill='%23fbf3e4'/><rect x='627' y='199' width='2' height='2' fill='%239cd2ff'/><rect x='757' y='232' width='2' height='2' fill='%23f6a5c0'/><rect x='504' y='364' width='2' height='2' fill='%23ffd84a'/><rect x='809' y='286' width='3' height='3' fill='%23ffffff'/><rect x='198' y='619' width='2' height='2' fill='%239cd2ff'/><rect x='827' y='357' width='2' height='2' fill='%23ffd84a'/><rect x='225' y='104' width='2' height='2' fill='%239cd2ff'/></svg>");
+  background-size: 1000px 640px;
+  background-position: center top;
+  animation-name: boot-sparkle;
+  animation-duration: 2.6s;
+  animation-delay: -0.7s;
+}
+
 /* A slice of Earth along the bottom, turning slowly under the station. */
 .boot-earth {
   position: absolute;
@@ -206,7 +282,7 @@ body {
   inset: 0;
   background: linear-gradient(to bottom, transparent 2%, color-mix(in srgb, var(--color-night) 55%, transparent) 12%);
 }
-.boot-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1.25rem; margin-bottom: 8vh; }
+.boot-body { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 1.25rem; margin-bottom: 8vh; }
 .boot-station { width: min(384px, 62vw, 70vh); height: auto; animation: boot-drift 6s ease-in-out infinite; }
 .boot-title { font-family: var(--font-pixel); font-size: 1.75rem; line-height: 1; text-shadow: 0 3px 0 rgb(0 0 0 / 0.35); }
 .boot-text { font-family: var(--font-pixel); font-size: 0.875rem; opacity: 0.85; }
@@ -231,6 +307,7 @@ body {
   .boot-title { font-size: 1.35rem; }
 }
 @keyframes boot-twinkle { to { opacity: 0.45; } }
+@keyframes boot-sparkle { to { opacity: 0.7; } }
 @keyframes boot-turn { to { translate: -50% 0; } }
 @keyframes boot-drift { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
 @keyframes boot-wait { from { translate: 0 0; } to { translate: 233% 0; } }

@@ -60,7 +60,7 @@ Also on `main` without a PR (chucordova):
 - touch controls: pad on the left, A button on the right;
 - an Android app (Capacitor) with Health Connect sync at the medical terminal.
 
-**In flight:** nothing on Raúl's checkout. Also on `main` without a PR since #40: chucordova's start-menu fit, stacked terminal cards and Health Connect steps → exercise minutes.
+**In flight:** nothing on Raúl's checkout. **#43** (title screen): a title screen on every visit with the **Space Sprout** logo (`ChatGPT Image Nov 15, 2026, 04_03_39 PM.png` → `public/assets/brand/space-sprout-logo.webp`, plus 192/512 app icons in the manifest). Play goes into the game, or to the start menu on a first visit; returning players also get "Change player". The game is renamed **Space Sprout** everywhere players read it (page title, loading screen, HUD menu, rotate hint, manifest, Android app name); storage keys keep `jardin-comunal:` so saves survive. The shared sky (`.boot` in `styles.css`, also behind the loading screen) gained two more star layers (pixel sparkles like the logo's on one 1000×640 tile) and two shooting stars on 5.5 s / 8 s timers, about one every 3 s, behind the content and off with reduced motion. Also on `main` without a PR since #40: chucordova's start-menu fit, stacked terminal cards and Health Connect steps → exercise minutes.
 
 **Checkouts and who uses them:**
 

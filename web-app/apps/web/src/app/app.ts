@@ -23,6 +23,7 @@ import { DecorStore, DecorOutcome } from './decor/decor.store';
 import { DecorBarComponent } from './decor/decor-bar.component';
 import { StartMenuComponent } from './session/start-menu.component';
 import { LoadingScreenComponent } from './habitat/loading-screen.component';
+import { TitleScreenComponent } from './session/title-screen.component';
 import { NEEDS_PROFILE } from './session/current-user';
 import { OFFLINE_MESSAGE } from './session/member-session';
 import { failureText } from './garden/failure-text';
@@ -76,6 +77,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     '(window:blur)': 'player.releaseKeys()',
   },
   imports: [
+    TitleScreenComponent,
     HabitatCanvasComponent,
     LayoutOverlayComponent,
     DoorLabelsComponent,
@@ -145,6 +147,10 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
         <app-loading-screen [progress]="loadProgress()" animate.leave="loading-out" />
       }
 
+      @if (title()) {
+        <app-title-screen animate.leave="loading-out" (play)="leaveTitle(null)" (changePlayer)="leaveTitle('change')" />
+      }
+
       @if (startMenu(); as m) {
         <app-start-menu [canCancel]="m === 'change'" (closed)="startMenu.set(null)" />
       }
@@ -153,7 +159,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       <div class="rotate-hint absolute inset-0 z-50 flex-col items-center justify-center gap-3 bg-night p-6 text-center text-cream" role="alert">
         <span class="text-5xl" aria-hidden="true">📱↻</span>
         <p class="font-pixel text-2xl">Turn your phone sideways</p>
-        <p class="max-w-xs text-sm text-cream/70">Jardín Comunal is made for landscape.</p>
+        <p class="max-w-xs text-sm text-cream/70">Space Sprout is made for landscape.</p>
       </div>
     </div>
   `,
@@ -189,7 +195,9 @@ export class App {
   /** The loading screen shows until the room is on screen. */
   protected readonly loadProgress = signal(0);
   protected readonly loaded = signal(false);
-  protected readonly startMenu = signal<'first' | 'change' | null>(NEEDS_PROFILE ? 'first' : null);
+  /** The title screen, on every visit; Play leaves it (for the start menu, on a first visit). */
+  protected readonly title = signal(true);
+  protected readonly startMenu = signal<'first' | 'change' | null>(null);
   /** Keep clear of notches and home indicators on phones. */
   protected readonly safeArea =
     'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
@@ -249,6 +257,12 @@ export class App {
       return;
     }
     this.use(i, true);
+  }
+
+  /** Off the title screen: into the game, through the start menu when nobody's playing yet (or to change player). */
+  protected leaveTitle(menu: 'change' | null): void {
+    this.title.set(false);
+    this.startMenu.set(NEEDS_PROFILE ? 'first' : menu);
   }
 
   /** Action button / E / Space: use whatever is in reach, right where you stand. */
@@ -338,6 +352,7 @@ export class App {
 
   /** Hold arrow keys / WASD to walk. Ignored while typing in a field. */
   onKey(e: KeyboardEvent, down: boolean): void {
+    if (this.title()) return; // the title screen's own buttons take the keys
     const el = e.target as HTMLElement | null;
     if (e.key === 'Escape' && down && this.decor.active() && !el?.closest('dialog')) {
       this.decor.clear();
