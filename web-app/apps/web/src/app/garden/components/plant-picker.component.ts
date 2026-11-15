@@ -57,9 +57,12 @@ export class PlantPickerComponent {
 
   /** Each plant, how many packets are owned, and why it can't go here (if it can't). */
   protected readonly options = computed(() =>
-    this.store.catalog.map((item) => {
+    this.store.catalog.flatMap((item) => {
+      const packets = owned(this.store.inventory(), seedItemId(item.id));
+      // Retired placeholders only show while packets bought before they left the store remain.
+      if (item.retired && packets === 0) return [];
       const spot = this.store.placementFor(item.id, this.tile());
-      return { item, packets: owned(this.store.inventory(), seedItemId(item.id)), reason: spot.ok ? null : reason(spot.error, item.id) };
+      return [{ item, packets, reason: spot.ok ? null : reason(spot.error, item.id) }];
     }),
   );
 
