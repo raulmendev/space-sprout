@@ -46,6 +46,8 @@ Two people work on this repo with Claude, each in their own checkout, plus Claud
 - **#38:** presence: everyone in the same room sees each other walk, in their suits, with name tags and emotes (signed-in players only).
 - **#39:** real art and shop icons for the 5 store decorations, plus 5 new ones (§3, §4).
 - **#40:** a loading screen instead of a black screen while the game loads.
+- **#41:** new space-station art on the loading screen.
+- **#42:** plant labels: name a plant after a memory (§3). **Deploy the API before the web app**: an older API refuses to sell labels ("Currently unavailable.").
 
 **Raúl's session on 2026-11-15 (afternoon to night), in order:** #33 emotes (a HUD wheel iterated with the user against a design concept), #36 room animations in code, #39 decorations. Each feature followed the same pattern: build → check in the Playwright phone window (and frame by frame at 1280×800 for animations) → `/simplify` (4 review agents) → "commit, push and merge".
 
@@ -58,7 +60,7 @@ Also on `main` without a PR (chucordova):
 - touch controls: pad on the left, A button on the right;
 - an Android app (Capacitor) with Health Connect sync at the medical terminal.
 
-**In flight:** `feat/plant-labels` (Raúl's checkout, not committed yet): plant labels (§3). Also on `main` since this handoff: chucordova's start-menu fit, stacked terminal cards and Health Connect steps → exercise minutes.
+**In flight:** nothing on Raúl's checkout. Also on `main` without a PR since #40: chucordova's start-menu fit, stacked terminal cards and Health Connect steps → exercise minutes.
 
 **Checkouts and who uses them:**
 
@@ -159,7 +161,7 @@ web-app/
 - `DECOR_VISUALS` in `asset-registry.ts`: one row per decoration with its drawn size (printed by `tools/import_decor.py`) and glows. Each fairy-light bulb twinkles on its own; the star lamp, holo globe and galaxy lamp breathe.
 - A sprite may overhang its footprint: the cozy rug is 92×58 on 2×2 tiles. Don't widen a footprint to fit art: placed decorations store only their top-left, so the change would move existing ones into walls or stations.
 
-**Plant labels** (`feat/plant-labels`): name a plant after a memory ("Birth of Johanna").
+**Plant labels** (PR #42): name a plant after a memory ("Birth of Johanna").
 - Rules in `shared/src/contracts/labels.ts`: a **Plant label** store item (Gardening, 3 seeds, 1 in the starter inventory). Naming a plant with no label uses one; renaming is free and anyone can; an empty name takes it off (no refund). 24 characters, one line. `GardenObject.label`; command `LABEL`.
 - Harvesting or potting a plant takes its label with it (a potted plant is just an inventory count).
 - Art: `Pixel Art Purple Sci-Fi Garden Sign.png` → `tools/import_label.py` (black background, cleared with a tight tolerance plus the enclosed hole between the posts).
