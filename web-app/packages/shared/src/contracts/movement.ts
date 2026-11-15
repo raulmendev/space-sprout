@@ -22,7 +22,7 @@ export interface HabitatPosition extends Point {
 }
 
 /** Where a new player appears: the middle of the social-space rug. */
-export const PLAYER_START: HabitatPosition = { room: 'SOCIAL', x: 12.5, y: 11.5 };
+export const PLAYER_START: HabitatPosition = { room: 'SOCIAL', x: 17.5, y: 13.5 }; // beside the lounge
 
 export function isWalkable(room: RoomId, x: number, y: number, objects: readonly Placed[]): boolean {
   const kind = getTileKind(room, x, y);

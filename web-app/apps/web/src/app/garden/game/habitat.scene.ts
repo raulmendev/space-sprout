@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
 import { TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
 import { missingTexture } from './placeholders';
-import { TileCoord, TileManager, TileRect } from './tile-manager';
+import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingSize } from './tile-manager';
 
 /** One sprite to draw. Computed by Angular; the scene applies no rules. */
 export interface RenderSprite extends TileRect {
@@ -193,6 +193,12 @@ export class HabitatScene extends Phaser.Scene {
 
   // ------------------------------------------------------------ renderer API
 
+  /** The canvas renders `pixelsPerUnit` pixels per world pixel: zoom the camera to fill it with the room. */
+  setResolution(pixelsPerUnit: number): void {
+    const cam = this.cameras.main;
+    cam.setSize(this.scale.width, this.scale.height).setZoom(pixelsPerUnit).centerOn(WORLD_W / 2, WORLD_H / 2);
+  }
+
   setState(state: HabitatRenderState): void {
     if (this.queued) {
       this.queued = state; // mid-fade: apply once the new room is up
@@ -242,7 +248,7 @@ export class HabitatScene extends Phaser.Scene {
       seen.add(data.id);
       const entry = this.sprites.get(data.id);
       if (!entry) {
-        const img = this.add.image(0, 0, data.texture);
+        const img = fitToGame(this.add.image(0, 0, data.texture));
         const created: SpriteEntry = { img, data, tweens: [], decals: [] };
         this.sprites.set(data.id, created);
         this.apply(created, data, null);
@@ -284,7 +290,7 @@ export class HabitatScene extends Phaser.Scene {
     const { img } = entry;
     const asset = getAsset(data.texture);
     const { px, py } = this.tiles.anchor(data);
-    if (!prev || prev.texture !== data.texture) img.setTexture(data.texture);
+    if (!prev || prev.texture !== data.texture) fitToGame(img.setTexture(data.texture));
     img
       .setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1)
       .setPosition(px, py)
@@ -300,12 +306,13 @@ export class HabitatScene extends Phaser.Scene {
     if (!motionChanged || this.reducedMotion) return;
     entry.tweens.forEach((t) => t.remove());
     entry.tweens = [];
-    img.setAngle(0).setScale(1);
+    fitToGame(img.setAngle(0));
+    const s = img.scaleX;
     if (data.sway) {
       entry.tweens.push(this.tweens.add({ targets: img, angle: { from: -1.5, to: 1.5 }, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: Math.random() * 1500 }));
     }
     if (data.pulse) {
-      entry.tweens.push(this.tweens.add({ targets: img, scaleY: 1.06, scaleX: 0.96, duration: 380, yoyo: true, repeat: -1, repeatDelay: 1200, ease: 'Quad.out' }));
+      entry.tweens.push(this.tweens.add({ targets: img, scaleY: s * 1.06, scaleX: s * 0.96, duration: 380, yoyo: true, repeat: -1, repeatDelay: 1200, ease: 'Quad.out' }));
     }
   }
 
@@ -320,7 +327,7 @@ export class HabitatScene extends Phaser.Scene {
       let img = this.actors.get(a.id);
       if (!img) {
         const asset = getAsset(a.texture);
-        img = this.add.image(0, 0, a.texture).setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1);
+        img = fitToGame(this.add.image(0, 0, a.texture)).setOrigin(asset?.originX ?? 0.5, asset?.originY ?? 1);
         if (a.interaction) img.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
         this.actors.set(a.id, img);
       }
@@ -356,7 +363,7 @@ export class HabitatScene extends Phaser.Scene {
     const step = Math.floor(((performance.now() - anim.startedAt) * anim.fps) / 1000);
     const i = anim.loop ? ((step % n) + n) % n : this.reducedMotion ? 0 : Math.min(Math.max(step, 0), n - 1);
     const key = anim.frames[i];
-    if (img.texture.key !== key) img.setTexture(key);
+    if (img.texture.key !== key) fitToGame(img.setTexture(key));
   }
 
   /** Keep the floating badge in sync: appear with a soft pop, bob gently, fade out when gone. */
@@ -379,13 +386,14 @@ export class HabitatScene extends Phaser.Scene {
       return;
     }
     this.removeBadge(entry, false);
-    const badge = this.add.image(x, y, data.badge).setOrigin(0.5, 1).setDepth(DEPTH.INDICATOR - 1);
+    const badge = fitToGame(this.add.image(x, y, data.badge)).setOrigin(0.5, 1).setDepth(DEPTH.INDICATOR - 1);
     badge.setData('interaction', data.interaction);
     if (data.interaction) badge.setInteractive({ pixelPerfect: true, alphaTolerance: 1 });
     entry.badge = badge;
     if (!this.reducedMotion && !this.building) { // no pop for bubbles already there when entering a room
-      badge.setScale(0.3);
-      this.tweens.add({ targets: badge, scale: 1, duration: 280, ease: 'Back.out' });
+      const s = badge.scale;
+      badge.setScale(s * 0.3);
+      this.tweens.add({ targets: badge, scale: s, duration: 280, ease: 'Back.out' });
     }
     this.bobBadge(entry, y);
   }
@@ -467,15 +475,15 @@ export class HabitatScene extends Phaser.Scene {
     const corner = topLeft(img);
     after.forEach((d, i) => {
       // Not interactive: decals sit on the sprite, so a tap on one lands on the sprite beneath.
-      const decal = this.add
-        .image(corner.x + d.dx, corner.y + d.dy, d.texture)
+      const decal = fitToGame(this.add.image(corner.x + d.dx, corner.y + d.dy, d.texture))
         .setAngle(d.angle ?? 0)
         .setDepth(img.depth + 0.5 + i * 0.01);
       entry.decals.push(decal);
       const isNew = i >= before.length || before[i].texture !== d.texture;
       if (prev && isNew && !this.building && !this.reducedMotion) {
-        decal.setScale(0.2);
-        this.tweens.add({ targets: decal, scale: 1, duration: 260, ease: 'Back.out', delay: (i - before.length) * 60 });
+        const s = decal.scale;
+        decal.setScale(s * 0.2);
+        this.tweens.add({ targets: decal, scale: s, duration: 260, ease: 'Back.out', delay: (i - before.length) * 60 });
       }
     });
   }
@@ -510,7 +518,7 @@ export class HabitatScene extends Phaser.Scene {
     this.ghost.setVisible(!!ghost);
     if (!ghost) return;
     const { px, py } = this.tiles.anchor(ghost);
-    this.ghost.setTexture(ghost.texture).setPosition(px, py - ghost.lift);
+    fitToGame(this.ghost.setTexture(ghost.texture)).setPosition(px, py - ghost.lift);
   }
 
   /** Light up where a decoration can go (null: stop placing). */
@@ -551,7 +559,8 @@ export class HabitatScene extends Phaser.Scene {
 
   private grow(img: Phaser.GameObjects.Image): void {
     if (this.reducedMotion) return;
-    this.tweens.add({ targets: img, scaleX: 1.15, scaleY: 0.85, duration: 120, yoyo: true, ease: 'Quad.out' });
+    const s = img.scaleX;
+    this.tweens.add({ targets: img, scaleX: s * 1.15, scaleY: s * 0.85, duration: 120, yoyo: true, ease: 'Quad.out' });
     this.sparkle(img.x, img.y - TILE_SIZE / 2);
   }
 
@@ -589,7 +598,8 @@ function samePlace(a: RenderSprite, b: RenderSprite): boolean {
 
 /** The sprite's top-left corner in world pixels (badges and decals are placed from here). */
 function topLeft(img: Phaser.GameObjects.Image): { x: number; y: number } {
-  return { x: img.x - img.width * img.originX, y: img.y - img.height * img.originY };
+  const { w, h } = restingSize(img);
+  return { x: img.x - w * img.originX, y: img.y - h * img.originY };
 }
 
 /** Decal lists are usually the same array (a computed); only compare contents when they aren't. */

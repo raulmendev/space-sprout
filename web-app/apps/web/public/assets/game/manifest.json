@@ -1,5 +1,9 @@
 {
   "delivered": [
+    "gui-note-bubble",
+    "note-astronaut",
+    "note-family",
+    "note-more",
     "plant-cempasuchil-bud",
     "plant-cempasuchil-growing",
     "plant-cempasuchil-mature",
@@ -112,12 +116,26 @@
     "preview-tulip-mature",
     "preview-tulip-sprout",
     "preview-yellowflower-mature",
+    "prop-armchair-left",
+    "prop-armchair-right",
+    "prop-coffee-table",
+    "prop-comm-terminal",
+    "prop-floor-lamp",
+    "prop-flower-planter",
     "prop-garden-bench",
     "prop-greenhouse",
     "prop-message-board",
+    "prop-potted-plant",
+    "prop-pouf-bottom-left",
+    "prop-pouf-bottom-right",
+    "prop-sofa",
+    "prop-supply-store",
     "prop-vine-arch",
     "prop-vine-planter",
+    "prop-vines-left",
+    "prop-vines-right",
     "prop-watering-can",
-    "room-garden"
+    "room-garden",
+    "room-social"
   ]
 }

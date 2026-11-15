@@ -157,7 +157,6 @@ export type HabitatInteraction =
   | { type: 'MEDICAL_TERMINAL_SELECTED' }
   | { type: 'HEALTH_INSIGHTS_SELECTED' }
   | { type: 'MESSAGE_BOARD_SELECTED' }
-  | { type: 'EMOTE_AREA_SELECTED' }
   | { type: 'STORE_SELECTED' }
   | { type: 'TILE_SELECTED'; x: number; y: number }
   | { type: 'PROP_SELECTED'; propId: string }
@@ -167,7 +166,7 @@ export type HabitatInteraction =
 
 export type PropInteraction = Extract<
   HabitatInteraction,
-  { type: 'MEDICAL_TERMINAL_SELECTED' | 'HEALTH_INSIGHTS_SELECTED' | 'MESSAGE_BOARD_SELECTED' | 'EMOTE_AREA_SELECTED' | 'STORE_SELECTED' }
+  { type: 'MEDICAL_TERMINAL_SELECTED' | 'HEALTH_INSIGHTS_SELECTED' | 'MESSAGE_BOARD_SELECTED' | 'STORE_SELECTED' }
 >['type'];
 
 export type MedicalTerminalState = 'idle' | 'syncing' | 'complete' | 'attention';
@@ -182,12 +181,5 @@ export interface SocialNote {
   id: string;
   authorId: string;
   content: string;
-  createdAt: string;
-}
-
-export interface SocialEmote {
-  id: string;
-  authorId: string;
-  emote: string;
   createdAt: string;
 }

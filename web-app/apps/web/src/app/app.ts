@@ -244,7 +244,6 @@ export class App {
       case 'MEDICAL_TERMINAL_SELECTED':
       case 'HEALTH_INSIGHTS_SELECTED':
       case 'MESSAGE_BOARD_SELECTED':
-      case 'EMOTE_AREA_SELECTED':
       case 'STORE_SELECTED':
         this.habitat.openPanel.set(i.type);
         break;

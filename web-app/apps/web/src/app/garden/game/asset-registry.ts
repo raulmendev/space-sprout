@@ -238,14 +238,24 @@ const PROP_VISUALS: Record<string, PropVisual> = {
     palette: MEDICAL,
     states: { idle: { badge: '' }, new_data: { badge: '•' }, active: { badge: '▸' } },
   },
-  POTTED_PLANT: { folder: 'medical/terminal', size: [32, 48], palette: GARDEN },
+  // Sizes below are what tools/import_props.py prints; they only size the placeholder.
+  POTTED_PLANT: { folder: 'medical/terminal', size: [45, 73], palette: GARDEN },
   // Notes are separate sprites pinned on it (see notice-board.ts); unread shows as a floating bubble.
   MESSAGE_BOARD: { folder: 'social/board', size: BOARD_SIZE, palette: SOCIAL },
-  EMOTE_POINT: { folder: 'social/emotes', size: [64, 64], palette: SOCIAL },
-  SOFA: { folder: 'social/decorations', size: [96, 48], palette: SOCIAL },
-  COMM_TERMINAL: { folder: 'social/decorations', size: [64, 64], palette: SOCIAL },
-  SUPPLY_STORE: { folder: 'social/store', size: [64, 64], palette: SOCIAL },
-  // Garden furniture (tools/import_props.py prints these sizes).
+  COMM_TERMINAL: { folder: 'social/decorations', size: [90, 66], palette: SOCIAL },
+  SUPPLY_STORE: { folder: 'social/store', size: [105, 70], palette: SOCIAL },
+  // The lounge, sized to the astronaut (36x50).
+  COFFEE_TABLE: { folder: 'social/decorations', size: [80, 49], palette: SOCIAL },
+  SOFA: { folder: 'social/decorations', size: [96, 50], palette: SOCIAL },
+  ARMCHAIR_LEFT: { folder: 'social/decorations', size: [28, 38], palette: SOCIAL },
+  ARMCHAIR_RIGHT: { folder: 'social/decorations', size: [28, 38], palette: SOCIAL },
+  POUF_BOTTOM_LEFT: { folder: 'social/decorations', size: [24, 21], palette: SOCIAL },
+  POUF_BOTTOM_RIGHT: { folder: 'social/decorations', size: [24, 21], palette: SOCIAL },
+  FLOOR_LAMP: { folder: 'social/decorations', size: [12, 45], palette: SOCIAL },
+  FLOWER_PLANTER: { folder: 'social/decorations', size: [73, 47], palette: SOCIAL },
+  VINES_LEFT: { folder: 'social/decorations', size: [69, 79], palette: SOCIAL },
+  VINES_RIGHT: { folder: 'social/decorations', size: [70, 76], palette: SOCIAL },
+  // Garden furniture
   WATERING_CAN: { folder: 'garden/decorations', size: [62, 66], palette: GARDEN },
   GREENHOUSE: { folder: 'garden/decorations', size: [94, 57], palette: GARDEN },
   GARDEN_BENCH: { folder: 'garden/decorations', size: [81, 44], palette: GARDEN },
@@ -323,7 +333,7 @@ for (const [id, look] of Object.entries(CREW_LOOKS) as [CrewId, Parameters<typeo
   register(crewTextureKey(id), 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(crewGrid(look), 2, 32, 48));
 }
 register(TWINKLE_TEXTURE, 'gui/effects', [32, 32], [0.5, 0.5], () => gridToCanvas(TWINKLE));
-register(NOTE_BUBBLE_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, noteBubbleArt);
+register(NOTE_BUBBLE_TEXTURE, 'gui/icons', [20, 19], BOTTOM_CENTER, noteBubbleArt); // tools/import_board.py size
 register(NOTE_TEXTURES.astronaut, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.astronaut));
 register(NOTE_TEXTURES.family, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.family));
 register(NOTE_TEXTURES.more, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], noteStackArt);

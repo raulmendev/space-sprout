@@ -1,24 +1,27 @@
 """
 Import the design team's room picture into the game.
 
-    python3 tools/import_room.py <room> "<folder of tile_rNN_cNN.png files, or one PNG>"
+    python3 tools/import_room.py <room> "<folder of tile_rNN_cNN.png files, or one PNG>" ["<folder with floor pieces>"]
 
-The design team delivers a room as one picture cut into a grid of tiles
-(tile_r01_c01.png … tile_r08_c12.png, 128 px each). This stitches them back together, paints
-out any of our UI that was copied into the picture (the game draws it live), scales it to the
-room's size with LANCZOS as the plants and the board were, writes
-apps/web/public/assets/game/habitat/rooms/room-<room>.png and marks it delivered.
+The design team delivers a room as one picture, whole or cut into a grid of tiles
+(tile_r01_c01.png … tile_r08_c12.png, 128 px each). This stitches the tiles back together, paints
+out any of our UI that was copied into the picture (the game draws it live), lays the room's
+floor pieces on it (FLOOR: things you walk on, like a rug, found in the optional third folder),
+writes apps/web/public/assets/game/habitat/rooms/room-<room>.png at 2x (1536x1024) and marks it
+delivered.
 
 The picture must keep the room's grid (layout in packages/shared/src/contracts/habitat.ts):
 beds, paths and doors on the same tiles. Needs Pillow (pip install pillow).
 """
+from __future__ import annotations
+
 import re
 import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
 
-from art import ASSETS, mark_delivered
+from art import ASSETS, largest_part, mark_delivered, save_scaled, trim
 
 SIZE = (768, 512)  # ROOM_COLS x ROOM_ROWS x TILE_SIZE (habitat.ts)
 SOURCE_SIZE = (SIZE[0] * 2, SIZE[1] * 2)  # as delivered: 64 px per game tile
@@ -30,6 +33,26 @@ BAKED_UI = {
         ((1256, 478, 1435, 535), -256),  # "Social Space →" (the door label is a DOM overlay)
     ],
 }
+
+# Floor pieces painted into the picture, so characters walk over them (furniture would block its
+# footprint): file name → where it lies, in game pixels (x, y, w, h). Mark the same tiles in the
+# room's layout (habitat.ts) so they behave as that floor.
+FLOOR = {
+    'social': [
+        ('lounge_rug.png', (258, 262, 252, 133)),  # under the lounge: RUG, cols 8-15, rows 8-11
+    ],
+}
+
+
+def lay_floor(im: Image.Image, pieces, folder: Path | None) -> Image.Image:
+    im = im.convert('RGBA')
+    for name, (x, y, w, h) in pieces:
+        found = next(folder.rglob(name), None) if folder else None
+        if not found:
+            sys.exit(f'{name} is needed for this room: pass the folder that has it as the third argument')
+        piece = trim(largest_part(Image.open(found))).resize((w * 2, h * 2), Image.LANCZOS)
+        im.alpha_composite(piece, (x * 2, y * 2))
+    return im.convert('RGB')
 
 
 def stitch(src: Path) -> Image.Image:
@@ -58,23 +81,26 @@ def paint_out(im: Image.Image, boxes) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         sys.exit(__doc__)
     room, src = sys.argv[1].lower(), Path(sys.argv[2]).expanduser()
+    floor = Path(sys.argv[3]).expanduser() if len(sys.argv) == 4 else None
     im = stitch(src)
     baked = BAKED_UI.get(room, [])
     if baked and im.size != SOURCE_SIZE:
         sys.exit(f'Expected {SOURCE_SIZE} to paint out the baked-in UI, got {im.size}: update BAKED_UI')
-    if im.size[0] * SIZE[1] != im.size[1] * SIZE[0]:
-        sys.exit(f'Expected a 3:2 picture like {SIZE}, got {im.size}')
     paint_out(im, baked)
+    if im.size != SOURCE_SIZE:
+        if im.size[0] * SIZE[1] != im.size[1] * SIZE[0]:
+            sys.exit(f'Expected a 3:2 picture like {SOURCE_SIZE}, got {im.size}')
+        im = im.resize(SOURCE_SIZE, Image.LANCZOS)
+    im = lay_floor(im, FLOOR.get(room, []), floor)
     key = f'room-{room}'
     out = ASSETS / 'habitat/rooms' / f'{key}.png'
-    out.parent.mkdir(parents=True, exist_ok=True)
     # Lossless: 256 colours flatten the lights' glow and grey out the Earth window.
-    im.resize(SIZE, Image.LANCZOS).save(out, optimize=True)
+    save_scaled(im, SIZE, out)  # kept at 2x
     mark_delivered(key)
-    print(f'Wrote {out} {SIZE}')
+    print(f'Wrote {out} (game size {SIZE})')
 
 
 if __name__ == '__main__':
