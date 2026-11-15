@@ -46,6 +46,8 @@ export interface RenderActor {
   interaction: HabitatInteraction | null;
   /** Frame-by-frame art (the astronaut). Without it the texture is still, flipped and bobbed. */
   anim?: ActorAnim;
+  /** Hovers (the crew robots): drifts gently up and down all the time over a small shadow, instead of the walk bob. */
+  float?: boolean;
 }
 
 /** Frames played by the scene's own clock, so they keep going while nothing else changes. */
@@ -62,6 +64,22 @@ export interface ActorAnim {
 const FOOT_OFFSET_PX = 6;
 /** Characters draw in front of props/plants whose base is on the same line. */
 const ACTOR_DEPTH_BIAS = 0.5;
+/** Hovering robots: always `lift` px up, drifting `amplitude` px more and back every `periodMs`. */
+const FLOAT = { lift: 3, amplitude: 3, periodMs: 1800 } as const;
+
+interface FloatState {
+  /** Where the feet would be on the floor (px). */
+  baseY: number;
+  /** Each robot drifts on its own beat. */
+  phase: number;
+}
+
+/** A stable phase (radians) from an id, so robots don't bob in step. */
+function phaseOf(id: string): number {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return ((h >>> 0) % 1000) / 1000 * 2 * Math.PI;
+}
 
 /** A translucent preview sprite over a footprint, raised `lift` px (the "+" hint floats a little). */
 export interface GhostSprite extends TileRect {
@@ -103,6 +121,8 @@ export class HabitatScene extends Phaser.Scene {
   private readonly sprites = new Map<string, SpriteEntry>();
   private readonly wet = new Map<string, Phaser.GameObjects.Image>();
   private readonly actors = new Map<string, Phaser.GameObjects.Image>();
+  /** The small shadow under each hovering character. */
+  private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse>();
   /** The latest characters sent, kept for when a room change held them back. */
   private lastActors: readonly RenderActor[] = [];
   private readonly failed = new Set<string>();
@@ -228,6 +248,8 @@ export class HabitatScene extends Phaser.Scene {
     this.sprites.clear();
     this.actors.forEach((a) => a.destroy());
     this.actors.clear();
+    this.shadows.forEach((s) => s.destroy());
+    this.shadows.clear();
     this.room = state.room;
     this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
     this.building = true;
@@ -328,15 +350,19 @@ export class HabitatScene extends Phaser.Scene {
       }
       const px = a.x * TILE_SIZE;
       const py = a.y * TILE_SIZE + FOOT_OFFSET_PX;
+      const float: FloatState | null = a.float ? { baseY: py, phase: phaseOf(a.id) } : null;
       img
-        // Animated art walks on its own; only still sprites get the bob and the mirror.
-        .setPosition(px, py - (a.moving && !a.anim ? bob : 0))
+        // Animated art walks on its own and hovering robots drift; only the rest get the walk bob. Animated art isn't mirrored.
+        .setPosition(px, py - (a.moving && !a.anim && !a.float ? bob : 0))
         .setFlipX(a.anim ? false : a.flipX)
         .setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS)
         .setData('interaction', a.interaction)
-        .setData('anim', a.anim ?? null);
+        .setData('anim', a.anim ?? null)
+        .setData('float', float);
       if (!a.anim && img.texture.key !== a.texture) img.setTexture(a.texture); // e.g. crew art that turns
+      if (float) this.placeShadow(a.id, img, px, py);
       this.showFrame(img);
+      this.applyHover(a.id, img);
     }
     for (const [id, img] of this.actors) {
       if (!seen.has(id)) {
@@ -344,11 +370,39 @@ export class HabitatScene extends Phaser.Scene {
         this.actors.delete(id);
       }
     }
+    for (const [id, shadow] of this.shadows) {
+      if (!seen.has(id) || !this.actors.get(id)?.getData('float')) {
+        shadow.destroy();
+        this.shadows.delete(id);
+      }
+    }
   }
 
-  /** Phaser's per-frame hook: advance every animated character. */
+  /** Phaser's per-frame hook: advance every animated character and keep the robots hovering. */
   override update(): void {
-    for (const img of this.actors.values()) this.showFrame(img);
+    for (const [id, img] of this.actors) {
+      this.showFrame(img);
+      this.applyHover(id, img);
+    }
+  }
+
+  /** A soft oval on the floor under a hovering character, about half as wide as it. */
+  private placeShadow(id: string, img: Phaser.GameObjects.Image, px: number, py: number): void {
+    let shadow = this.shadows.get(id);
+    if (!shadow) {
+      shadow = this.add.ellipse(0, 0, Math.round(img.width * 0.55), 6, 0x000000, 0.22);
+      this.shadows.set(id, shadow);
+    }
+    shadow.setPosition(px, py - 2).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
+  }
+
+  /** Lift a hovering character for this moment; its shadow shrinks a little as it rises. Reduced motion: it just hovers, still. */
+  private applyHover(id: string, img: Phaser.GameObjects.Image): void {
+    const float = img.getData('float') as FloatState | null;
+    if (!float) return;
+    const wave = this.reducedMotion ? 0 : (1 - Math.cos((2 * Math.PI * performance.now()) / FLOAT.periodMs + float.phase)) / 2;
+    img.setY(float.baseY - Math.round(FLOAT.lift + FLOAT.amplitude * wave)); // whole pixels keep the pixel art crisp
+    this.shadows.get(id)?.setScale(1 - 0.25 * wave);
   }
 
   /** The frame an animated character should show right now (reduced motion: a wave stays on its first frame). */

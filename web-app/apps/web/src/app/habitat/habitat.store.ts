@@ -207,6 +207,7 @@ export class HabitatStore {
         flipX: posed ? false : n.facingLeft, // posed art is drawn for each way it faces
         moving: n.moving,
         interaction: { type: 'NPC_SELECTED', npcId: n.id },
+        float: n.id !== 'SPROUT', // the crew are robots: they hover
       };
     });
     const { x, y } = this.player.position();
