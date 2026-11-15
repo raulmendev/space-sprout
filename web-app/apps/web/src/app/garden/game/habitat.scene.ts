@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
-import { GROUND_SHADOW_TEXTURE, ROOM_WINDOWS, RoomWindows, TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset, roomTextureKey } from './asset-registry';
+import { GROUND_SHADOW_TEXTURE, PropFx, ROOM_WINDOWS, RoomWindows, TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset, roomTextureKey } from './asset-registry';
 import { missingTexture } from './placeholders';
 import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingScale, restingSize } from './tile-manager';
 
@@ -155,6 +155,7 @@ interface SpriteEntry {
   badgeBob?: Phaser.Tweens.Tween;
   shine?: { stars: Phaser.GameObjects.Image[]; glow: Phaser.GameObjects.Ellipse; tweens: Phaser.Tweens.Tween[] };
   decals: Phaser.GameObjects.Image[];
+  fx?: { layers: Phaser.GameObjects.Image[]; tweens: Phaser.Tweens.Tween[] };
 }
 
 /** Render layers (spec §9). World objects are additionally y-sorted by footprint bottom. */
@@ -179,6 +180,8 @@ export class HabitatScene extends Phaser.Scene {
   /** The latest characters sent, kept for when a room change held them back. */
   private lastActors: readonly RenderActor[] = [];
   private readonly failed = new Set<string>();
+  /** Keys that load a real picture (not a placeholder): light effects are only drawn over these. */
+  private readonly pictures = new Set<string>();
   private room: RoomId | null = null;
   private ground: Phaser.GameObjects.Image[] = [];
   /** The room's animated windows, part of its ground; null when it has none. */
@@ -200,12 +203,17 @@ export class HabitatScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.on('loaderror', (file: Phaser.Loader.File) => this.failed.add(file.key));
+    this.load.on('loaderror', (file: Phaser.Loader.File) => {
+      this.failed.add(file.key);
+      this.pictures.delete(file.key);
+    });
     const delivered = new Set(this.bridge.deliveredKeys);
     for (const asset of allAssets()) {
       // Not delivered but with a delivered fallback (a prop state drawn as idle): load that picture under its key.
       const path = delivered.has(asset.key) ? asset.path : asset.fallback && delivered.has(asset.fallback) ? getAsset(asset.fallback)?.path : undefined;
-      if (path) this.load.image(asset.key, path);
+      if (!path) continue;
+      this.load.image(asset.key, path);
+      this.pictures.add(asset.key);
     }
   }
 
@@ -319,6 +327,7 @@ export class HabitatScene extends Phaser.Scene {
       this.removeBadge(entry, false);
       this.removeShine(entry);
       this.removeDecals(entry);
+      this.removeFx(entry);
       entry.img.destroy();
     }
     this.sprites.clear();
@@ -366,6 +375,7 @@ export class HabitatScene extends Phaser.Scene {
       this.removeBadge(entry, false);
       this.removeShine(entry);
       this.removeDecals(entry);
+      this.removeFx(entry);
       entry.img.destroy();
       this.sprites.delete(id);
     }
@@ -401,6 +411,7 @@ export class HabitatScene extends Phaser.Scene {
     this.applyBadge(entry, data, prev);
     this.applyShine(entry, data, prev);
     this.applyDecals(entry, data, prev);
+    this.applyFx(entry, data, prev);
 
     const motionChanged = !prev || prev.sway !== data.sway || prev.pulse !== data.pulse;
     if (!motionChanged || this.reducedMotion) return;
@@ -745,6 +756,90 @@ export class HabitatScene extends Phaser.Scene {
     });
   }
 
+  /**
+   * The prop's light effects, laid over its art and just in front of it. Built again when they or
+   * the sprite's place change. Reduced motion: the glows stay half lit and nothing sweeps.
+   */
+  private applyFx(entry: SpriteEntry, data: RenderSprite, prev: RenderSprite | null): void {
+    if (prev && samePlace(prev, data) && prev.sway === data.sway && prev.pulse === data.pulse) return;
+    this.removeFx(entry);
+    // Only over the real picture, and not while the sprite rocks or pulses: the light would slide off it.
+    const effects = this.pictures.has(data.texture) && !data.sway && !data.pulse ? getAsset(data.texture)?.fx : undefined;
+    if (!effects?.length) return;
+    const corner = topLeft(entry.img);
+    const fx: NonNullable<SpriteEntry['fx']> = { layers: [], tweens: [] };
+    for (const f of effects) {
+      if (f.type === 'sweep' && this.reducedMotion) continue;
+      const layer = this.add.image(0, 0, this.fxTexture(f)).setOrigin(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(entry.img.depth + 0.02);
+      fx.layers.push(layer);
+      const tween = f.type === 'glow' ? this.glow(layer, f, corner) : this.sweep(layer, f, corner);
+      if (tween) fx.tweens.push(tween);
+    }
+    entry.fx = fx;
+  }
+
+  /** A glow brightens and dims on its own beat. Reduced motion: it stays half lit. */
+  private glow(layer: Phaser.GameObjects.Image, f: Extract<PropFx, { type: 'glow' }>, corner: { x: number; y: number }): Phaser.Tweens.Tween | undefined {
+    layer.setPosition(corner.x + f.rect[0], corner.y + f.rect[1]);
+    if (this.reducedMotion) {
+      layer.setAlpha(f.alpha / 2);
+      return undefined;
+    }
+    layer.setAlpha(0);
+    return this.tweens.add({ targets: layer, alpha: f.alpha, duration: f.inMs, yoyo: true, repeat: -1, repeatDelay: f.restMs, ease: 'Sine.inOut', delay: Math.random() * 600 });
+  }
+
+  /** A sweep's band crosses its area, starting over (or turning back, for `updown`); it stays inside the area. */
+  private sweep(layer: Phaser.GameObjects.Image, f: Extract<PropFx, { type: 'sweep' }>, corner: { x: number; y: number }): Phaser.Tweens.Tween {
+    const [x, y, w, h] = f.rect;
+    const bounce = f.dir === 'updown';
+    const across = f.dir === 'right';
+    const lead = sweepLead(f.dir);
+    const start = { x: corner.x + x, y: corner.y + y };
+    const axis = across ? 'x' : 'y';
+    const length = across ? w : h;
+    // The band's texture has the head `lead` px from its start edge.
+    layer.setPosition(start.x, start.y).setOrigin(0).setAlpha(f.alpha);
+    return this.tweens.add({ targets: layer, [axis]: start[axis] + length - (bounce ? 2 * lead : lead), duration: f.ms, repeat: -1, yoyo: bounce, ease: bounce ? 'Sine.inOut' : 'Linear' });
+  }
+
+  /**
+   * The picture of an effect, drawn once and shared (a texture draws far cheaper than shapes redrawn
+   * every frame). Glows: the whole area; ovals fade out from the middle. Sweeps: the band with its
+   * trail (or soft edges, going back and forth), across the area.
+   */
+  private fxTexture(f: PropFx): string {
+    const [, , w, h] = f.rect;
+    const key = f.type === 'glow' ? `fx-glow-${w}x${h}-${f.color}-${f.ellipse ? 'o' : 'r'}` : `fx-sweep-${f.dir}-${f.dir === 'right' ? h : w}-${f.color}`;
+    if (this.textures.exists(key)) return key;
+    const g = this.make.graphics({}, false);
+    if (f.type === 'glow') {
+      if (f.ellipse) for (const k of [1, 0.75, 0.5, 0.3]) g.fillStyle(f.color, 0.3).fillEllipse(w / 2, h / 2, w * k, h * k);
+      else g.fillStyle(f.color, 1).fillRect(0, 0, w, h);
+      g.generateTexture(key, w, h);
+    } else {
+      // [from, to, alpha] across the band, measured from its head.
+      const steps = f.dir === 'updown' ? [[-3, -1, 0.4], [-1, 1, 1], [1, 3, 0.4]] : [[-7, -4, 0.2], [-4, -1, 0.5], [-1, 1, 1]];
+      const lead = sweepLead(f.dir);
+      const span = f.dir === 'updown' ? 2 * lead : lead + 1;
+      for (const [a, b, alpha] of steps) {
+        g.fillStyle(f.color, alpha);
+        if (f.dir === 'right') g.fillRect(lead + a, 0, b - a, h);
+        else g.fillRect(0, lead + a, w, b - a);
+      }
+      if (f.dir === 'right') g.generateTexture(key, span, h);
+      else g.generateTexture(key, w, span);
+    }
+    g.destroy();
+    return key;
+  }
+
+  private removeFx(entry: SpriteEntry): void {
+    entry.fx?.tweens.forEach((t) => t.remove());
+    entry.fx?.layers.forEach((g) => g.destroy());
+    entry.fx = undefined;
+  }
+
   /** A grown plant's gentle rocking (garden plants, and plants in pots). */
   private sway(target: Phaser.GameObjects.Image): Phaser.Tweens.Tween {
     return this.tweens.add({ targets: target, angle: { from: -1.5, to: 1.5 }, duration: 2200, yoyo: true, repeat: -1, ease: 'Sine.inOut', delay: Math.random() * 1500 });
@@ -863,6 +958,9 @@ function sameSprite(a: RenderSprite, b: RenderSprite): boolean {
 }
 
 /** Same texture and tile position: anything drawn relative to the sprite can stay put. */
+/** How far a sweep's head sits from the start edge of its band (its trail, or its soft edge). */
+const sweepLead = (dir: Extract<PropFx, { type: 'sweep' }>['dir']): number => (dir === 'updown' ? 3 : 7);
+
 function samePlace(a: RenderSprite, b: RenderSprite): boolean {
   return a.texture === b.texture && a.x === b.x && a.y === b.y;
 }

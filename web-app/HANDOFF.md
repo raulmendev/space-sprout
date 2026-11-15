@@ -33,7 +33,8 @@ Two people work on this repo with Claude, each in their own checkout, and both m
 - **#29:** the garden on the server: one shared state per station, changed by commands.
 - **#30, #31:** the API deployed on Railway.
 - **#32:** live updates: every change reaches the rest of the station as it happens.
-- **The emotes PR** (`feat/emotes`): the emote wheel (§5), plus the #26 cleanups (prop states fall back to the idle picture).
+- **#33:** the emote wheel (§5), plus the #26 cleanups (prop states fall back to the idle picture).
+- **The room effects PR** (`feat/medical-bay-fx`): Medical Bay and Social Space props come alive (§3).
 
 Also on `main` without a PR (chucordova):
 - the new astronaut and the family user;
@@ -129,6 +130,13 @@ web-app/
   - With reduced motion, the first frame stays.
   - Social Space and Medical Bay have them.
 - Watered soil is a translucent overlay, so it works on both painted and tiled rooms.
+
+**Prop effects** (code-drawn until the design team sends animation frames; the user approved this look):
+- `fx` in `PROP_VISUALS` (`asset-registry.ts`): `glow` (an area brightens and dims; `ellipse` for bulbs and lanterns, may reach past the art) and `sweep` (a band crosses a screen: `right`, `down` or `updown`). Rects are game px from the art's top-left at its registered size.
+- The scene bakes each shape into a texture once and draws it additively just in front of the prop. Only over a real loaded picture, never a placeholder, and not on a prop that sways or pulses (the light would slide off).
+- Medical Bay: terminal (heartbeat glow + ECG redraw), Health Insights (body chart refresh, tube, DNA screen), scan pod (scanning band). Social Space: kiosk (sign, strips, counter screen), floor lamp halo, coffee-table lantern flicker.
+- `sway: true` rocks small potted plants. The wide planters and the hanging vines stay still on purpose (they tilt like boxes).
+- With reduced motion, glows stay half lit and nothing sweeps.
 
 **Garden (PR #10):**
 - Room art from `Jardin_Comunal_Layout_Tiles_128px_CORREGIDOS.zip`.
