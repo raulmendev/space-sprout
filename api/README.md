@@ -62,3 +62,12 @@ npm run build
 npm run start:prod      # node dist/main.js
 npm run typecheck       # tsc only
 ```
+
+## Deploy (Railway)
+
+The API runs on Railway as the `api` service of the **astro-garden** project (production: `https://api-production-77840255.up.railway.app/api`), in `us-west2` next to the Neon database.
+
+- **Build:** `api/Dockerfile`, from the repo root (it compiles `../shared` into the bundle). `.dockerignore` keeps `web-app/`, `node_modules`, `dist` and `.env` files out of the image.
+- **Settings as code:** `.railway/railway.ts` (builder, Dockerfile path, health check on `/api/health`, region, which paths trigger a deploy). Preview with `railway config plan`, apply with `railway config apply` (run `npm install` in `.railway/` first).
+- **Variables live in Railway, not in the repo:** `DATABASE_URL` (Neon's pooled URL). Set `CORS_ORIGINS` to the web app's URL once it's deployed; until then only local origins can call the API from a browser. `PORT` is Railway's.
+- **Migrations** don't run on deploy. Run them from your machine as before (`npm run migration:run`, direct URL); local and production share the one Neon database for now.
