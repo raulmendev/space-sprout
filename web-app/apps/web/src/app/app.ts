@@ -111,8 +111,8 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       @if (notice(); as n) {
         <div class="panel absolute left-1/2 top-14 z-30 -translate-x-1/2 px-3 py-1 text-sm font-bold" role="status">{{ n }}</div>
       }
-      <app-action-button class="absolute bottom-4 left-4 z-20 [@media(max-height:420px)]:left-2" (act)="onAction()" />
-      <app-touch-pad class="absolute bottom-3 right-3 z-20" />
+      <app-action-button class="absolute bottom-4 right-4 z-20 [@media(max-height:420px)]:right-2" (act)="onAction()" />
+      <app-touch-pad class="absolute bottom-3 left-8 z-20 [@media(max-height:420px)]:left-6" />
       @if (decor.active()) {
         <!-- Kept clear of the spot being decorated: below the top bar, or down between the corner controls. -->
         <div class="absolute z-30" [class]="decor.barAtTop() ? 'decor-top' : 'bubble-slot'">
