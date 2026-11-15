@@ -1,0 +1,12 @@
+# Only api/ and shared/ go into the API image (see api/Dockerfile).
+web-app
+.handoff
+.claude
+.git
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+.DS_Store
