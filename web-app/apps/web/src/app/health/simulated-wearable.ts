@@ -1,4 +1,4 @@
-import type { HealthMetric, MeasurementProvider, NewMeasurement } from '@garden/shared';
+import type { HealthMetric, MeasurementProvider, ReadingInput } from '@garden/shared';
 import { MY_METRICS, ROLE } from '../session/current-user';
 
 /** Plausible demo ranges (also used for the seeded history); values are always labelled SIMULATED. */
@@ -40,14 +40,8 @@ export class SimulatedWearable implements MeasurementProvider {
   readonly label = 'Simulated wearable';
   readonly isSimulated = true;
 
-  async read(): Promise<NewMeasurement[]> {
+  async read(): Promise<ReadingInput[]> {
     await new Promise((r) => setTimeout(r, 1400)); // feels like a sync, and shows the "syncing" state
-    const measuredAt = new Date().toISOString();
-    return WEARABLE_METRICS.map((metric) => ({
-      metric,
-      value: simulatedValue(metric),
-      measuredAt,
-      source: 'SIMULATED' as const,
-    }));
+    return WEARABLE_METRICS.map((metric) => ({ metric, value: simulatedValue(metric), source: 'SIMULATED' as const }));
   }
 }

@@ -12,7 +12,7 @@ import {
   toActor,
 } from '@garden/shared';
 import { CURRENT_USER } from '../session/current-user';
-import { isOffline, onStation, stationCall } from '../session/member-session';
+import { onStation, sendCommand, stationCall } from '../session/member-session';
 import { loadJson, saveJson } from '../shared/storage';
 
 /** Why a command didn't go through: the rules said no, or the station couldn't be reached. */
@@ -30,6 +30,9 @@ export interface LoadedGarden {
 /** Who is playing on this page: everything they do is credited to them. */
 export const LOCAL_PLAYER: Actor = toActor(CURRENT_USER);
 
+/** The id of a garden kept on this device (no station). */
+export const LOCAL_GARDEN_ID = 'garden-demo';
+
 /**
  * The station's shared garden. Signed in, it lives on the server: every change is a command
  * the server checks with the shared rules. Otherwise (the dev `?user=` stand-in, or behind the
@@ -42,8 +45,8 @@ export class GardenService {
   /** The station's clock minus this device's, from the last answer (growth and cooldowns run on the station's). */
   private offsetMs = 0;
 
-  /** Only the local copy can be reset (a station's garden is everyone's). */
-  readonly canReset = !this.remote;
+  /** A copy on this device (no station): only it can be reset, and health rewards are paid into it here. */
+  readonly local = !this.remote;
 
   /** Now, by the station's clock. */
   now(): number {
@@ -60,21 +63,10 @@ export class GardenService {
     this.offsetMs = Date.parse(serverTime) - Date.now();
   }
 
-  /**
-   * Ask the station to do something. The id is made once, so the retry after a dropped
-   * connection can't do it twice: the station answers a repeated id from its records.
-   */
+  /** Ask the station to do something (sent once, however many tries it takes). */
   async run(command: GardenCommand): Promise<GardenReply> {
     if (!this.remote) return this.runLocally(command);
-    const body = JSON.stringify({ id: crypto.randomUUID(), command });
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        return await this.timed(() => stationCall<CommandReply>('/garden/commands', { method: 'POST', body }));
-      } catch (e) {
-        if (!isOffline(e)) throw e;
-      }
-    }
-    return { ok: false, error: 'OFFLINE' };
+    return (await sendCommand<CommandReply>('/garden/commands', command, (r) => this.timed(r))) ?? { ok: false, error: 'OFFLINE' };
   }
 
   /** Demo: plant the starting garden again (the local copy only). */
@@ -99,7 +91,7 @@ export class GardenService {
   private localState(): GardenState {
     const saved = loadJson<GardenState | null>(GardenService.LOCAL_KEY, null);
     if (saved) return saved;
-    const fresh = newGarden('garden-demo', LOCAL_PLAYER, Date.now(), () => crypto.randomUUID());
+    const fresh = newGarden(LOCAL_GARDEN_ID, LOCAL_PLAYER, Date.now(), () => crypto.randomUUID());
     saveJson(GardenService.LOCAL_KEY, fresh);
     return fresh;
   }

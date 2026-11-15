@@ -217,14 +217,14 @@ export const ROOMS: Record<RoomId, Room> = {
     // Zoned like the design team's layout: diagnostics on the back wall (terminal left; insights
     // and the medicine shelf together on the right), a treatment area on the right (bed, scan pod
     // below), the locker on the left wall and a waiting area at the bottom left: two benches seen
-    // from behind, facing into the room, on a rug with a plant between. The supply cart stands on
+    // from behind, facing into the room, on a rug with a plant between. The supply cart stands above
     // the floor cross; plants by the stations, the entrance and the benches.
     props: [
       { id: 'medical-terminal', kind: 'MEDICAL_TERMINAL', name: 'Medical Terminal', x: 4, y: 4, w: 2, h: 1, interaction: 'MEDICAL_TERMINAL_SELECTED' },
       { id: 'health-insights', kind: 'HEALTH_INSIGHTS', name: 'Health Insights', x: 17, y: 4, w: 3, h: 1, interaction: 'HEALTH_INSIGHTS_SELECTED' },
       { id: 'medicine-shelf', kind: 'MED_SHELF', name: 'Medicine shelf', x: 20, y: 4, w: 2, h: 1 },
       { id: 'patient-bed', kind: 'MED_BED', name: 'Patient bed', x: 18, y: 9, w: 3, h: 1 },
-      { id: 'supply-cart', kind: 'MED_CART', name: 'Supply cart', x: 11, y: 8, w: 2, h: 1 },
+      { id: 'supply-cart', kind: 'MED_CART', name: 'Supply cart', x: 11, y: 5, w: 2, h: 1 },
       { id: 'scan-pod', kind: 'MED_SCAN_POD', name: 'Body scan pod', x: 20, y: 13, w: 2, h: 1 },
       { id: 'medical-locker', kind: 'MED_LOCKER', name: 'Locker', x: 2, y: 10, w: 2, h: 1 },
       { id: 'waiting-bench-left', kind: 'MED_BENCH_BACK', name: 'Waiting bench', x: 7, y: 12, w: 3, h: 1 },

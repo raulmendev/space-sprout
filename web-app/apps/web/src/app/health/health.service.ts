@@ -1,186 +1,74 @@
 import { Injectable } from '@angular/core';
 import {
-  GOAL_METRICS,
-  GoalMetric,
-  Goals,
-  HabitBonus,
-  HealthMeasurement,
-  HealthMetric,
-  METRICS,
-  NewMeasurement,
-  RewardOutcome,
-  RewardTransaction,
-  checkInStreak,
-  clampGoal,
-  dailyValues,
-  dayOf,
-  decideGoalBonus,
-  decideReward,
-  decideStreakBonus,
-  rewardFor,
+  type HealthCommand,
+  type HealthMeasurement,
+  type HealthRecord,
+  type HealthReply,
+  type HealthView,
+  emptyHealthRecord,
+  runHealth,
   toMeasurement,
-  unknownRewardFor,
-  validateMeasurement,
+  viewOfHealth,
 } from '@garden/shared';
 import { simulatedValue } from './simulated-wearable';
-import { CURRENT_USER, MY_METRICS, ROLE, perMemberKey } from '../session/current-user';
+import { CURRENT_USER, MY_METRICS, perMemberKey } from '../session/current-user';
+import { OFFLINE_MESSAGE, onStation, sendCommand, stationCall } from '../session/member-session';
+import { LOCAL_GARDEN_ID } from '../garden/garden.service';
+import { loadJson, saveJson } from '../shared/storage';
 
-/** "I don't know" answers: nothing measured, but the crew stop asking for the day. */
-export interface UnknownAnswer {
-  metric: HealthMetric;
-  day: string;
+/** A health command that couldn't reach the station; the message is shown as is. */
+export class HealthUnreachable extends Error {
+  constructor() {
+    super(OFFLINE_MESSAGE);
+  }
 }
-
-interface HealthSnapshot {
-  measurements: HealthMeasurement[];
-  rewards: RewardTransaction[];
-  unknowns?: UnknownAnswer[];
-  /** The astronaut's own daily targets (defaults where missing). */
-  goals?: Goals;
-}
-
-export interface RecordResult {
-  saved: HealthMeasurement[];
-  outcomes: RewardOutcome[];
-  /** Seeds granted for the check-in itself. */
-  earned: number;
-  /** Goal and streak bonuses this batch unlocked. */
-  bonuses: HabitBonus[];
-}
-
-const USER_ID = CURRENT_USER.id;
-const GARDEN_ID = 'garden-demo';
 
 /**
- * Health persistence gateway. For now: localStorage, private to this browser.
- * The API version will run the same shared rules (validation + decideReward)
- * server-side, in one transaction with the balance update, and never expose
- * these records to family accounts.
+ * The player's health record. Signed in, it lives on the server, private to them: the server runs
+ * the shared rules (`runHealth`) and pays the seeds into the station's garden in the same
+ * transaction. Otherwise (the dev `?user=` stand-in) a copy is kept on this device and the same
+ * rules run here.
  */
 @Injectable({ providedIn: 'root' })
 export class HealthService {
   // One record per player.
   private static readonly KEY = perMemberKey('health');
+  private readonly remote = onStation();
 
-  async load(): Promise<HealthSnapshot> {
-    try {
-      const raw = localStorage.getItem(HealthService.KEY);
-      if (raw) return JSON.parse(raw) as HealthSnapshot;
-    } catch {
-      /* fall through to seed */
-    }
-    const seeded = { measurements: seedHistory(), rewards: [] };
-    this.save(seeded);
-    return seeded;
+  async load(): Promise<HealthView> {
+    return this.remote ? stationCall<HealthView>('/health/me') : viewOfHealth(this.localRecord());
   }
 
-  /** Validate, store and reward a batch of readings. Invalid readings are skipped. */
-  async record(inputs: NewMeasurement[]): Promise<RecordResult> {
-    const snap = await this.load();
-    const result: RecordResult = { saved: [], outcomes: [], earned: 0, bonuses: [] };
-    for (const input of inputs) {
-      if (!MY_METRICS.includes(input.metric) || validateMeasurement(input.metric, input.value)) continue; // not this player's reading, or invalid
-      const m = toMeasurement(input, crypto.randomUUID(), USER_ID);
-      const decision = decideReward(m, snap.rewards, rewardFor(m.metric, m.value, ROLE));
-      if (decision.amount > 0) {
-        snap.rewards.push({
-          id: crypto.randomUUID(),
-          gardenId: GARDEN_ID,
-          measurementId: m.id,
-          metric: m.metric,
-          day: dayOf(m.measuredAt),
-          amount: decision.amount,
-          createdAt: new Date().toISOString(),
-          reason: 'CHECK_IN',
-        });
-        result.earned += decision.amount;
-      }
-      snap.measurements.push(m);
-      result.saved.push(m);
-      result.outcomes.push(decision.outcome);
-    }
-    if (result.saved.length) result.bonuses = this.payHabitBonuses(snap, result.saved);
-    this.save(snap);
-    return result;
+  /** Readings, a "don't know" or a goal (sent once, however many tries it takes, so it can't pay twice). */
+  async run(command: HealthCommand): Promise<HealthReply> {
+    if (!this.remote) return this.runLocally(command);
+    const reply = await sendCommand<HealthReply>('/health/me/commands', command);
+    if (!reply) throw new HealthUnreachable();
+    return reply;
   }
 
-  /** "I don't know" for a metric today: stored as such (never as a number), paid as the bands say. */
-  async recordUnknown(metric: HealthMetric): Promise<{ earned: number; unknowns: UnknownAnswer[] }> {
-    const snap = await this.load();
-    const measuredAt = new Date().toISOString();
-    const day = dayOf(measuredAt);
-    const unknowns = (snap.unknowns ??= []);
-    const worth = unknownRewardFor(metric, ROLE);
-    let earned = 0;
-    if (worth !== null && !unknowns.some((u) => u.metric === metric && u.day === day)) {
-      unknowns.push({ metric, day });
-      // One "don't know" per metric per day, so the id is stable: paying twice is impossible.
-      const id = `unknown:${metric}:${day}`;
-      const decision = decideReward({ id, metric, measuredAt }, snap.rewards, worth);
-      if (decision.amount > 0) {
-        snap.rewards.push({ id: crypto.randomUUID(), gardenId: GARDEN_ID, measurementId: id, metric, day, amount: decision.amount, createdAt: measuredAt });
-        earned = decision.amount;
-      }
-    }
-    this.save(snap);
-    return { earned, unknowns };
-  }
-
-  /** Change a daily goal. Returns all goals after the change. */
-  async setGoal(metric: GoalMetric, value: number): Promise<Goals> {
-    const snap = await this.load();
-    snap.goals = { ...snap.goals, [metric]: clampGoal(metric, value) };
-    this.save(snap);
-    return snap.goals;
-  }
-
-  /** Goals reached today and streak milestones, each paid once (recorded in the same ledger). */
-  private payHabitBonuses(snap: HealthSnapshot, saved: HealthMeasurement[]): HabitBonus[] {
-    const today = dayOf(new Date().toISOString());
-    const goals = snap.goals ?? {};
-    const bonuses: HabitBonus[] = [];
-    for (const metric of GOAL_METRICS) {
-      const todays = dailyValues(snap.measurements.filter((m) => m.metric === metric)).find((d) => d.day === today);
-      const bonus = todays && decideGoalBonus(goals, metric, METRICS[metric].label, todays.value, today, snap.rewards);
-      if (bonus) bonuses.push(bonus);
-    }
-    const streak = decideStreakBonus(checkInStreak(snap.measurements.map((m) => dayOf(m.measuredAt)), today), snap.rewards);
-    if (streak) bonuses.push(streak);
-    for (const b of bonuses) {
-      snap.rewards.push({
-        id: crypto.randomUUID(),
-        gardenId: GARDEN_ID,
-        measurementId: b.ref, // bonuses aren't tied to one reading; the ref keeps them unique
-        metric: saved[0].metric,
-        day: today,
-        amount: b.amount,
-        createdAt: new Date().toISOString(),
-        reason: b.reason,
-        ref: b.ref,
-      });
-    }
-    return bonuses;
-  }
-
+  /** Demo: start the local record over (a station's record is never reset from here). */
   reset(): void {
-    try {
-      localStorage.removeItem(HealthService.KEY);
-    } catch {
-      /* ignore */
-    }
+    if (!this.remote) saveJson(HealthService.KEY, null);
   }
 
-  private save(snap: HealthSnapshot): void {
-    try {
-      localStorage.setItem(HealthService.KEY, JSON.stringify(snap));
-    } catch {
-      /* storage unavailable: kept in memory for this session */
-    }
+  private runLocally(command: HealthCommand): HealthReply {
+    const { record, result } = runHealth(this.localRecord(), command, CURRENT_USER, LOCAL_GARDEN_ID, Date.now(), () => crypto.randomUUID());
+    saveJson(HealthService.KEY, record);
+    return { result, view: viewOfHealth(record) };
+  }
+
+  private localRecord(): HealthRecord {
+    const saved = loadJson<Partial<HealthRecord> | null>(HealthService.KEY, null);
+    if (saved) return { ...emptyHealthRecord(), ...saved }; // older saves may lack unknowns or goals
+    const seeded = { ...emptyHealthRecord(), measurements: seedHistory() };
+    saveJson(HealthService.KEY, seeded);
+    return seeded;
   }
 }
 
 /**
- * A month of labelled simulated history, so trends, usual ranges and the 30-day view have
+ * The local demo's month of labelled simulated history, so trends, usual ranges and the 30-day view have
  * something to show in the demo. A few days are skipped, so the check-in streak is short
  * (2 days up to yesterday) and today's check-in reaches the first streak milestone.
  */
@@ -197,7 +85,7 @@ function seedHistory(): HealthMeasurement[] {
     at.setUTCHours(7, 30, 0, 0);
     for (const metric of MY_METRICS) {
       const value = metric === 'MOOD' ? 3 + Math.round(rand() * 2) : simulatedValue(metric, rand);
-      out.push(toMeasurement({ metric, value, measuredAt: at.toISOString(), source: 'SIMULATED' }, crypto.randomUUID(), USER_ID));
+      out.push(toMeasurement({ metric, value, measuredAt: at.toISOString(), source: 'SIMULATED' }, crypto.randomUUID(), CURRENT_USER.id));
     }
   }
   return out;

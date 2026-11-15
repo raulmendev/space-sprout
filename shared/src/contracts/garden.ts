@@ -42,13 +42,11 @@ export type GardenCommand =
   | { type: 'POST_NOTE'; content: string }
   | { type: 'TAKE_DOWN_NOTE'; noteId: string }
   /**
-   * Seeds from a health check-in. TRUSTED: the browser decides the amount until health
-   * moves to the server. MAX_CREDIT only bounds a single send (a bug, a typo), not a day.
+   * Seeds a health check-in earned. Never sent by a player: the server pays it from the
+   * member's health record (see `runHealth`), in the same transaction, and a device without
+   * a station pays it locally the same way.
    */
-  | { type: 'CREDIT'; amount: number };
-
-/** The most seeds one CREDIT may add (a whole day of check-ins earns less). */
-export const MAX_CREDIT = 100;
+  | { type: 'REWARD'; amount: number };
 
 export type GardenError = PlacementError | CareError | PurchaseError | PotError | DecorError | PostNoteError | 'NOT_FOUND' | 'NOT_YOURS';
 
@@ -153,8 +151,8 @@ export function runCommand(state: GardenState, cmd: GardenCommand, actor: Actor,
       if (!canTakeDown(note, actor.id)) return no('NOT_YOURS');
       return ok({ notes: state.notes.filter((n) => n.id !== note.id) });
     }
-    case 'CREDIT':
-      return ok({ balance: state.balance + Math.min(MAX_CREDIT, Math.max(0, Math.floor(cmd.amount))) });
+    case 'REWARD':
+      return ok({ balance: state.balance + Math.max(0, Math.floor(cmd.amount)) });
   }
 }
 

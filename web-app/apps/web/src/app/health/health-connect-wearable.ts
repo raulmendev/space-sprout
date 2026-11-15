@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { HealthMetric, MeasurementProvider, NewMeasurement, validateMeasurement } from '@garden/shared';
+import { HealthMetric, MeasurementProvider, ReadingInput, validateMeasurement } from '@garden/shared';
 import { WEARABLE_METRICS, simulatedValue } from './simulated-wearable';
 
 /** What the native plugin (android/…/HealthConnectPlugin.kt) reads. A missing field = no data or no permission. */
@@ -38,7 +38,7 @@ export class HealthConnectWearable implements MeasurementProvider {
   readonly label = 'Health Connect';
   readonly isSimulated = false;
 
-  async read(): Promise<NewMeasurement[]> {
+  async read(): Promise<ReadingInput[]> {
     const { status } = await HealthConnect.availability();
     if (status === 'NEEDS_UPDATE') throw new WearableSyncError('Install or update the Health Connect app, then try again.');
     if (status !== 'AVAILABLE') throw new WearableSyncError("This phone doesn't support Health Connect.");
@@ -47,13 +47,12 @@ export class HealthConnectWearable implements MeasurementProvider {
     if (!granted.length) throw new WearableSyncError('Allow access in Health Connect to sync your readings.');
 
     const today = await HealthConnect.readToday();
-    const measuredAt = new Date().toISOString();
-    const out: NewMeasurement[] = [];
+    const out: ReadingInput[] = [];
     for (const [metric, value] of Object.entries(fromHealthConnect(today)) as [HealthMetric, number][]) {
-      if (WEARABLE_METRICS.includes(metric) && validateMeasurement(metric, value) === null) out.push({ metric, value, measuredAt, source: 'DEVICE' });
+      if (WEARABLE_METRICS.includes(metric) && validateMeasurement(metric, value) === null) out.push({ metric, value, source: 'DEVICE' });
     }
     if (!out.length) throw new WearableSyncError('Health Connect has no heart rate, sleep or exercise for today yet. Sync your watch or health app first.');
-    if (WEARABLE_METRICS.includes('RADIATION')) out.push({ metric: 'RADIATION', value: simulatedValue('RADIATION'), measuredAt, source: 'SIMULATED' });
+    if (WEARABLE_METRICS.includes('RADIATION')) out.push({ metric: 'RADIATION', value: simulatedValue('RADIATION'), source: 'SIMULATED' });
     return out;
   }
 }

@@ -7,6 +7,7 @@ import {
   FERTILIZER,
   type GardenCommand,
   type GardenState,
+  type GardenView,
   earnedToday,
   GARDEN_ROOM,
   GardenObject,
@@ -114,7 +115,7 @@ export class GardenStore {
     return state ? earnedToday(state, LOCAL_PLAYER.id, this.now()) : 0;
   });
   /** Only a local garden can be reset (a station's is everyone's). */
-  readonly canReset = this.service.canReset;
+  readonly canReset = this.service.local;
 
   constructor() {
     setInterval(() => this.now.set(this.service.now()), 1000);
@@ -228,9 +229,17 @@ export class GardenStore {
     return this.send({ type: 'PUT_AWAY_DECOR', decorId });
   }
 
-  /** Credit seeds earned elsewhere (health check-ins). */
-  async credit(amount: number): Promise<void> {
-    if (amount > 0) await this.send({ type: 'CREDIT', amount });
+  /**
+   * Seeds a health check-in earned. On a station the server has already paid them and its garden
+   * comes with the answer; a local garden is paid here, by the same rule.
+   */
+  async rewarded(amount: number, garden?: GardenView): Promise<void> {
+    if (garden) {
+      this.service.heardFrom(garden.serverTime);
+      this.apply(garden.state, garden.version);
+    } else if (amount > 0 && this.service.local) {
+      await this.send({ type: 'REWARD', amount });
+    }
   }
 
   /** Demo: plant the starting garden again (a local garden only; see canReset). */
