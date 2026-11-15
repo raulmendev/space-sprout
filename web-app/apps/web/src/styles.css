@@ -207,7 +207,7 @@ body {
   background: linear-gradient(to bottom, transparent 2%, color-mix(in srgb, var(--color-night) 55%, transparent) 12%);
 }
 .boot-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1.25rem; margin-bottom: 8vh; }
-.boot-iss { width: min(384px, 62vw, 70vh); height: auto; animation: boot-drift 6s ease-in-out infinite; }
+.boot-station { width: min(384px, 62vw, 70vh); height: auto; animation: boot-drift 6s ease-in-out infinite; }
 .boot-title { font-family: var(--font-pixel); font-size: 1.75rem; line-height: 1; text-shadow: 0 3px 0 rgb(0 0 0 / 0.35); }
 .boot-text { font-family: var(--font-pixel); font-size: 0.875rem; opacity: 0.85; }
 .boot-bar {
