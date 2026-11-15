@@ -22,7 +22,8 @@ import {
   pottedPlantOf,
 } from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
-import type { Suit } from '@garden/shared';
+import { FACINGS, type Facing, type Suit } from '@garden/shared';
+import type { ActorAnim } from './habitat.scene';
 import { SUIT } from '../../session/current-user';
 import { BOARD_SIZE, NOTE_COLORS, NOTE_SIZE, noteBubbleArt, noteStackArt, stickyNoteArt } from './notice-board';
 import {
@@ -424,7 +425,7 @@ for (const [itemId, art] of Object.entries(DECOR_ART)) {
 
 export const HINT_TEXTURE = 'gui-hint-plus';
 /** The astronaut: four walk frames per direction, a standing pose per direction, and a wave. */
-export type Facing = 'down' | 'up' | 'left' | 'right';
+export type { Facing } from '@garden/shared';
 export interface PlayerFrames {
   walk: Record<Facing, readonly string[]>;
   /** Standing still, facing the way they last walked. */
@@ -459,8 +460,18 @@ function suitFrames(prefix: string, wave: boolean): PlayerFrames {
 /** Each suit standing, facing the camera (the start menu's suit picker). */
 export const suitPortraitKey = (suit: Suit) => `${SUITS[suit].prefix}-down-idle`;
 
+/** Every suit's frames (other players wear theirs). */
+export const SUIT_FRAMES = Object.fromEntries(Object.entries(SUITS).map(([suit, s]) => [suit, suitFrames(s.prefix, s.wave)])) as Record<Suit, PlayerFrames>;
 /** The suit this page shows. */
-export const PLAYER_FRAMES: PlayerFrames = suitFrames(SUITS[SUIT].prefix, SUITS[SUIT].wave);
+export const PLAYER_FRAMES: PlayerFrames = SUIT_FRAMES[SUIT];
+
+/** Walking: four frames the way they face. Standing: that direction's pose. Waving (standing, in a suit with a wave): the wave, twice. */
+export function astronautAnim(frames: PlayerFrames, s: { facing: Facing; moving: boolean; waveAt: number | null }, waveMs: number): ActorAnim {
+  if (s.waveAt !== null && !s.moving && frames.wave.length) {
+    return { frames: [...frames.wave, ...frames.wave], fps: (2 * frames.wave.length * 1000) / waveMs, loop: false, startedAt: s.waveAt };
+  }
+  return s.moving ? { frames: frames.walk[s.facing], fps: 8, loop: true, startedAt: 0 } : { frames: [frames.idle[s.facing]], fps: 1, loop: false, startedAt: 0 };
+}
 /** Standing, facing the camera: the astronaut wherever a single picture is needed. */
 export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
 /** The station pets walk like the astronaut (four frames a direction), no wave. Drawn to one scale. */
@@ -515,7 +526,6 @@ const CREW_POSES: Partial<Record<CrewId, [number, number]>> = {
   CHEF: [42, 50],
   TRAINER: [48, 50],
 };
-const FACINGS: readonly Facing[] = ['down', 'up', 'left', 'right'];
 export const hasCrewPoses = (id: CrewId): boolean => id in CREW_POSES;
 export const crewPoseKey = (id: CrewId, facing: Facing, happy = false) => `npc-${id.toLowerCase()}${happy ? '-happy' : ''}-${facing}`;
 /** The crew member's picture for the speech bubble: facing you, when there's art for it. */

@@ -1,3 +1,4 @@
+import type { PresenceMember } from '@garden/shared';
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'node:crypto';
@@ -41,9 +42,11 @@ export class SessionService {
   }
 
   /** A live token's station, and what's needed to end the connection when the session ends (live channel). */
-  async liveSessionFor(token: string): Promise<{ householdId: string; tokenHash: string; expiresAt: Date } | null> {
+  async liveSessionFor(token: string): Promise<{ householdId: string; tokenHash: string; expiresAt: Date; member: PresenceMember } | null> {
     const session = await this.sessions.findOne({ where: { tokenHash: hash(token), expiresAt: MoreThan(new Date()) }, relations: { member: true } });
-    return session && { householdId: session.member.householdId, tokenHash: session.tokenHash, expiresAt: session.expiresAt };
+    if (!session) return null;
+    const { member } = session;
+    return { householdId: member.householdId, tokenHash: session.tokenHash, expiresAt: session.expiresAt, member: { id: member.id, name: member.displayName, suit: member.suit } };
   }
 
   async end(token: string): Promise<void> {
