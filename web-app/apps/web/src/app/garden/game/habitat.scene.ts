@@ -15,8 +15,20 @@ export interface RenderSprite extends TileRect {
   pulse?: boolean;
   /** Small icon floating above the sprite (e.g. the thirst bubble). Clicking it acts like clicking the sprite. */
   badge?: string;
+  /** Where the badge's bottom-centre sits, in pixels from the sprite's top-left. Default: centred on top. */
+  badgeAt?: { dx: number; dy: number };
   /** Soft twinkles around the sprite (a plant with every need met). */
   shine?: boolean;
+  /** Small images pinned on the sprite (notes on the message board). Taps go through to the sprite. */
+  decals?: readonly RenderDecal[];
+}
+
+/** A decal's centre, in pixels from the sprite's top-left corner, and its tilt in degrees. */
+export interface RenderDecal {
+  texture: string;
+  dx: number;
+  dy: number;
+  angle?: number;
 }
 
 /** A moving character. Position is a continuous point (tile units) at its feet. */
@@ -58,6 +70,7 @@ interface SpriteEntry {
   badge?: Phaser.GameObjects.Image;
   badgeBob?: Phaser.Tweens.Tween;
   shine?: { stars: Phaser.GameObjects.Image[]; glow: Phaser.GameObjects.Ellipse; tweens: Phaser.Tweens.Tween[] };
+  decals: Phaser.GameObjects.Image[];
 }
 
 /** Render layers (spec §9). World objects are additionally y-sorted by footprint bottom. */
@@ -179,6 +192,7 @@ export class HabitatScene extends Phaser.Scene {
       entry.tweens.forEach((t) => t.remove());
       this.removeBadge(entry, false);
       this.removeShine(entry);
+      this.removeDecals(entry);
       entry.img.destroy();
     }
     this.sprites.clear();
@@ -198,7 +212,7 @@ export class HabitatScene extends Phaser.Scene {
       const entry = this.sprites.get(data.id);
       if (!entry) {
         const img = this.add.image(0, 0, data.texture);
-        const created: SpriteEntry = { img, data, tweens: [] };
+        const created: SpriteEntry = { img, data, tweens: [], decals: [] };
         this.sprites.set(data.id, created);
         this.apply(created, data, null);
         this.pop(img);
@@ -214,6 +228,7 @@ export class HabitatScene extends Phaser.Scene {
       entry.tweens.forEach((t) => t.remove());
       this.removeBadge(entry, false);
       this.removeShine(entry);
+      this.removeDecals(entry);
       entry.img.destroy();
       this.sprites.delete(id);
     }
@@ -247,6 +262,7 @@ export class HabitatScene extends Phaser.Scene {
     if (!data.interaction && img.input) img.disableInteractive();
     this.applyBadge(entry, data, prev);
     this.applyShine(entry, data, prev);
+    this.applyDecals(entry, data, prev);
 
     const motionChanged = !prev || prev.sway !== data.sway || prev.pulse !== data.pulse;
     if (!motionChanged || this.reducedMotion) return;
@@ -298,11 +314,13 @@ export class HabitatScene extends Phaser.Scene {
       return;
     }
     const { img } = entry;
-    const x = img.x;
-    const y = img.y - img.displayHeight + 6;
+    const at = data.badgeAt;
+    const corner = topLeft(img);
+    const x = at ? corner.x + at.dx : img.x;
+    const y = at ? corner.y + at.dy : img.y - img.displayHeight + 6;
     if (entry.badge && prev?.badge === data.badge) {
       // Same badge; the sprite may have grown taller, so re-seat it on top.
-      if (prev.texture === data.texture && prev.x === data.x && prev.y === data.y) return;
+      if (samePlace(prev, data)) return;
       entry.badgeBob?.remove();
       entry.badge.setPosition(x, y);
       this.bobBadge(entry, y);
@@ -340,7 +358,7 @@ export class HabitatScene extends Phaser.Scene {
 
   /** A few twinkles that fade in and out at random spots on the sprite; none when the plant isn't thriving. */
   private applyShine(entry: SpriteEntry, data: RenderSprite, prev: RenderSprite | null): void {
-    const unchanged = prev?.shine && prev.texture === data.texture && prev.x === data.x && prev.y === data.y;
+    const unchanged = prev?.shine && samePlace(prev, data);
     if (data.shine && entry.shine && unchanged) return;
     this.removeShine(entry);
     if (!data.shine) return;
@@ -385,6 +403,34 @@ export class HabitatScene extends Phaser.Scene {
       );
     }
     entry.shine = shine;
+  }
+
+  /** Pin decals on the sprite, just in front of it. A newly added decal pops in; existing ones stay put. */
+  private applyDecals(entry: SpriteEntry, data: RenderSprite, prev: RenderSprite | null): void {
+    const before = prev?.decals ?? [];
+    const after = data.decals ?? [];
+    if (prev && sameDecals(before, after) && samePlace(prev, data)) return;
+    this.removeDecals(entry);
+    const { img } = entry;
+    const corner = topLeft(img);
+    after.forEach((d, i) => {
+      // Not interactive: decals sit on the sprite, so a tap on one lands on the sprite beneath.
+      const decal = this.add
+        .image(corner.x + d.dx, corner.y + d.dy, d.texture)
+        .setAngle(d.angle ?? 0)
+        .setDepth(img.depth + 0.5 + i * 0.01);
+      entry.decals.push(decal);
+      const isNew = i >= before.length || before[i].texture !== d.texture;
+      if (prev && isNew && !this.building && !this.reducedMotion) {
+        decal.setScale(0.2);
+        this.tweens.add({ targets: decal, scale: 1, duration: 260, ease: 'Back.out', delay: (i - before.length) * 60 });
+      }
+    });
+  }
+
+  private removeDecals(entry: SpriteEntry): void {
+    entry.decals.forEach((d) => d.destroy());
+    entry.decals = [];
   }
 
   private removeShine(entry: SpriteEntry): void {
@@ -464,6 +510,26 @@ function sameSprite(a: RenderSprite, b: RenderSprite): boolean {
   return (
     sameInteraction &&
     a.texture === b.texture && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h &&
-    a.sway === b.sway && a.pulse === b.pulse && a.badge === b.badge && a.shine === b.shine
+    a.sway === b.sway && a.pulse === b.pulse && a.badge === b.badge && a.shine === b.shine &&
+    sameDecals(a.decals ?? [], b.decals ?? [])
   );
+}
+
+/** Same texture and tile position: anything drawn relative to the sprite can stay put. */
+function samePlace(a: RenderSprite, b: RenderSprite): boolean {
+  return a.texture === b.texture && a.x === b.x && a.y === b.y;
+}
+
+/** The sprite's top-left corner in world pixels (badges and decals are placed from here). */
+function topLeft(img: Phaser.GameObjects.Image): { x: number; y: number } {
+  return { x: img.x - img.width * img.originX, y: img.y - img.height * img.originY };
+}
+
+/** Decal lists are usually the same array (a computed); only compare contents when they aren't. */
+function sameDecals(a: readonly RenderDecal[], b: readonly RenderDecal[]): boolean {
+  return a === b || decalsKey(a) === decalsKey(b);
+}
+
+function decalsKey(decals: readonly RenderDecal[]): string {
+  return decals.map((d) => `${d.texture}@${d.dx},${d.dy},${d.angle ?? 0}`).join('|');
 }

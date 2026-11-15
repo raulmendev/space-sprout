@@ -8,3 +8,4 @@ export * from './contracts/rules';
 export * from './contracts/movement';
 export * from './contracts/motion';
 export * from './contracts/health';
+export * from './contracts/notes';

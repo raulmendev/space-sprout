@@ -4,7 +4,6 @@ import {
   HabitatInteraction,
   InsightsDisplayState,
   MedicalTerminalState,
-  MessageBoardState,
   PropInteraction,
   ROOMS,
   TileCoord,
@@ -24,6 +23,8 @@ import {
 import { GardenStore } from '../garden/garden.store';
 import {
   HINT_TEXTURE,
+  NOTE_BUBBLE_TEXTURE,
+  NOTE_TEXTURES,
   NPC_TEXTURE,
   PLAYER_TEXTURE,
   THIRST_TEXTURE,
@@ -34,7 +35,9 @@ import {
 } from '../garden/game/asset-registry';
 import { PlayerStore } from './player.store';
 import { NpcActorStore } from '../npc/npc-actor.store';
-import type { HabitatRenderState, RenderActor, RenderSprite } from '../garden/game/habitat.scene';
+import type { HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
+import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
+import { NotesStore } from '../social/notes.store';
 
 /** A panel is identified by the station interaction that opens it. */
 export type HabitatPanel = PropInteraction;
@@ -59,6 +62,7 @@ export class HabitatStore {
   private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
   private readonly npc = inject(NpcActorStore);
+  private readonly notes = inject(NotesStore);
 
   /** The room on screen: wherever the local player is. */
   readonly activeRoom = computed(() => this.player.room());
@@ -74,8 +78,23 @@ export class HabitatStore {
   readonly propStates = {
     MEDICAL_TERMINAL: signal<MedicalTerminalState>('idle'),
     HEALTH_INSIGHTS: signal<InsightsDisplayState>('idle'),
-    MESSAGE_BOARD: signal<MessageBoardState>('idle'),
   } as const;
+
+  /**
+   * What's pinned on the message board: one note per slot, newest first, coloured by who wrote
+   * it. With more notes than slots, the last slot becomes a "+" stack. Unread → floating bubble.
+   */
+  private readonly boardNotes = computed<Pick<RenderSprite, 'decals' | 'badge' | 'badgeAt'>>(() => {
+    const notes = this.notes.newestFirst();
+    const overflow = notes.length > NOTE_SLOTS.length;
+    const shown = overflow ? notes.slice(0, NOTE_SLOTS.length - 1) : notes;
+    const decals: RenderDecal[] = shown.map((n, i) => ({
+      texture: this.notes.isMine(n) ? NOTE_TEXTURES.astronaut : NOTE_TEXTURES.family,
+      ...NOTE_SLOTS[i],
+    }));
+    if (overflow) decals.push({ texture: NOTE_TEXTURES.more, ...NOTE_SLOTS[shown.length] });
+    return { decals, badge: this.notes.unread() ? NOTE_BUBBLE_TEXTURE : undefined, badgeAt: BUBBLE_AT };
+  });
 
   readonly renderState = computed<HabitatRenderState>(() => {
     const room = this.activeRoom();
@@ -93,6 +112,7 @@ export class HabitatStore {
         h: p.h,
         interaction: propInteraction(p),
         pulse: propPulses(p.kind, state),
+        ...(p.kind === 'MESSAGE_BOARD' ? this.boardNotes() : {}),
       });
     }
 

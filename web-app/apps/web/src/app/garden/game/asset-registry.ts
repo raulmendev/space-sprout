@@ -7,6 +7,7 @@
  */
 import { ALL_PROPS, PlantStage, TileKind, getCatalogItem, plantStages } from '@garden/shared';
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
+import { BOARD_SIZE, NOTE_COLORS, NOTE_SIZE, noteBubbleArt, noteStackArt, stickyNoteArt } from './notice-board';
 import {
   ASTRONAUT,
   HINT_PLUS,
@@ -193,12 +194,8 @@ const PROP_VISUALS: Record<string, PropVisual> = {
     states: { idle: { badge: '' }, new_data: { badge: '•' }, active: { badge: '▸' } },
   },
   POTTED_PLANT: { folder: 'medical/terminal', size: [32, 48], palette: GARDEN },
-  MESSAGE_BOARD: {
-    folder: 'social/board',
-    size: [96, 64],
-    palette: SOCIAL,
-    states: { idle: { badge: '' }, unread: { badge: '✉', pulse: true } },
-  },
+  // Notes are separate sprites pinned on it (see notice-board.ts); unread shows as a floating bubble.
+  MESSAGE_BOARD: { folder: 'social/board', size: BOARD_SIZE, palette: SOCIAL },
   EMOTE_POINT: { folder: 'social/emotes', size: [64, 64], palette: SOCIAL },
   SOFA: { folder: 'social/decorations', size: [96, 48], palette: SOCIAL },
   COMM_TERMINAL: { folder: 'social/decorations', size: [64, 64], palette: SOCIAL },
@@ -237,11 +234,18 @@ export const HINT_TEXTURE = 'gui-hint-plus';
 export const PLAYER_TEXTURE = 'player-astronaut';
 export const THIRST_TEXTURE = 'gui-thirst-bubble';
 export const TWINKLE_TEXTURE = 'fx-twinkle';
+export const NOTE_BUBBLE_TEXTURE = 'gui-note-bubble';
+/** Notes pinned on the message board, by who wrote them; `more` stands in for the overflow. */
+export const NOTE_TEXTURES = { astronaut: 'note-astronaut', family: 'note-family', more: 'note-more' } as const;
 register(NPC_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(NPC_SPROUT, 2, 32, 48));
 register(PLAYER_TEXTURE, 'characters', [32, 48], BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, 32, 48));
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
 register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
 register(TWINKLE_TEXTURE, 'gui/effects', [32, 32], [0.5, 0.5], () => gridToCanvas(TWINKLE));
+register(NOTE_BUBBLE_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, noteBubbleArt);
+register(NOTE_TEXTURES.astronaut, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.astronaut));
+register(NOTE_TEXTURES.family, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.family));
+register(NOTE_TEXTURES.more, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], noteStackArt);
 
 // ---------------------------------------------------------------- lookup
 

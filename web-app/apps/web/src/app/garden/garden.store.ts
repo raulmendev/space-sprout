@@ -5,6 +5,7 @@ import {
   CareAction,
   GARDEN_ROOM,
   GardenObject,
+  SocialNote,
   PlacementError,
   findPlacement,
   getCatalogItem,
@@ -19,7 +20,7 @@ import {
   objectAtTile,
   propAtTile,
 } from '@garden/shared';
-import { CareResult, GardenService, LOCAL_PLAYER, earnedToday } from './garden.service';
+import { CareResult, GardenService, LOCAL_PLAYER, PostItResult, PostNoteResult, earnedToday } from './garden.service';
 import type { TileCoord } from './game/tile-manager';
 
 export type CloseupInfo = NonNullable<ReturnType<GardenStore['closeup']>>;
@@ -33,6 +34,10 @@ export class GardenStore {
   readonly catalog = CATALOG;
   readonly objects = signal<GardenObject[]>([]);
   readonly balance = signal(0);
+  /** Post-its in the habitat's shared stock (message board). */
+  readonly postIts = signal(0);
+  /** Notes pinned from this device (see NotesStore for the whole board). */
+  readonly notes = signal<SocialNote[]>([]);
   /** Clock used for timestamp-based growth. */
   readonly now = signal(Date.now());
 
@@ -76,7 +81,33 @@ export class GardenStore {
     const snap = await this.service.load();
     this.objects.set(snap.objects);
     this.balance.set(snap.balance);
+    this.postIts.set(snap.postIts ?? 0);
+    this.notes.set(snap.notes ?? []);
     this.earnedToday.set(earnedToday(snap.earnings, LOCAL_PLAYER.id, Date.now()));
+  }
+
+  async buyPostIts(quantity: number): Promise<PostItResult> {
+    const result = await this.service.buyPostIts(quantity);
+    if (result.ok) {
+      this.balance.set(result.balance);
+      this.postIts.set(result.postIts);
+    }
+    return result;
+  }
+
+  async postNote(content: string): Promise<PostNoteResult> {
+    const result = await this.service.postNote(content);
+    if (result.ok) {
+      this.postIts.set(result.postIts);
+      this.notes.update((list) => [...list, result.note]);
+    }
+    return result;
+  }
+
+  async takeDownNote(noteId: string): Promise<boolean> {
+    const ok = await this.service.takeDownNote(noteId);
+    if (ok) this.notes.update((list) => list.filter((n) => n.id !== noteId));
+    return ok;
   }
 
   async care(plantId: string, action: CareAction): Promise<CareResult> {

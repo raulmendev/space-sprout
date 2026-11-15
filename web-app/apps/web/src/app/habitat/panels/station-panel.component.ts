@@ -3,6 +3,7 @@ import { ALL_PROPS, ROOMS } from '@garden/shared';
 import type { HabitatPanel } from '../habitat.store';
 import { MedicalTerminalPanelComponent } from '../../health/medical-terminal-panel.component';
 import { HealthInsightsPanelComponent } from '../../health/health-insights-panel.component';
+import { MessageBoardPanelComponent } from '../../social/message-board-panel.component';
 
 const EMOTES = [
   { glyph: '❤️', label: 'Love' },
@@ -14,15 +15,14 @@ const EMOTES = [
 ];
 
 /** Panels drawn in the steel console frame; their content supplies its own cream screen. */
-const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED']);
+const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED', 'MESSAGE_BOARD_SELECTED']);
 
 /**
- * Panels opened from habitat objects. Medical panels are live; the social ones
- * are still shells until notes and emotes are built.
+ * Panels opened from habitat objects. The emote corner is still a shell until emotes are built.
  */
 @Component({
   selector: 'app-station-panel',
-  imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent],
+  imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent, MessageBoardPanelComponent],
   host: { '(document:keydown.escape)': 'closed.emit()' },
   template: `
     <section
@@ -33,12 +33,21 @@ const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SEL
     >
       <header class="flex items-start justify-between gap-2">
         <div class="flex min-w-0 flex-wrap items-center gap-x-2">
-          @if (console()) {
-            <!-- Medical cross badge (the medical terminal is the only console so far) -->
-            <svg class="size-8 shrink-0 short:size-7" viewBox="0 0 32 32" aria-hidden="true">
-              <rect class="ink" x="1.5" y="1.5" width="29" height="29" rx="8" fill="#3fa7e8" stroke-width="3" />
-              <path class="ink" d="M12.5 7h7v5.5H25v7h-5.5V25h-7v-5.5H7v-7h5.5z" fill="#fff" stroke-width="1.5" stroke-linejoin="round" />
-            </svg>
+          <!-- Console badge: what this station is, at a glance. -->
+          @switch (panel()) {
+            @case ('MEDICAL_TERMINAL_SELECTED') {
+              <svg class="size-8 shrink-0 short:size-7" viewBox="0 0 32 32" aria-hidden="true">
+                <rect class="ink" x="1.5" y="1.5" width="29" height="29" rx="8" fill="#3fa7e8" stroke-width="3" />
+                <path class="ink" d="M12.5 7h7v5.5H25v7h-5.5V25h-7v-5.5H7v-7h5.5z" fill="#fff" stroke-width="1.5" stroke-linejoin="round" />
+              </svg>
+            }
+            @case ('MESSAGE_BOARD_SELECTED') {
+              <svg class="size-9 shrink-0 short:size-7" viewBox="0 0 36 32" aria-hidden="true">
+                <rect class="ink" x="2" y="5" width="32" height="23" rx="3" fill="#fbf3e4" stroke-width="3" />
+                <path class="ink" d="M3.5 7 18 18 32.5 7" fill="none" stroke-width="2.5" stroke-linejoin="round" />
+                <path class="ink" d="M18 25s-6-3.6-6-7.4a3.3 3.3 0 0 1 6-1.8 3.3 3.3 0 0 1 6 1.8c0 3.8-6 7.4-6 7.4z" fill="#e8577a" stroke-width="1.8" stroke-linejoin="round" />
+              </svg>
+            }
           }
           <h2 id="panel-title" #heading tabindex="-1" class="font-pixel text-2xl leading-tight outline-none short:text-xl">{{ meta().title }}</h2>
           <p class="zone text-xs font-bold uppercase tracking-wide text-bark/70">{{ meta().zone }}</p>
@@ -65,8 +74,7 @@ const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SEL
           <app-health-insights-panel />
         }
         @case ('MESSAGE_BOARD_SELECTED') {
-          <p class="text-sm">Notes between orbit and home. Up to 280 characters, delivered whenever each side is online.</p>
-          <div class="grid h-24 place-items-center rounded-md border-2 border-dashed border-bark/30 text-sm text-bark/70">No notes yet</div>
+          <app-message-board-panel />
         }
         @case ('EMOTE_AREA_SELECTED') {
           <ul class="grid grid-cols-3 gap-2">
@@ -76,8 +84,8 @@ const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SEL
           </ul>
         }
       }
-      @if (panel() === 'MESSAGE_BOARD_SELECTED' || panel() === 'EMOTE_AREA_SELECTED') {
-        <p class="text-xs italic text-bark/60">Panel shell: notes and emotes arrive in a later step.</p>
+      @if (panel() === 'EMOTE_AREA_SELECTED') {
+        <p class="text-xs italic text-bark/60">Panel shell: emotes arrive in a later step.</p>
       }
     </section>
   `,

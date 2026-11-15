@@ -13,10 +13,10 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
   imports: [NgTemplateOutlet],
   template: `
     <div role="tablist" aria-label="How to add readings" class="grid grid-cols-2 gap-2">
-      <button type="button" role="tab" class="tab btn-press" [attr.aria-selected]="tab() === 'sync'" (click)="tab.set('sync')">
+      <button type="button" role="tab" class="tab soft-btn btn-press" [attr.aria-selected]="tab() === 'sync'" (click)="tab.set('sync')">
         <span aria-hidden="true">⌚</span>Wearable sync
       </button>
-      <button type="button" role="tab" class="tab btn-press" [attr.aria-selected]="tab() === 'manual'" (click)="tab.set('manual')">
+      <button type="button" role="tab" class="tab soft-btn btn-press" [attr.aria-selected]="tab() === 'manual'" (click)="tab.set('manual')">
         <span aria-hidden="true">✏️</span>Enter manually
       </button>
     </div>
@@ -166,32 +166,18 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       }
     </ng-template>
   `,
-  host: { class: 'flex flex-col gap-3 short:gap-2' },
+  host: { class: 'console-screen flex flex-col gap-3 short:gap-2' },
   styles: `
-    /* The cream screen set into the station's console bezel. */
+    /* A cream screen (frame from .console-screen). */
     :host {
       --line: color-mix(in srgb, var(--color-bark) 22%, transparent);
       --stripe: color-mix(in srgb, var(--color-steel) 25%, transparent); /* the bezel's cream stripes would vanish on the screen */
-      color: var(--color-bark-dark);
       background: var(--color-cream);
-      border: 3px solid var(--color-steel-dark);
-      border-radius: 10px;
       padding: 12px;
-      box-shadow: inset 0 3px 0 rgb(0 0 0 / 0.08);
     }
 
-    .tab {
-      --press: color-mix(in srgb, var(--color-bark) 30%, transparent);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      padding: 0.45rem 0.75rem;
-      background: var(--color-parchment);
-      font-weight: 800;
-    }
+    .tab { display: flex; align-items: center; justify-content: center; gap: 0.5rem; padding: 0.45rem 0.75rem; }
     .tab[aria-selected='true'] { --press: var(--color-bark-dark); background: var(--color-sun); }
-    .tab:hover, .chunky-btn:enabled:hover { filter: brightness(1.04); }
 
     /* Riveted card: a screw in each corner. */
     .card {
@@ -223,18 +209,6 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
     .pulse { animation: pulse 0.8s ease-in-out infinite alternate; }
     @keyframes pulse { to { stroke: #fff; } }
 
-    .chunky-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      width: 100%;
-      padding: 0.5rem 0.75rem;
-      background: var(--color-sun);
-      font-weight: 800;
-      font-size: 1.05rem;
-    }
-    .chunky-btn:disabled { opacity: 0.55; }
 
     .row {
       display: flex;

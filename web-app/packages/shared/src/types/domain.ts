@@ -148,7 +148,6 @@ export type PropInteraction = Extract<
 
 export type MedicalTerminalState = 'idle' | 'syncing' | 'complete' | 'attention';
 export type InsightsDisplayState = 'idle' | 'new_data' | 'active';
-export type MessageBoardState = 'idle' | 'unread';
 
 export interface Footprint {
   w: number;

@@ -5,9 +5,17 @@ import {
   CareError,
   GardenObject,
   PlacementError,
+  PostItError,
+  PostNoteError,
+  SocialNote,
   applyCare,
+  canTakeDown,
   careDay,
   checkCare,
+  checkPostItPurchase,
+  checkPostNote,
+  noteText,
+  postItCost,
   getCatalogItem,
   validatePlacement,
 } from '@garden/shared';
@@ -20,7 +28,14 @@ export interface GardenSnapshot {
   balance: number;
   objects: GardenObject[];
   earnings?: GardenEarnings;
+  /** Post-its in the habitat's shared stock (message board). */
+  postIts?: number;
+  /** Notes pinned on the message board from this device, until a server holds them. */
+  notes?: SocialNote[];
 }
+
+export type PostItResult = { ok: true; balance: number; postIts: number } | { ok: false; error: PostItError };
+export type PostNoteResult = { ok: true; note: SocialNote; postIts: number } | { ok: false; error: PostNoteError };
 
 export type PlaceResult =
   | { ok: true; object: GardenObject; balance: number }
@@ -91,6 +106,40 @@ export class GardenService {
     snap.balance += Math.max(0, Math.floor(amount));
     this.save(snap);
     return snap.balance;
+  }
+
+  /** Buy post-its for the shared stock: the seeds and the post-its change in one save. */
+  async buyPostIts(quantity: number): Promise<PostItResult> {
+    const snap = await this.load();
+    const error = checkPostItPurchase(quantity, snap.balance);
+    if (error) return { ok: false, error };
+    snap.balance -= postItCost(quantity);
+    snap.postIts = (snap.postIts ?? 0) + quantity;
+    this.save(snap);
+    return { ok: true, balance: snap.balance, postIts: snap.postIts };
+  }
+
+  /** Pin a note: uses one post-it and stores the note in the same save. */
+  async postNote(content: string, actor: Actor = LOCAL_PLAYER): Promise<PostNoteResult> {
+    const snap = await this.load();
+    const postIts = snap.postIts ?? 0;
+    const error = checkPostNote(content, postIts);
+    if (error) return { ok: false, error };
+    const note: SocialNote = { id: crypto.randomUUID(), authorId: actor.id, content: noteText(content), createdAt: new Date().toISOString() };
+    snap.postIts = postIts - 1;
+    snap.notes = [...(snap.notes ?? []), note];
+    this.save(snap);
+    return { ok: true, note, postIts: snap.postIts };
+  }
+
+  /** Take one of your own notes off the board (the post-it isn't refunded). */
+  async takeDownNote(noteId: string, actor: Actor = LOCAL_PLAYER): Promise<boolean> {
+    const snap = await this.load();
+    const note = snap.notes?.find((n) => n.id === noteId);
+    if (!note || !canTakeDown(note, actor.id)) return false;
+    snap.notes = snap.notes!.filter((n) => n.id !== noteId);
+    this.save(snap);
+    return true;
   }
 
   /** Water, fertilize, prune or harvest a plant. Harvest removes it and frees the plot (`object: null`). */
