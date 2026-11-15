@@ -2,7 +2,6 @@ import type { Point } from '../types/domain';
 import type { TileCoord, TileRect } from './geometry';
 import type { RoomId } from './habitat';
 import { findPath, isWalkable, pathToReach } from './movement';
-import type { Placed } from './rules';
 
 /**
  * Free (non-grid) character motion. Positions are continuous points in tile
@@ -17,14 +16,14 @@ export const tileOf = (p: Point): TileCoord => ({ x: Math.floor(p.x), y: Math.fl
 export const tileCenter = (t: TileCoord): Point => ({ x: t.x + 0.5, y: t.y + 0.5 });
 
 /** Can a character's feet be at `p` without overlapping anything solid? */
-export function canStand(room: RoomId, p: Point, objects: readonly Placed[]): boolean {
+export function canStand(room: RoomId, p: Point): boolean {
   for (const [dx, dy] of [
     [-FOOT.hw, -FOOT.hh],
     [FOOT.hw, -FOOT.hh],
     [-FOOT.hw, FOOT.hh],
     [FOOT.hw, FOOT.hh],
   ]) {
-    if (!isWalkable(room, Math.floor(p.x + dx), Math.floor(p.y + dy), objects)) return false;
+    if (!isWalkable(room, Math.floor(p.x + dx), Math.floor(p.y + dy))) return false;
   }
   return true;
 }
@@ -37,9 +36,9 @@ const CORNER_ASSIST = 0.6;
  * straight push is blocked but an opening (a door, a gap between beds) is within
  * CORNER_ASSIST sideways, ease toward it so nobody has to line up pixel-perfectly.
  */
-export function slide(room: RoomId, p: Point, dx: number, dy: number, objects: readonly Placed[]): Point {
+export function slide(room: RoomId, p: Point, dx: number, dy: number): Point {
   let { x, y } = p;
-  const free = (q: Point) => canStand(room, q, objects);
+  const free = (q: Point) => canStand(room, q);
   // Already inside something solid (e.g. a plant appeared underfoot): move freely until out.
   if (!free(p)) return { x: x + dx, y: y + dy };
   if (dx && free({ x: x + dx, y })) x += dx;
@@ -63,22 +62,22 @@ export function slide(room: RoomId, p: Point, dx: number, dy: number, objects: r
 }
 
 /** Is the straight walk from a to b clear the whole way? */
-export function clearLine(room: RoomId, a: Point, b: Point, objects: readonly Placed[]): boolean {
+export function clearLine(room: RoomId, a: Point, b: Point): boolean {
   const steps = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 0.1);
   for (let i = 1; i <= steps; i++) {
     const t = i / steps;
-    if (!canStand(room, { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }, objects)) return false;
+    if (!canStand(room, { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })) return false;
   }
   return true;
 }
 
 /** Keep only the waypoints needed: from each point, jump to the farthest one in plain sight. */
-function stringPull(room: RoomId, from: Point, points: Point[], objects: readonly Placed[]): Point[] {
+function stringPull(room: RoomId, from: Point, points: Point[]): Point[] {
   const out: Point[] = [];
   let cur = from;
   for (let i = 0; i < points.length; ) {
     let j = points.length - 1;
-    while (j > i && !clearLine(room, cur, points[j], objects)) j--;
+    while (j > i && !clearLine(room, cur, points[j])) j--;
     out.push(points[j]);
     cur = points[j];
     i = j + 1;
@@ -87,15 +86,15 @@ function stringPull(room: RoomId, from: Point, points: Point[], objects: readonl
 }
 
 /** Smooth route to somewhere within reach of a footprint (null if unreachable). */
-export function planReach(room: RoomId, from: Point, rect: TileRect, objects: readonly Placed[]): Point[] | null {
-  const tiles = pathToReach(room, tileOf(from), rect, objects);
+export function planReach(room: RoomId, from: Point, rect: TileRect): Point[] | null {
+  const tiles = pathToReach(room, tileOf(from), rect);
   if (!tiles) return null;
-  return stringPull(room, from, tiles.map(tileCenter), objects);
+  return stringPull(room, from, tiles.map(tileCenter));
 }
 
 /** Smooth route to the centre of a tile in the same room (null if unreachable). */
-export function planRoute(room: RoomId, from: Point, to: TileCoord, objects: readonly Placed[]): Point[] | null {
-  const tiles = findPath(room, tileOf(from), to, objects);
+export function planRoute(room: RoomId, from: Point, to: TileCoord): Point[] | null {
+  const tiles = findPath(room, tileOf(from), to);
   if (!tiles) return null;
-  return stringPull(room, from, tiles.map(tileCenter), objects);
+  return stringPull(room, from, tiles.map(tileCenter));
 }

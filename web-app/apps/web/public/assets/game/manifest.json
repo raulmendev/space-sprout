@@ -118,6 +118,8 @@
     "prop-vine-arch",
     "prop-vine-planter",
     "prop-watering-can",
-    "room-garden"
+    "room-garden",
+    "decor-pot",
+    "decor-pot-front"
   ]
 }

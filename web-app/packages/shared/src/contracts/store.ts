@@ -34,6 +34,8 @@ export interface Purchase {
 export const FERTILIZER = 'fertilizer';
 /** One note on the message board. */
 export const POST_IT = 'post-it';
+/** An empty pot: potting a grown plant uses one (see potting.ts). */
+export const CLAY_POT = 'clay-pot';
 export const seedItemId = (plant: string) => `seed:${plant}`;
 
 export const STORE_ITEMS: readonly StoreItem[] = [
@@ -47,6 +49,7 @@ export const STORE_ITEMS: readonly StoreItem[] = [
     plant: p.id,
   })),
   { id: FERTILIZER, section: 'GARDEN', name: 'Fertilizer', description: 'One scoop helps a growing plant along.', price: 2, icon: '🧪' },
+  { id: CLAY_POT, section: 'GARDEN', name: 'Clay pot', description: 'Pot a grown plant and bring it indoors.', price: 4, icon: '🏺' },
   { id: POST_IT, section: 'MESSAGES', name: 'Post-it', description: 'One note for the message board, home and back.', price: 3, icon: '📝' },
   { id: 'photo-frame', section: 'DECORATIONS', name: 'Photo frame', description: 'For a favourite picture from home.', price: 12, icon: '🖼️' },
   { id: 'earth-poster', section: 'DECORATIONS', name: 'Earth poster', description: 'The view from the window, to keep.', price: 10, icon: '🌍' },

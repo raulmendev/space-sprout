@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   CARE_RULES,
+  CLAY_POT,
   CATALOG,
   CareAction,
   FERTILIZER,
@@ -31,7 +32,7 @@ import {
 } from '@garden/shared';
 import { timeAgo } from '../health/format';
 import { whoDid } from '../shared/format';
-import { CareResult, DecorResult, GardenService, LOCAL_PLAYER, PostNoteResult, earnedToday } from './garden.service';
+import { CareResult, DecorResult, GardenService, LOCAL_PLAYER, PostNoteResult, PotResult, earnedToday } from './garden.service';
 import type { TileCoord } from './game/tile-manager';
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -92,6 +93,8 @@ export class GardenStore {
       log: obj.care?.log ?? [],
       me: LOCAL_PLAYER.id,
       capReached: ctx.earnedToday >= CARE_RULES.dailyGardenCoinCap,
+      /** Clay pots in the inventory (a grown plant can be potted with one). */
+      pots: owned(this.inventory(), CLAY_POT),
     };
   });
 
@@ -182,6 +185,20 @@ export class GardenStore {
 
   moveDecor(decorId: string, tile: TileCoord): Promise<DecorResult> {
     return this.applyDecor(this.service.moveDecor(decorId, tile.x, tile.y));
+  }
+
+  waterDecor(decorId: string): Promise<DecorResult> {
+    return this.applyDecor(this.service.waterDecor(decorId));
+  }
+
+  /** Pot a grown plant (it moves from the garden into the inventory). */
+  async potPlant(plantId: string): Promise<PotResult> {
+    const result = await this.service.potPlant(plantId);
+    if (!result.ok) return result;
+    this.objects.update((list) => list.filter((o) => o.id !== plantId));
+    this.inventory.set(result.inventory);
+    if (this.closeupId() === plantId) this.closeupId.set(null);
+    return result;
   }
 
   putAwayDecor(decorId: string): Promise<DecorResult> {
