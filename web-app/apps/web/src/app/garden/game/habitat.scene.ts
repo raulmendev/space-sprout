@@ -52,6 +52,8 @@ export interface RenderActor {
   shadow?: boolean;
   /** A name tag floating above its head (players). */
   label?: string;
+  /** An emote in a bubble above its head (and above its name tag). A new `at` pops it in again. */
+  emote?: { glyph: string; at: number };
 }
 
 /** Frames played by the scene's own clock, so they keep going while nothing else changes. */
@@ -84,10 +86,29 @@ const NAME_TAG = {
   gap: 3,
 } as const;
 
+/** Emote bubbles: a cream speech bubble with a small tail, the emoji inside. CSS px, like name tags. */
+const EMOTE_BUBBLE = {
+  style: { fontFamily: 'Nunito, sans-serif', fontSize: '20px' },
+  fill: 0xfbf3e4,
+  stroke: 0x1d1b3a,
+  size: 32,
+  tail: 6,
+  /** Between the bubble's tail and whatever is under it (the name tag or the head). */
+  gap: 2,
+} as const;
+
+interface EmoteBubble {
+  box: Phaser.GameObjects.Container;
+  text: Phaser.GameObjects.Text;
+  at: number;
+}
+
 interface NameTag {
   box: Phaser.GameObjects.Container;
   text: Phaser.GameObjects.Text;
   bg: Phaser.GameObjects.Graphics;
+  /** The pill's height in CSS px (drawTag), so what floats above it can sit on top. */
+  height: number;
 }
 
 interface FloatState {
@@ -148,6 +169,8 @@ export class HabitatScene extends Phaser.Scene {
   private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse | Phaser.GameObjects.Image>();
   /** The name tag above each character that has one, drawn above everything in the room. */
   private readonly labels = new Map<string, NameTag>();
+  /** The emote bubble over each character that is showing one. */
+  private readonly emotes = new Map<string, EmoteBubble>();
   /** Per texture: how many rows of transparent padding sit above the art (name tags rest on the art, not the padding). */
   private readonly artTop = new Map<string, number>();
   /** World px per CSS px (name tags are scaled by it) and canvas px per CSS px (their text resolution). */
@@ -178,14 +201,16 @@ export class HabitatScene extends Phaser.Scene {
 
   preload(): void {
     this.load.on('loaderror', (file: Phaser.Loader.File) => this.failed.add(file.key));
-    for (const key of this.bridge.deliveredKeys) {
-      const asset = getAsset(key);
-      if (asset) this.load.image(key, asset.path);
+    const delivered = new Set(this.bridge.deliveredKeys);
+    for (const asset of allAssets()) {
+      // Not delivered but with a delivered fallback (a prop state drawn as idle): load that picture under its key.
+      const path = delivered.has(asset.key) ? asset.path : asset.fallback && delivered.has(asset.fallback) ? getAsset(asset.fallback)?.path : undefined;
+      if (path) this.load.image(asset.key, path);
     }
   }
 
   create(): void {
-    // Anything not delivered gets its placeholder; delivered-but-broken gets a loud one.
+    // Anything not loaded gets its placeholder; delivered-but-broken gets a loud one.
     for (const asset of allAssets()) {
       if (asset.uiOnly || this.textures.exists(asset.key)) continue;
       if (this.failed.has(asset.key)) {
@@ -260,6 +285,10 @@ export class HabitatScene extends Phaser.Scene {
       l.box.setScale(this.tagScale);
       l.text.setResolution(this.tagResolution);
     });
+    this.emotes.forEach((e) => {
+      e.box.setScale(this.tagScale);
+      e.text.setResolution(this.tagResolution);
+    });
   }
 
   setState(state: HabitatRenderState): void {
@@ -299,6 +328,8 @@ export class HabitatScene extends Phaser.Scene {
     this.shadows.clear();
     this.labels.forEach((l) => l.box.destroy());
     this.labels.clear();
+    this.emotes.forEach((e) => e.box.destroy());
+    this.emotes.clear();
     this.room = state.room;
     this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
     this.windows = this.drawWindows(state.room);
@@ -420,6 +451,10 @@ export class HabitatScene extends Phaser.Scene {
       this.showFrame(img);
       this.applyHover(a.id, img);
       if (a.label) this.placeLabel(a.id, a.label, img);
+      this.placeEmote(a.id, a.emote, img);
+    }
+    for (const id of this.emotes.keys()) {
+      if (!seen.has(id)) this.removeEmote(id, true);
     }
     for (const [id, label] of this.labels) {
       if (!actors.some((a) => a.id === id && a.label)) {
@@ -447,6 +482,7 @@ export class HabitatScene extends Phaser.Scene {
       this.showFrame(img);
       this.applyHover(id, img);
       this.followLabel(id, img);
+      this.followEmote(id, img);
     }
     this.animateWindows();
   }
@@ -474,7 +510,7 @@ export class HabitatScene extends Phaser.Scene {
       const bg = this.add.graphics();
       const text = this.add.text(0, 0, name, NAME_TAG.style).setOrigin(0.5, 1).setResolution(this.tagResolution);
       const box = this.add.container(0, 0, [bg, text]).setScale(this.tagScale).setDepth(DEPTH.INDICATOR - 1);
-      label = { box, text, bg };
+      label = { box, text, bg, height: 0 };
       this.labels.set(id, label);
       this.drawTag(label);
     } else if (label.text.text !== name) {
@@ -485,19 +521,59 @@ export class HabitatScene extends Phaser.Scene {
   }
 
   /** The pill behind the name, sized to it. The container's origin is the pill's bottom centre. */
-  private drawTag({ text, bg }: NameTag): void {
+  private drawTag(label: NameTag): void {
+    const { text, bg } = label;
     const w = Math.ceil(text.width) + NAME_TAG.padX * 2;
-    const h = Math.ceil(text.height) + NAME_TAG.padY * 2;
+    const h = (label.height = Math.ceil(text.height) + NAME_TAG.padY * 2);
     text.setPosition(0, -NAME_TAG.padY);
     bg.clear().fillStyle(NAME_TAG.fill, NAME_TAG.alpha).fillRoundedRect(-w / 2, -h, w, h, h / 2);
   }
 
-  /** Keep a name tag just above the head, through bobs, hovers and frames of different heights. */
+  /** The top of the character's art (its first visible row), through bobs, hovers and frames of different heights. */
+  private headTop(img: Phaser.GameObjects.Image): number {
+    return img.y - img.displayHeight * img.originY + this.paddingAbove(img.texture.key) * img.scaleY;
+  }
+
+  /** Keep a name tag just above the head. */
   private followLabel(id: string, img: Phaser.GameObjects.Image): void {
+    this.labels.get(id)?.box.setPosition(img.x, this.headTop(img) - NAME_TAG.gap * this.tagScale);
+  }
+
+  /** Show a character's emote bubble, or a new one in its place; it pops in. */
+  private placeEmote(id: string, emote: RenderActor['emote'], img: Phaser.GameObjects.Image): void {
+    const cur = this.emotes.get(id);
+    if (cur && emote?.at === cur.at) return;
+    if (cur) this.removeEmote(id, !emote);
+    if (!emote) return;
+    const { size, tail } = EMOTE_BUBBLE;
+    const bg = this.add.graphics();
+    bg.fillStyle(EMOTE_BUBBLE.fill, 1).lineStyle(1.5, EMOTE_BUBBLE.stroke, 0.35);
+    bg.fillRoundedRect(-size / 2, -size - tail, size, size, 10).strokeRoundedRect(-size / 2, -size - tail, size, size, 10);
+    bg.fillTriangle(-tail, -tail - 1, tail, -tail - 1, 0, 0);
+    const text = this.add.text(0, -tail - size / 2, emote.glyph, EMOTE_BUBBLE.style).setOrigin(0.5).setResolution(this.tagResolution);
+    // The box's origin is the tail's tip; it scales from there.
+    const box = this.add.container(0, 0, [bg, text]).setScale(this.tagScale).setDepth(DEPTH.INDICATOR);
+    this.emotes.set(id, { box, text, at: emote.at });
+    this.followEmote(id, img);
+    if (!this.reducedMotion) this.popIn(box, 0.3, 260, 0, this.tagScale);
+  }
+
+  /** Take a character's emote bubble away: it fades out when its time is up, or goes at once when replaced. */
+  private removeEmote(id: string, fade: boolean): void {
+    const cur = this.emotes.get(id);
+    if (!cur) return;
+    this.emotes.delete(id);
+    if (!fade || this.reducedMotion) cur.box.destroy();
+    else this.tweens.add({ targets: cur.box, alpha: 0, duration: 200, onComplete: () => cur.box.destroy() });
+  }
+
+  /** Keep an emote bubble just above the name tag, or above the head when there is none. */
+  private followEmote(id: string, img: Phaser.GameObjects.Image): void {
+    const emote = this.emotes.get(id);
+    if (!emote) return;
     const label = this.labels.get(id);
-    if (!label) return;
-    const top = img.y - img.displayHeight * img.originY + this.paddingAbove(img.texture.key) * img.scaleY;
-    label.box.setPosition(img.x, top - NAME_TAG.gap * this.tagScale);
+    const below = label ? (NAME_TAG.gap + label.height) * this.tagScale : 0;
+    emote.box.setPosition(img.x, this.headTop(img) - below - EMOTE_BUBBLE.gap * this.tagScale);
   }
 
   /** Rows of transparent padding at the top of a texture, found once. */
@@ -745,10 +821,11 @@ export class HabitatScene extends Phaser.Scene {
   }
 
   /** Grow from `from` times its resting size back to it, with a little overshoot. */
-  private popIn(img: Phaser.GameObjects.Image, from: number, duration: number, delay = 0): void {
-    const s = restingScale(img);
-    img.setScale(s * from);
-    this.tweens.add({ targets: img, scale: s, duration, delay, ease: 'Back.out' });
+  /** Grow from `from` of its resting size (the texture's, unless given) with a little overshoot. */
+  private popIn(obj: Phaser.GameObjects.Image | Phaser.GameObjects.Container, from: number, duration: number, delay = 0, rest?: number): void {
+    const s = rest ?? restingScale(obj as Phaser.GameObjects.Image);
+    obj.setScale(s * from);
+    this.tweens.add({ targets: obj, scale: s, duration, delay, ease: 'Back.out' });
   }
 
   private grow(img: Phaser.GameObjects.Image): void {
