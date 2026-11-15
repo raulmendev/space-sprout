@@ -4,19 +4,26 @@ import {
   CareAction,
   CareError,
   GardenObject,
+  Inventory,
   PlacementError,
-  PostItError,
   PostNoteError,
   SocialNote,
+  Purchase,
+  PurchaseError,
+  STARTER_INVENTORY,
   applyCare,
   canTakeDown,
   careDay,
+  applyPurchase,
   checkCare,
-  checkPostItPurchase,
   checkPostNote,
   noteText,
-  postItCost,
+  consume,
+  FERTILIZER,
+  POST_IT,
   getCatalogItem,
+  owned,
+  seedItemId,
   validatePlacement,
 } from '@garden/shared';
 
@@ -28,21 +35,25 @@ export interface GardenSnapshot {
   balance: number;
   objects: GardenObject[];
   earnings?: GardenEarnings;
-  /** Post-its in the habitat's shared stock (message board). */
-  postIts?: number;
+  /** Shared household inventory (seed packets, fertilizer, decorations). */
+  inventory: Inventory;
+  /** Recent purchases, newest first. */
+  purchases: Purchase[];
   /** Notes pinned on the message board from this device, until a server holds them. */
   notes?: SocialNote[];
 }
 
-export type PostItResult = { ok: true; balance: number; postIts: number } | { ok: false; error: PostItError };
-export type PostNoteResult = { ok: true; note: SocialNote; postIts: number } | { ok: false; error: PostNoteError };
+export type BuyResult =
+  | { ok: true; balance: number; inventory: Inventory; purchases: Purchase[] }
+  | { ok: false; error: PurchaseError };
+export type PostNoteResult = { ok: true; note: SocialNote; inventory: Inventory } | { ok: false; error: PostNoteError };
 
 export type PlaceResult =
-  | { ok: true; object: GardenObject; balance: number }
+  | { ok: true; object: GardenObject; inventory: Inventory }
   | { ok: false; error: PlacementError };
 
 export type CareResult =
-  | { ok: true; object: GardenObject | null; balance: number; earned: number; earnedToday: number }
+  | { ok: true; object: GardenObject | null; balance: number; inventory: Inventory; earned: number; earnedToday: number }
   | { ok: false; error: CareError | 'NOT_FOUND' };
 
 /**
@@ -69,7 +80,13 @@ export class GardenService {
   async load(): Promise<GardenSnapshot> {
     try {
       const raw = localStorage.getItem(GardenService.KEY);
-      if (raw) return JSON.parse(raw) as GardenSnapshot;
+      if (raw) {
+        const snap = JSON.parse(raw) as GardenSnapshot;
+        // Gardens saved before the store existed start with the starter inventory.
+        snap.inventory ??= { ...STARTER_INVENTORY };
+        snap.purchases ??= [];
+        return snap;
+      }
     } catch {
       /* fall through to seed */
     }
@@ -80,7 +97,8 @@ export class GardenService {
 
   async placeObject(itemType: string, x: number, y: number, actor: Actor = LOCAL_PLAYER): Promise<PlaceResult> {
     const snap = await this.load();
-    const error = validatePlacement(itemType, x, y, snap.objects, snap.balance);
+    const packet = seedItemId(itemType);
+    const error = validatePlacement(itemType, x, y, snap.objects, owned(snap.inventory, packet));
     if (error) return { ok: false, error };
     const item = getCatalogItem(itemType)!;
     const object: GardenObject = {
@@ -95,9 +113,19 @@ export class GardenService {
       placedByName: actor.name,
     };
     snap.objects.push(object);
-    snap.balance -= item.price;
+    snap.inventory = consume(snap.inventory, packet);
     this.save(snap);
-    return { ok: true, object, balance: snap.balance };
+    return { ok: true, object, inventory: snap.inventory };
+  }
+
+  /** Buy one of a store item into the shared inventory. */
+  async buy(itemId: string, actor: Actor = LOCAL_PLAYER): Promise<BuyResult> {
+    const snap = await this.load();
+    const result = applyPurchase(snap, itemId, actor, new Date().toISOString());
+    if (!result.ok) return result;
+    Object.assign(snap, result.state);
+    this.save(snap);
+    return { ok: true, ...result.state };
   }
 
   /** Add seeds to the balance (health check-in rewards). Returns the new balance. */
@@ -108,28 +136,16 @@ export class GardenService {
     return snap.balance;
   }
 
-  /** Buy post-its for the shared stock: the seeds and the post-its change in one save. */
-  async buyPostIts(quantity: number): Promise<PostItResult> {
-    const snap = await this.load();
-    const error = checkPostItPurchase(quantity, snap.balance);
-    if (error) return { ok: false, error };
-    snap.balance -= postItCost(quantity);
-    snap.postIts = (snap.postIts ?? 0) + quantity;
-    this.save(snap);
-    return { ok: true, balance: snap.balance, postIts: snap.postIts };
-  }
-
-  /** Pin a note: uses one post-it and stores the note in the same save. */
+  /** Pin a note: uses one post-it from the household inventory and stores the note in the same save. */
   async postNote(content: string, actor: Actor = LOCAL_PLAYER): Promise<PostNoteResult> {
     const snap = await this.load();
-    const postIts = snap.postIts ?? 0;
-    const error = checkPostNote(content, postIts);
+    const error = checkPostNote(content, owned(snap.inventory, POST_IT));
     if (error) return { ok: false, error };
     const note: SocialNote = { id: crypto.randomUUID(), authorId: actor.id, content: noteText(content), createdAt: new Date().toISOString() };
-    snap.postIts = postIts - 1;
+    snap.inventory = consume(snap.inventory, POST_IT);
     snap.notes = [...(snap.notes ?? []), note];
     this.save(snap);
-    return { ok: true, note, postIts: snap.postIts };
+    return { ok: true, note, inventory: snap.inventory };
   }
 
   /** Take one of your own notes off the board (the post-it isn't refunded). */
@@ -149,18 +165,19 @@ export class GardenService {
     if (idx < 0) return { ok: false, error: 'NOT_FOUND' };
     const now = Date.now();
     const already = earnedToday(snap.earnings, actor.id, now);
-    const check = checkCare(snap.objects[idx], action, now, { balance: snap.balance, earnedToday: already });
+    const check = checkCare(snap.objects[idx], action, now, { fertilizer: owned(snap.inventory, FERTILIZER), earnedToday: already });
     if (!check.ok) return { ok: false, error: check.error! };
 
     let object: GardenObject | null = null;
     if (action === 'HARVEST') snap.objects.splice(idx, 1);
     else snap.objects[idx] = object = applyCare(snap.objects[idx], action, now, actor);
 
-    snap.balance += check.reward - check.cost;
+    snap.balance += check.reward;
+    if (check.uses) snap.inventory = consume(snap.inventory, check.uses);
     const total = already + check.reward;
     snap.earnings = { ...snap.earnings, [actor.id]: { day: careDay(now), amount: total } };
     this.save(snap);
-    return { ok: true, object, balance: snap.balance, earned: check.reward, earnedToday: total };
+    return { ok: true, object, balance: snap.balance, inventory: snap.inventory, earned: check.reward, earnedToday: total };
   }
 
   /** Demo helper: wipe local garden back to the seeded state. */
@@ -214,6 +231,8 @@ function seedGarden(): GardenSnapshot {
   return {
     gardenId,
     balance: 20,
+    inventory: { ...STARTER_INVENTORY },
+    purchases: [],
     objects: [
       mk('tree', 3, 3, LOCAL_PLAYER, FAMILY_DEMO, FAMILY_DEMO),
       mk('flower', 7, 5, FAMILY_DEMO),

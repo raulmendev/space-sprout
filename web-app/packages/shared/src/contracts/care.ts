@@ -1,6 +1,7 @@
 import type { Actor, CareAction, CareEvent, GardenObject, PlantCare } from '../types/domain';
 import { getCatalogItem, matureAfterMs } from './catalog';
 import { getPlantStage } from './growth';
+import { FERTILIZER } from './store';
 
 const HOUR = 3600_000;
 
@@ -16,17 +17,17 @@ export const CARE_RULES = {
   waterBoost: 0.1,
   fertilizeBoost: 0.25,
   pruneBoost: 0.1,
-  fertilizeCost: 2,
   waterReward: 1,
   harvestReward: 1,
   dailyGardenCoinCap: 10,
   logSize: 6,
 } as const;
 
-export type CareError = 'NOT_A_PLANT' | 'ALREADY_MATURE' | 'TOO_YOUNG' | 'NOT_MATURE' | 'COOLDOWN' | 'INSUFFICIENT_FUNDS';
+export type CareError = 'NOT_A_PLANT' | 'ALREADY_MATURE' | 'TOO_YOUNG' | 'NOT_MATURE' | 'COOLDOWN' | 'NO_FERTILIZER';
 
 export interface CareContext {
-  balance: number;
+  /** Fertilizer in the household inventory (bought at the store). */
+  fertilizer: number;
   /** Garden coins this actor has already earned today. */
   earnedToday: number;
 }
@@ -36,7 +37,8 @@ export interface CareCheck {
   error?: CareError;
   /** With COOLDOWN: ms until the action is available again. */
   readyInMs?: number;
-  cost: number;
+  /** Store item this action uses up from the inventory (fertilizer). */
+  uses?: string;
   /** Coins this action would pay right now (0 once the daily cap is reached). */
   reward: number;
 }
@@ -73,23 +75,23 @@ function capped(reward: number, ctx: CareContext): number {
   return Math.max(0, Math.min(reward, CARE_RULES.dailyGardenCoinCap - ctx.earnedToday));
 }
 
-/** Whether `action` can be done on this plant now, what it costs and what it pays. */
+/** Whether `action` can be done on this plant now, what it uses up and what it pays. */
 export function checkCare(obj: Plant, action: CareAction, now: number, ctx: CareContext): CareCheck {
-  const base = { cost: 0, reward: 0 };
+  const base = { reward: 0 };
   if (obj.type !== 'PLANT' || !getCatalogItem(obj.itemType)) return { ...base, ok: false, error: 'NOT_A_PLANT' };
   const stage = getPlantStage(obj, now);
 
   switch (action) {
     case 'WATER':
       // Always allowed; only a thirsty plant pays.
-      return { ok: true, cost: 0, reward: isThirsty(obj, now) ? capped(CARE_RULES.waterReward, ctx) : 0 };
+      return { ok: true, reward: isThirsty(obj, now) ? capped(CARE_RULES.waterReward, ctx) : 0 };
     case 'FERTILIZE': {
-      const cost = CARE_RULES.fertilizeCost;
-      if (stage === 'MATURE') return { ok: false, error: 'ALREADY_MATURE', cost, reward: 0 };
+      const uses = FERTILIZER;
+      if (stage === 'MATURE') return { ...base, ok: false, error: 'ALREADY_MATURE', uses };
       const wait = cooldownLeft(obj.care?.lastFertilizedAt, CARE_RULES.fertilizeCooldownMs, now);
-      if (wait) return { ok: false, error: 'COOLDOWN', readyInMs: wait, cost, reward: 0 };
-      if (ctx.balance < cost) return { ok: false, error: 'INSUFFICIENT_FUNDS', cost, reward: 0 };
-      return { ok: true, cost, reward: 0 };
+      if (wait) return { ...base, ok: false, error: 'COOLDOWN', readyInMs: wait, uses };
+      if (ctx.fertilizer < 1) return { ...base, ok: false, error: 'NO_FERTILIZER', uses };
+      return { ...base, ok: true, uses };
     }
     case 'PRUNE': {
       if (stage === 'SEED') return { ...base, ok: false, error: 'TOO_YOUNG' };
@@ -99,7 +101,7 @@ export function checkCare(obj: Plant, action: CareAction, now: number, ctx: Care
     }
     case 'HARVEST':
       if (stage !== 'MATURE') return { ...base, ok: false, error: 'NOT_MATURE' };
-      return { ok: true, cost: 0, reward: capped(CARE_RULES.harvestReward, ctx) };
+      return { ok: true, reward: capped(CARE_RULES.harvestReward, ctx) };
   }
 }
 

@@ -31,6 +31,8 @@ export const METRIC_ICON: Record<HealthMetric, string> = {
   SLEEP: '🛏️',
   ACTIVITY: '🏃',
   MOOD: '🙂',
+  WATER: '💧',
+  RADIATION: '☢️',
 };
 
 /** Mood faces for the 1–5 scale, shared by the picker and every place a mood is shown. */

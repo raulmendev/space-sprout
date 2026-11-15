@@ -63,7 +63,12 @@ export interface Actor {
 }
 
 /** POC metrics (handoff v3.0 §5). Demonstration metrics, not a mission medical protocol. */
-export type HealthMetric = 'HEART_RATE' | 'SLEEP' | 'ACTIVITY' | 'MOOD';
+export type HealthMetric = 'HEART_RATE' | 'SLEEP' | 'ACTIVITY' | 'MOOD' | 'WATER' | 'RADIATION';
+
+/** The station crew: NPCs who each look after some of the astronaut's daily readings. */
+export type CrewId = 'MEDIC' | 'TRAINER' | 'CHEF' | 'SCIENTIST';
+/** Every NPC: Sprout (the garden's) plus the crew. */
+export type NpcId = 'SPROUT' | CrewId;
 export type MeasurementSource = 'MANUAL' | 'SIMULATED' | 'DEVICE';
 
 export interface HealthMeasurement {
@@ -137,13 +142,14 @@ export type HabitatInteraction =
   | { type: 'HEALTH_INSIGHTS_SELECTED' }
   | { type: 'MESSAGE_BOARD_SELECTED' }
   | { type: 'EMOTE_AREA_SELECTED' }
+  | { type: 'STORE_SELECTED' }
   | { type: 'TILE_SELECTED'; x: number; y: number }
   | { type: 'PROP_SELECTED'; propId: string }
-  | { type: 'NPC_SELECTED' };
+  | { type: 'NPC_SELECTED'; npcId: NpcId };
 
 export type PropInteraction = Extract<
   HabitatInteraction,
-  { type: 'MEDICAL_TERMINAL_SELECTED' | 'HEALTH_INSIGHTS_SELECTED' | 'MESSAGE_BOARD_SELECTED' | 'EMOTE_AREA_SELECTED' }
+  { type: 'MEDICAL_TERMINAL_SELECTED' | 'HEALTH_INSIGHTS_SELECTED' | 'MESSAGE_BOARD_SELECTED' | 'EMOTE_AREA_SELECTED' | 'STORE_SELECTED' }
 >['type'];
 
 export type MedicalTerminalState = 'idle' | 'syncing' | 'complete' | 'attention';

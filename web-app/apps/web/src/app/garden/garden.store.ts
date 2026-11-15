@@ -3,10 +3,16 @@ import {
   CARE_RULES,
   CATALOG,
   CareAction,
+  FERTILIZER,
   GARDEN_ROOM,
   GardenObject,
+  Inventory,
   SocialNote,
   PlacementError,
+  Purchase,
+  PurchaseError,
+  owned,
+  seedItemId,
   findPlacement,
   getCatalogItem,
   checkCare,
@@ -20,13 +26,13 @@ import {
   objectAtTile,
   propAtTile,
 } from '@garden/shared';
-import { CareResult, GardenService, LOCAL_PLAYER, PostItResult, PostNoteResult, earnedToday } from './garden.service';
+import { CareResult, GardenService, LOCAL_PLAYER, PostNoteResult, earnedToday } from './garden.service';
 import type { TileCoord } from './game/tile-manager';
 
 export type CloseupInfo = NonNullable<ReturnType<GardenStore['closeup']>>;
 export type PlantOutcome = { ok: true; object: GardenObject } | { ok: false; error: PlacementError };
 
-/** Garden domain state: plants, balance, growth clock. */
+/** Garden domain state: plants, balance, the shared inventory, growth clock. */
 @Injectable({ providedIn: 'root' })
 export class GardenStore {
   private readonly service = inject(GardenService);
@@ -34,8 +40,10 @@ export class GardenStore {
   readonly catalog = CATALOG;
   readonly objects = signal<GardenObject[]>([]);
   readonly balance = signal(0);
-  /** Post-its in the habitat's shared stock (message board). */
-  readonly postIts = signal(0);
+  /** Shared household inventory: seed packets, fertilizer, decorations. */
+  readonly inventory = signal<Inventory>({});
+  /** Recent store purchases (anyone in the household), newest first. */
+  readonly purchases = signal<Purchase[]>([]);
   /** Notes pinned from this device (see NotesStore for the whole board). */
   readonly notes = signal<SocialNote[]>([]);
   /** Clock used for timestamp-based growth. */
@@ -52,7 +60,8 @@ export class GardenStore {
     if (!obj || !item) return null;
     const now = this.now();
     const total = matureAfterMs(item);
-    const ctx = { balance: this.balance(), earnedToday: this.earnedToday() };
+    const fertilizer = owned(this.inventory(), FERTILIZER);
+    const ctx = { fertilizer, earnedToday: this.earnedToday() };
     const check = (a: CareAction) => checkCare(obj, a, now, ctx);
     return {
       object: obj,
@@ -64,6 +73,7 @@ export class GardenStore {
       thirsty: isThirsty(obj, now),
       thriving: isThriving(obj, now),
       actions: { WATER: check('WATER'), FERTILIZE: check('FERTILIZE'), PRUNE: check('PRUNE'), HARVEST: check('HARVEST') },
+      fertilizer,
       log: obj.care?.log ?? [],
       me: LOCAL_PLAYER.id,
       capReached: ctx.earnedToday >= CARE_RULES.dailyGardenCoinCap,
@@ -81,24 +91,16 @@ export class GardenStore {
     const snap = await this.service.load();
     this.objects.set(snap.objects);
     this.balance.set(snap.balance);
-    this.postIts.set(snap.postIts ?? 0);
+    this.inventory.set(snap.inventory);
+    this.purchases.set(snap.purchases);
     this.notes.set(snap.notes ?? []);
     this.earnedToday.set(earnedToday(snap.earnings, LOCAL_PLAYER.id, Date.now()));
-  }
-
-  async buyPostIts(quantity: number): Promise<PostItResult> {
-    const result = await this.service.buyPostIts(quantity);
-    if (result.ok) {
-      this.balance.set(result.balance);
-      this.postIts.set(result.postIts);
-    }
-    return result;
   }
 
   async postNote(content: string): Promise<PostNoteResult> {
     const result = await this.service.postNote(content);
     if (result.ok) {
-      this.postIts.set(result.postIts);
+      this.inventory.set(result.inventory);
       this.notes.update((list) => [...list, result.note]);
     }
     return result;
@@ -118,6 +120,7 @@ export class GardenStore {
       updated ? list.map((o) => (o.id === plantId ? updated : o)) : list.filter((o) => o.id !== plantId),
     );
     this.balance.set(result.balance);
+    this.inventory.set(result.inventory);
     this.earnedToday.set(result.earnedToday);
     this.now.set(Date.now());
     if (!updated) this.closeupId.set(null);
@@ -134,7 +137,7 @@ export class GardenStore {
 
   /** Where `itemType` would go if planted around `tile`, or why it can't. */
   placementFor(itemType: string, tile: TileCoord) {
-    return findPlacement(itemType, tile.x, tile.y, this.objects(), this.balance());
+    return findPlacement(itemType, tile.x, tile.y, this.objects(), owned(this.inventory(), seedItemId(itemType)));
   }
 
   async plant(itemType: string, tile: TileCoord): Promise<PlantOutcome> {
@@ -143,8 +146,18 @@ export class GardenStore {
     const result = await this.service.placeObject(itemType, spot.x, spot.y);
     if (!result.ok) return result;
     this.objects.update((list) => [...list, result.object]);
-    this.balance.set(result.balance);
+    this.inventory.set(result.inventory);
     return { ok: true, object: result.object };
+  }
+
+  /** Buy one of a store item into the shared inventory. */
+  async buy(itemId: string): Promise<PurchaseError | null> {
+    const result = await this.service.buy(itemId);
+    if (!result.ok) return result.error;
+    this.balance.set(result.balance);
+    this.inventory.set(result.inventory);
+    this.purchases.set(result.purchases);
+    return null;
   }
 
   /** Credit seeds earned elsewhere (health check-ins). */
