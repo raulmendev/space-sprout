@@ -13,6 +13,9 @@ const EMOTES = [
   { glyph: '🫂', label: 'Hug' },
 ];
 
+/** Panels drawn in the steel console frame; their content supplies its own cream screen. */
+const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED']);
+
 /**
  * Panels opened from habitat objects. Medical panels are live; the social ones
  * are still shells until notes and emotes are built.
@@ -22,19 +25,41 @@ const EMOTES = [
   imports: [MedicalTerminalPanelComponent, HealthInsightsPanelComponent],
   host: { '(document:keydown.escape)': 'closed.emit()' },
   template: `
-    <section class="panel @container flex flex-col gap-3 p-4 short:gap-2 short:p-3" role="region" [attr.aria-labelledby]="'panel-title'">
+    <section
+      class="panel @container flex flex-col gap-3 p-4 short:gap-2 short:p-3"
+      [class.console]="console()"
+      role="region"
+      [attr.aria-labelledby]="'panel-title'"
+    >
       <header class="flex items-start justify-between gap-2">
-        <div class="flex flex-wrap items-baseline gap-x-2">
+        <div class="flex min-w-0 flex-wrap items-center gap-x-2">
+          @if (console()) {
+            <!-- Medical cross badge (the medical terminal is the only console so far) -->
+            <svg class="size-8 shrink-0 short:size-7" viewBox="0 0 32 32" aria-hidden="true">
+              <rect class="ink" x="1.5" y="1.5" width="29" height="29" rx="8" fill="#3fa7e8" stroke-width="3" />
+              <path class="ink" d="M12.5 7h7v5.5H25v7h-5.5V25h-7v-5.5H7v-7h5.5z" fill="#fff" stroke-width="1.5" stroke-linejoin="round" />
+            </svg>
+          }
           <h2 id="panel-title" #heading tabindex="-1" class="font-pixel text-2xl leading-tight outline-none short:text-xl">{{ meta().title }}</h2>
-          <p class="text-xs font-bold uppercase tracking-wide text-bark/70">{{ meta().zone }}</p>
+          <p class="zone text-xs font-bold uppercase tracking-wide text-bark/70">{{ meta().zone }}</p>
         </div>
-        <button type="button" class="grid size-8 place-items-center rounded-full hover:bg-parchment focus-visible:outline-2 focus-visible:outline-sun" aria-label="Close panel" (click)="closed.emit()">✕</button>
+        @if (console()) {
+          <span class="ml-auto hidden items-center gap-3 @lg:flex" aria-hidden="true">
+            <span class="stripes h-3.5 w-13"></span>
+            <span class="flex gap-1"><i class="light bg-leaf"></i><i class="light bg-sun"></i><i class="light bg-cream/30"></i></span>
+          </span>
+        }
+        <button
+          type="button"
+          [class]="console() ? 'console-close btn-press' : 'grid size-8 place-items-center rounded-full hover:bg-parchment focus-visible:outline-2 focus-visible:outline-sun'"
+          aria-label="Close panel"
+          (click)="closed.emit()"
+        >✕</button>
       </header>
 
       @switch (panel()) {
         @case ('MEDICAL_TERMINAL_SELECTED') {
           <app-medical-terminal-panel />
-          <p class="text-[11px] text-bark/70">🔒 Private to you. Family members never see health data.</p>
         }
         @case ('HEALTH_INSIGHTS_SELECTED') {
           <app-health-insights-panel />
@@ -56,12 +81,49 @@ const EMOTES = [
       }
     </section>
   `,
+  styles: `
+    /* Console frame: a steel bezel with a light header; the panel's own content is the cream "screen". */
+    .console {
+      background: linear-gradient(180deg, #66729e, var(--color-steel) 40%);
+      border-color: var(--color-steel-dark);
+      border-radius: 14px;
+      color: var(--color-cream);
+      box-shadow: inset 0 2px 0 rgb(255 255 255 / 0.25), inset 0 -4px 0 rgb(0 0 0 / 0.2), 0 6px 0 rgb(0 0 0 / 0.3);
+      --stripe: color-mix(in srgb, var(--color-cream) 35%, transparent);
+    }
+    .console header { align-items: center; }
+    .console .zone { color: color-mix(in srgb, var(--color-cream) 70%, transparent); }
+    .ink { stroke: var(--color-steel-dark); }
+    .light { display: block; width: 12px; height: 12px; border-radius: 3px; border: 2px solid var(--color-steel-dark); }
+    .console-close {
+      --press: var(--color-steel-dark);
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 8px;
+      background: var(--color-cream);
+      color: var(--color-alert);
+      font-weight: 900;
+      font-size: 1.1rem;
+    }
+    .console-close:hover { background: #fff; }
+
+    /* Same breakpoint as the short: variant in styles.css. */
+    @media (max-height: 500px) {
+      .console { padding: 8px 10px 10px; gap: 6px; }
+      .console-close { width: 1.85rem; height: 1.85rem; font-size: 1rem; }
+    }
+  `,
 })
 export class StationPanelComponent {
   readonly panel = input.required<HabitatPanel>();
   readonly closed = output<void>();
   protected readonly emotes = EMOTES;
   private readonly heading = viewChild.required<ElementRef<HTMLElement>>('heading');
+  /** Panels drawn as a station console (steel bezel, cream screen). */
+  protected readonly console = computed(() => CONSOLE_PANELS.has(this.panel()));
 
   /** Title and zone come from the habitat data for the prop that opens this panel. */
   protected readonly meta = computed(() => {

@@ -1,4 +1,4 @@
-import type { HealthMeasurement, MeasurementSource } from '@garden/shared';
+import type { HealthMeasurement, HealthMetric, MeasurementSource } from '@garden/shared';
 import { METRICS } from '@garden/shared';
 
 /** "2 h ago", "yesterday", "3 days ago". */
@@ -23,6 +23,14 @@ export const SOURCE_SHORT: Record<MeasurementSource, string> = {
   SIMULATED: '⚙ sim',
   MANUAL: '✎ you',
   DEVICE: '⌚ device',
+};
+
+/** Row icon for each metric in the check-in list. */
+export const METRIC_ICON: Record<HealthMetric, string> = {
+  HEART_RATE: '❤️',
+  SLEEP: '🛏️',
+  ACTIVITY: '🏃',
+  MOOD: '🙂',
 };
 
 /** Mood faces for the 1–5 scale, shared by the picker and every place a mood is shown. */
