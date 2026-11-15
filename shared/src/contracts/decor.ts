@@ -1,6 +1,6 @@
 import type { Actor } from '../types/domain';
 import { TileCoord, TileRect, anchorsCovering, footprintTiles, rectContains } from './geometry';
-import { ROOMS, ROOM_COLS, ROOM_ROWS, RoomId, TileKind, getTileKind, propAtTile } from './habitat';
+import { ROOM_COLS, ROOM_IDS, ROOM_ROWS, RoomId, TileKind, getTileKind, propAtTile } from './habitat';
 import { pottedPlantOf } from './potting';
 import { Inventory, owned } from './store';
 
@@ -41,7 +41,7 @@ export const DECOR_SPECS: Readonly<Record<string, DecorSpec>> = {
 export const DECOR_ROOMS: readonly RoomId[] = ['SOCIAL'];
 
 /** Potted plants: one tile of floor, in any room. */
-const POT_SPEC: DecorSpec = { mount: 'FLOOR', w: 1, h: 1, rooms: Object.keys(ROOMS) as RoomId[], waterable: true };
+const POT_SPEC: DecorSpec = { mount: 'FLOOR', w: 1, h: 1, rooms: ROOM_IDS, waterable: true };
 
 /** How `itemId` is placed: a decoration's spec, or the pot spec for potted plants. */
 export function decorSpec(itemId: string): DecorSpec | undefined {

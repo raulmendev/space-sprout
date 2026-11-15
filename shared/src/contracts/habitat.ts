@@ -240,6 +240,9 @@ export const ROOMS: Record<RoomId, Room> = {
   },
 };
 
+/** Every room, in ROOMS' order. */
+export const ROOM_IDS = Object.keys(ROOMS) as [RoomId, ...RoomId[]];
+
 /** The room plants live in. */
 export const GARDEN_ROOM: RoomId = 'GARDEN';
 

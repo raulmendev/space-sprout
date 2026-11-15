@@ -41,28 +41,38 @@ export type GardenCommand =
   | { type: 'PUT_AWAY_DECOR'; decorId: string }
   | { type: 'POST_NOTE'; content: string }
   | { type: 'TAKE_DOWN_NOTE'; noteId: string }
-  /** Seeds from a health check-in. Trusted from the client until health moves to the server. */
-  | { type: 'CREDIT'; amount: number }
-  /** Demo: plant the starting garden again, for everyone in the station. */
-  | { type: 'RESET' };
-
-export type GardenCommandType = GardenCommand['type'];
+  /**
+   * Seeds from a health check-in. TRUSTED: the browser decides the amount until health
+   * moves to the server. MAX_CREDIT only bounds a single send (a bug, a typo), not a day.
+   */
+  | { type: 'CREDIT'; amount: number };
 
 /** The most seeds one CREDIT may add (a whole day of check-ins earns less). */
 export const MAX_CREDIT = 100;
 
 export type GardenError = PlacementError | CareError | PurchaseError | PotError | DecorError | PostNoteError | 'NOT_FOUND' | 'NOT_YOURS';
 
-/** What a command made, besides the new state (the plant planted, seeds earned, the note pinned…). */
+/** What a command made, besides the new state: the plant planted, the seeds earned, the potted item. */
 export interface CommandResult {
-  object?: GardenObject | null;
+  object?: GardenObject;
   earned?: number;
   itemId?: string;
-  decor?: PlacedDecor;
-  note?: SocialNote;
 }
 
-export type CommandOutcome = { ok: true; state: GardenState; result: CommandResult } | { ok: false; error: GardenError };
+/** A command's answer without the state: what it made, or why not. */
+export type CommandAnswer = { ok: true; result: CommandResult } | { ok: false; error: GardenError };
+
+export type CommandOutcome = { state: GardenState } & CommandAnswer;
+
+/** A station's state as the API hands it out: with its version and the server's clock (growth, thirst and caps run on it). */
+export interface GardenView {
+  version: number;
+  state: GardenState;
+  serverTime: string;
+}
+
+/** The API's answer to a command: always with the latest state, so even a refusal brings the client up to date. */
+export type CommandReply = GardenView & CommandAnswer;
 
 /** Seeds `actorId` has earned from care today. */
 export function earnedToday(state: Pick<GardenState, 'earnings'>, actorId: string, now: number): number {
@@ -77,13 +87,14 @@ export function earnedToday(state: Pick<GardenState, 'earnings'>, actorId: strin
 export function runCommand(state: GardenState, cmd: GardenCommand, actor: Actor, now: number, newId: () => string): CommandOutcome {
   const at = new Date(now).toISOString();
   const ok = (changes: Partial<GardenState>, result: CommandResult = {}): CommandOutcome => ({ ok: true, state: { ...state, ...changes }, result });
-  const decor = (change: DecorChange): CommandOutcome => (change.ok ? ok(change.state, { decor: change.decor }) : change);
+  const no = (error: GardenError): CommandOutcome => ({ ok: false, error, state });
+  const decor = (change: DecorChange): CommandOutcome => (change.ok ? ok(change.state) : no(change.error));
 
   switch (cmd.type) {
     case 'PLANT': {
       const packet = seedItemId(cmd.itemType);
       const error = validatePlacement(cmd.itemType, cmd.x, cmd.y, state.objects, owned(state.inventory, packet));
-      if (error) return { ok: false, error };
+      if (error) return no(error);
       const object: GardenObject = {
         id: newId(),
         gardenId: state.gardenId,
@@ -99,10 +110,10 @@ export function runCommand(state: GardenState, cmd: GardenCommand, actor: Actor,
     }
     case 'CARE': {
       const plant = state.objects.find((o) => o.id === cmd.plantId);
-      if (!plant) return { ok: false, error: 'NOT_FOUND' };
+      if (!plant) return no('NOT_FOUND');
       const already = earnedToday(state, actor.id, now);
       const check = checkCare(plant, cmd.action, now, { fertilizer: owned(state.inventory, FERTILIZER), earnedToday: already });
-      if (!check.ok) return { ok: false, error: check.error! };
+      if (!check.ok) return no(check.error!);
       const object = cmd.action === 'HARVEST' ? null : applyCare(plant, cmd.action, now, actor);
       return ok(
         {
@@ -111,16 +122,16 @@ export function runCommand(state: GardenState, cmd: GardenCommand, actor: Actor,
           inventory: check.uses ? consume(state.inventory, check.uses) : state.inventory,
           earnings: { ...state.earnings, [actor.id]: { day: careDay(now), amount: already + check.reward } },
         },
-        { object, earned: check.reward },
+        { earned: check.reward },
       );
     }
     case 'BUY': {
       const bought = applyPurchase(state, cmd.itemId, actor, at);
-      return bought.ok ? ok(bought.state) : bought;
+      return bought.ok ? ok(bought.state) : no(bought.error);
     }
     case 'POT': {
       const potted = potPlant(state, cmd.plantId, now);
-      return potted.ok ? ok(potted.state, { itemId: potted.itemId }) : potted;
+      return potted.ok ? ok(potted.state, { itemId: potted.itemId }) : no(potted.error);
     }
     case 'PLACE_DECOR':
       return decor(placeDecor(state, cmd.itemId, cmd.room, cmd.x, cmd.y, actor, at, newId()));
@@ -132,20 +143,18 @@ export function runCommand(state: GardenState, cmd: GardenCommand, actor: Actor,
       return decor(putAwayDecor(state, cmd.decorId));
     case 'POST_NOTE': {
       const error = checkPostNote(cmd.content, owned(state.inventory, POST_IT));
-      if (error) return { ok: false, error };
+      if (error) return no(error);
       const note: SocialNote = { id: newId(), authorId: actor.id, content: noteText(cmd.content), createdAt: at };
-      return ok({ notes: [...state.notes, note], inventory: consume(state.inventory, POST_IT) }, { note });
+      return ok({ notes: [...state.notes, note], inventory: consume(state.inventory, POST_IT) });
     }
     case 'TAKE_DOWN_NOTE': {
       const note = state.notes.find((n) => n.id === cmd.noteId);
-      if (!note) return { ok: false, error: 'NOT_FOUND' };
-      if (!canTakeDown(note, actor.id)) return { ok: false, error: 'NOT_YOURS' };
+      if (!note) return no('NOT_FOUND');
+      if (!canTakeDown(note, actor.id)) return no('NOT_YOURS');
       return ok({ notes: state.notes.filter((n) => n.id !== note.id) });
     }
     case 'CREDIT':
       return ok({ balance: state.balance + Math.min(MAX_CREDIT, Math.max(0, Math.floor(cmd.amount))) });
-    case 'RESET':
-      return ok(newGarden(state.gardenId, actor, now, newId));
   }
 }
 

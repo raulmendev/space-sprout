@@ -1,6 +1,17 @@
 import { Injectable } from '@angular/core';
-import { type Actor, type CommandResult, type GardenCommand, type GardenError, type GardenState, newGarden, runCommand } from '@garden/shared';
-import { CURRENT_USER, asActor } from '../session/current-user';
+import {
+  type Actor,
+  type CommandReply,
+  type CommandResult,
+  type GardenCommand,
+  type GardenError,
+  type GardenState,
+  type GardenView,
+  newGarden,
+  runCommand,
+  toActor,
+} from '@garden/shared';
+import { CURRENT_USER } from '../session/current-user';
 import { isOffline, onStation, stationCall } from '../session/member-session';
 import { loadJson, saveJson } from '../shared/storage';
 
@@ -8,19 +19,10 @@ import { loadJson, saveJson } from '../shared/storage';
 export type GardenFailure = GardenError | 'OFFLINE';
 
 /** A command's answer. A refusal from the station still carries its latest state. */
-export type GardenReply = { ok: true; state: GardenState; result: CommandResult } | { ok: false; error: GardenFailure; state?: GardenState };
-
-export interface GardenLoad {
-  state: GardenState;
-  /** The station's clock minus this device's (growth, thirst and cooldowns run on the station's). */
-  clockOffsetMs: number;
-}
+export type GardenReply = { state?: GardenState } & ({ ok: true; result: CommandResult } | { ok: false; error: GardenFailure });
 
 /** Who is playing on this page: everything they do is credited to them. */
-export const LOCAL_PLAYER: Actor = asActor(CURRENT_USER);
-
-/** The station's server answer for a command (see api/src/garden). */
-type ServerReply = { version: number; state: GardenState; serverTime: string } & ({ ok: true; result: CommandResult } | { ok: false; error: GardenError });
+export const LOCAL_PLAYER: Actor = toActor(CURRENT_USER);
 
 /**
  * The station's shared garden. Signed in, it lives on the server: every change is a command
@@ -31,31 +33,50 @@ type ServerReply = { version: number; state: GardenState; serverTime: string } &
 export class GardenService {
   private static readonly LOCAL_KEY = 'jardin-comunal:garden:v9';
   private readonly remote = onStation();
+  /** The station's clock minus this device's, from the last answer (growth and cooldowns run on the station's). */
+  private offsetMs = 0;
 
-  async load(): Promise<GardenLoad> {
-    if (!this.remote) return { state: this.localState(), clockOffsetMs: 0 };
-    const sent = Date.now();
-    const view = await stationCall<{ state: GardenState; serverTime: string }>('/garden');
-    // The server's clock at the middle of the round trip, against ours.
-    return { state: view.state, clockOffsetMs: Date.parse(view.serverTime) - (sent + Date.now()) / 2 };
+  /** Only the local copy can be reset (a station's garden is everyone's). */
+  readonly canReset = !this.remote;
+
+  /** Now, by the station's clock. */
+  now(): number {
+    return Date.now() + this.offsetMs;
+  }
+
+  async load(): Promise<GardenState> {
+    if (!this.remote) return this.localState();
+    return (await this.timed(() => stationCall<GardenView>('/garden'))).state;
   }
 
   /**
-   * Ask the station to do something. The id is made once, so a retry after a dropped
+   * Ask the station to do something. The id is made once, so the retry after a dropped
    * connection can't do it twice: the station answers a repeated id from its records.
    */
   async run(command: GardenCommand): Promise<GardenReply> {
     if (!this.remote) return this.runLocally(command);
     const body = JSON.stringify({ id: crypto.randomUUID(), command });
-    for (let attempt = 0; ; attempt++) {
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const reply = await stationCall<ServerReply>('/garden/commands', { method: 'POST', body });
-        return reply.ok ? { ok: true, state: reply.state, result: reply.result } : { ok: false, error: reply.error, state: reply.state };
+        return await this.timed(() => stationCall<CommandReply>('/garden/commands', { method: 'POST', body }));
       } catch (e) {
         if (!isOffline(e)) throw e;
-        if (attempt >= 1) return { ok: false, error: 'OFFLINE' };
       }
     }
+    return { ok: false, error: 'OFFLINE' };
+  }
+
+  /** Demo: plant the starting garden again (the local copy only). */
+  resetLocal(): void {
+    saveJson(GardenService.LOCAL_KEY, null);
+  }
+
+  /** Every answer carries the server's clock: keep our offset from it current (taken at the round trip's middle). */
+  private async timed<T extends { serverTime: string }>(request: () => Promise<T>): Promise<T> {
+    const sent = Date.now();
+    const reply = await request();
+    this.offsetMs = Date.parse(reply.serverTime) - (sent + Date.now()) / 2;
+    return reply;
   }
 
   private runLocally(command: GardenCommand): GardenReply {

@@ -4,24 +4,13 @@ import {
   CLAY_POT,
   CATALOG,
   CareAction,
-  type CareError,
-  type DecorError,
   FERTILIZER,
-  type CommandResult,
   type GardenCommand,
   type GardenState,
-  type PotError,
-  type PostNoteError,
   earnedToday,
   GARDEN_ROOM,
   GardenObject,
-  Inventory,
-  SocialNote,
-  PlacementError,
-  PlacedDecor,
   RoomId,
-  Purchase,
-  PurchaseError,
   getStoreItem,
   owned,
   seedItemId,
@@ -40,18 +29,15 @@ import {
 } from '@garden/shared';
 import { timeAgo } from '../health/format';
 import { whoDid } from '../shared/format';
-import { GardenService, LOCAL_PLAYER } from './garden.service';
+import { type GardenFailure, type GardenReply, GardenService, LOCAL_PLAYER } from './garden.service';
 import type { TileCoord } from './game/tile-manager';
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export type CloseupInfo = NonNullable<ReturnType<GardenStore['closeup']>>;
-/** How a garden action went: what it made, or why not (`OFFLINE`: the station couldn't be reached). */
-export type Outcome<T, E extends string> = ({ ok: true } & T) | { ok: false; error: E | 'OFFLINE' };
-export type PlantOutcome = Outcome<{ object: GardenObject }, PlacementError>;
-export type CareOutcome = Outcome<{ earned: number }, CareError | 'NOT_FOUND'>;
-export type PotOutcome = Outcome<{ itemId: string }, PotError>;
-export type DecorReply = Outcome<object, DecorError>;
+/** How a garden action went: what it made, or why not (see failureText). */
+export type Outcome<T = object> = ({ ok: true } & T) | { ok: false; error: GardenFailure };
+export type PlantOutcome = Outcome<{ object: GardenObject }>;
 
 /** Garden domain state: plants, balance, the shared inventory, growth clock. */
 @Injectable({ providedIn: 'root' })
@@ -59,23 +45,25 @@ export class GardenStore {
   private readonly service = inject(GardenService);
 
   readonly catalog = CATALOG;
-  readonly objects = signal<GardenObject[]>([]);
-  readonly balance = signal(0);
+  /** The station's shared state as last heard (empty until it loads). Everything below reads from it. */
+  private readonly state = signal<GardenState | null>(null);
+  readonly objects = computed(() => this.state()?.objects ?? []);
+  readonly balance = computed(() => this.state()?.balance ?? 0);
   /** Shared household inventory: seed packets, fertilizer, decorations. */
-  readonly inventory = signal<Inventory>({});
+  readonly inventory = computed(() => this.state()?.inventory ?? {});
   /** Recent store purchases (anyone in the household), newest first. */
-  readonly purchases = signal<Purchase[]>([]);
+  readonly purchases = computed(() => this.state()?.purchases ?? []);
   /** Notes pinned on the board (NotesStore adds the demo notes). */
-  readonly notes = signal<SocialNote[]>([]);
+  readonly notes = computed(() => this.state()?.notes ?? []);
   /** Decorations up in the station (anyone in the household placed them). */
-  readonly decorations = signal<PlacedDecor[]>([]);
+  readonly decorations = computed(() => this.state()?.decorations ?? []);
   /** The purchases as one line: "You: Fertilizer (2 min ago) · Family: Photo frame (1 h ago)". */
   readonly recentPurchases = computed(() =>
     this.purchases()
       .map((p) => `${capitalise(whoDid(p.by, p.byName, LOCAL_PLAYER.id))}: ${getStoreItem(p.itemId)?.name ?? p.itemId} (${timeAgo(p.at)})`)
       .join(' · '),
   );
-  /** Clock used for timestamp-based growth. */
+  /** Clock used for timestamp-based growth: the station's. */
   readonly now = signal(Date.now());
 
   /** Plant shown in the close-up view, if any. */
@@ -111,13 +99,16 @@ export class GardenStore {
     };
   });
 
-  /** Garden coins the local player has earned today (capped daily). */
-  readonly earnedToday = signal(0);
-  /** The station's clock minus this device's: growth and cooldowns show as the station will judge them. */
-  private clockOffsetMs = 0;
+  /** Garden coins the local player has earned today (capped daily, per UTC day). */
+  readonly earnedToday = computed(() => {
+    const state = this.state();
+    return state ? earnedToday(state, LOCAL_PLAYER.id, this.now()) : 0;
+  });
+  /** Only a local garden can be reset (a station's is everyone's). */
+  readonly canReset = this.service.canReset;
 
   constructor() {
-    setInterval(() => this.now.set(Date.now() + this.clockOffsetMs), 1000);
+    setInterval(() => this.now.set(this.service.now()), 1000);
     // Coming back to the tab: catch up with what the rest of the station did meanwhile.
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') void this.init().catch(() => {});
@@ -125,43 +116,34 @@ export class GardenStore {
   }
 
   async init(): Promise<void> {
-    const { state, clockOffsetMs } = await this.service.load();
-    this.clockOffsetMs = clockOffsetMs;
-    this.apply(state);
+    this.apply(await this.service.load());
   }
 
   /** Show the station's state as it now stands (after any change, ours or anyone's). */
   private apply(state: GardenState): void {
-    const now = Date.now() + this.clockOffsetMs;
-    this.objects.set(state.objects);
-    this.balance.set(state.balance);
-    this.inventory.set(state.inventory);
-    this.purchases.set(state.purchases);
-    this.notes.set(state.notes);
-    this.decorations.set(state.decorations);
-    this.earnedToday.set(earnedToday(state, LOCAL_PLAYER.id, now));
-    this.now.set(now);
+    this.state.set(state);
+    this.now.set(this.service.now());
     if (this.closeupId() && !state.objects.some((o) => o.id === this.closeupId())) this.closeupId.set(null);
   }
 
-  /** Ask the station; show its latest state whatever it answered. `E`: the refusals this command can get. */
-  private async send<E extends string>(command: GardenCommand): Promise<Outcome<{ result: CommandResult }, E>> {
+  /** Ask the station; show its latest state whatever it answered. */
+  private async send(command: GardenCommand): Promise<GardenReply> {
     const reply = await this.service.run(command);
     if (reply.state) this.apply(reply.state);
-    return reply.ok ? { ok: true, result: reply.result } : { ok: false, error: reply.error as E | 'OFFLINE' };
+    return reply;
   }
 
-  async postNote(content: string): Promise<Outcome<object, PostNoteError>> {
-    return this.send<PostNoteError>({ type: 'POST_NOTE', content });
+  postNote(content: string): Promise<Outcome> {
+    return this.send({ type: 'POST_NOTE', content });
   }
 
-  async takeDownNote(noteId: string): Promise<boolean> {
-    return (await this.send({ type: 'TAKE_DOWN_NOTE', noteId })).ok;
+  takeDownNote(noteId: string): Promise<Outcome> {
+    return this.send({ type: 'TAKE_DOWN_NOTE', noteId });
   }
 
-  async care(plantId: string, action: CareAction): Promise<CareOutcome> {
-    const sent = await this.send<CareError | 'NOT_FOUND'>({ type: 'CARE', plantId, action });
-    return sent.ok ? { ok: true, earned: sent.result.earned ?? 0 } : sent;
+  async care(plantId: string, action: CareAction): Promise<Outcome<{ earned: number }>> {
+    const reply = await this.send({ type: 'CARE', plantId, action });
+    return reply.ok ? { ok: true, earned: reply.result.earned ?? 0 } : reply;
   }
 
   plantAt(tile: TileCoord): GardenObject | undefined {
@@ -180,36 +162,36 @@ export class GardenStore {
   async plant(itemType: string, tile: TileCoord): Promise<PlantOutcome> {
     const spot = this.placementFor(itemType, tile);
     if (!spot.ok) return spot;
-    const sent = await this.send<PlacementError>({ type: 'PLANT', itemType, x: spot.x, y: spot.y });
-    return sent.ok ? { ok: true, object: sent.result.object! } : sent;
+    const reply = await this.send({ type: 'PLANT', itemType, x: spot.x, y: spot.y });
+    return reply.ok ? { ok: true, object: reply.result.object! } : reply;
   }
 
-  /** Buy one of a store item into the shared inventory. */
-  async buy(itemId: string): Promise<PurchaseError | 'OFFLINE' | null> {
-    const sent = await this.send<PurchaseError>({ type: 'BUY', itemId });
-    return sent.ok ? null : sent.error;
+  /** Buy one of a store item into the shared inventory. Null when bought. */
+  async buy(itemId: string): Promise<GardenFailure | null> {
+    const reply = await this.send({ type: 'BUY', itemId });
+    return reply.ok ? null : reply.error;
   }
 
-  placeDecor(itemId: string, room: RoomId, tile: TileCoord): Promise<DecorReply> {
-    return this.send<DecorError>({ type: 'PLACE_DECOR', itemId, room, x: tile.x, y: tile.y });
+  placeDecor(itemId: string, room: RoomId, tile: TileCoord): Promise<Outcome> {
+    return this.send({ type: 'PLACE_DECOR', itemId, room, x: tile.x, y: tile.y });
   }
 
-  moveDecor(decorId: string, tile: TileCoord): Promise<DecorReply> {
-    return this.send<DecorError>({ type: 'MOVE_DECOR', decorId, x: tile.x, y: tile.y });
+  moveDecor(decorId: string, tile: TileCoord): Promise<Outcome> {
+    return this.send({ type: 'MOVE_DECOR', decorId, x: tile.x, y: tile.y });
   }
 
-  waterDecor(decorId: string): Promise<DecorReply> {
-    return this.send<DecorError>({ type: 'WATER_DECOR', decorId });
+  waterDecor(decorId: string): Promise<Outcome> {
+    return this.send({ type: 'WATER_DECOR', decorId });
   }
 
   /** Pot a grown plant (it moves from the garden into the inventory). */
-  async potPlant(plantId: string): Promise<PotOutcome> {
-    const sent = await this.send<PotError>({ type: 'POT', plantId });
-    return sent.ok ? { ok: true, itemId: sent.result.itemId! } : sent;
+  async potPlant(plantId: string): Promise<Outcome<{ itemId: string }>> {
+    const reply = await this.send({ type: 'POT', plantId });
+    return reply.ok ? { ok: true, itemId: reply.result.itemId! } : reply;
   }
 
-  putAwayDecor(decorId: string): Promise<DecorReply> {
-    return this.send<DecorError>({ type: 'PUT_AWAY_DECOR', decorId });
+  putAwayDecor(decorId: string): Promise<Outcome> {
+    return this.send({ type: 'PUT_AWAY_DECOR', decorId });
   }
 
   /** Credit seeds earned elsewhere (health check-ins). */
@@ -217,10 +199,12 @@ export class GardenStore {
     if (amount > 0) await this.send({ type: 'CREDIT', amount });
   }
 
-  /** Demo: plant the starting garden again, for everyone in the station. */
+  /** Demo: plant the starting garden again (a local garden only; see canReset). */
   async resetDemo(): Promise<void> {
+    if (!this.canReset) return;
+    this.service.resetLocal();
     this.pickerTile.set(null);
     this.closeupId.set(null);
-    await this.send({ type: 'RESET' });
+    await this.init();
   }
 }

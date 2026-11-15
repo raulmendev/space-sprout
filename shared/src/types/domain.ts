@@ -36,7 +36,8 @@ export interface GardenObject {
 export const PLANT_STAGE_ORDER = ['SEED', 'SPROUT', 'GROWING', 'BUD', 'MATURE'] as const;
 export type PlantStage = (typeof PLANT_STAGE_ORDER)[number];
 
-export type CareAction = 'WATER' | 'FERTILIZE' | 'PRUNE' | 'HARVEST';
+export const CARE_ACTIONS = ['WATER', 'FERTILIZE', 'PRUNE', 'HARVEST'] as const;
+export type CareAction = (typeof CARE_ACTIONS)[number];
 
 /** One care action, kept so both players can see who tended what. */
 export interface CareEvent {

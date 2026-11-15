@@ -24,16 +24,15 @@ import { DecorBarComponent } from './decor/decor-bar.component';
 import { StartMenuComponent } from './session/start-menu.component';
 import { NEEDS_PROFILE } from './session/current-user';
 import { OFFLINE_MESSAGE } from './session/member-session';
+import { failureText } from './garden/failure-text';
 
-const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND' | 'OFFLINE', string>> = {
-  OFFLINE: OFFLINE_MESSAGE,
+const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND', string>> = {
   NO_FERTILIZER: 'Out of fertilizer. The Supply Store has more.',
   COOLDOWN: 'It needs a little rest first.',
   NOT_FOUND: 'That plant is gone.',
 };
 
-const GENTLE_ERRORS: Record<PlacementError | 'OFFLINE', string> = {
-  OFFLINE: OFFLINE_MESSAGE,
+const GENTLE_ERRORS: Record<PlacementError, string> = {
   NO_SEEDS: 'No packets of that one. The Supply Store has more.',
   TILE_OCCUPIED: 'That needs a bit more room.',
   NOT_PLANTABLE: 'That needs a bit more soil.',
@@ -41,8 +40,7 @@ const GENTLE_ERRORS: Record<PlacementError | 'OFFLINE', string> = {
   UNKNOWN_ITEM: "Hmm, I don't recognise that seed.",
 };
 
-const DECOR_ERRORS: Record<DecorError | 'OFFLINE', string> = {
-  OFFLINE: OFFLINE_MESSAGE,
+const DECOR_ERRORS: Record<DecorError, string> = {
   TILE_OCCUPIED: "Something's already there.",
   WRONG_SURFACE: "That doesn't go there.",
   WRONG_ROOM: 'Decorations go in the Social Space.',
@@ -53,8 +51,7 @@ const DECOR_ERRORS: Record<DecorError | 'OFFLINE', string> = {
   NOT_FOUND: 'That decoration is gone.',
 };
 
-const POT_ERRORS: Record<PotError | 'OFFLINE', string> = {
-  OFFLINE: OFFLINE_MESSAGE,
+const POT_ERRORS: Record<PotError, string> = {
   NO_POT: 'You need a clay pot. The Supply Store has them.',
   NOT_MATURE: 'Let it finish growing first.',
   NOT_FOUND: 'That plant is gone.',
@@ -288,7 +285,7 @@ export class App {
     const result = await this.garden.plant(item, tile);
     if (!result.ok) {
       this.canvas().flashTile(tile);
-      this.flash(GENTLE_ERRORS[result.error]);
+      this.flash(failureText(GENTLE_ERRORS, result.error));
       return;
     }
     this.habitat.selection.set({ type: 'PLANT_SELECTED', plantId: result.object.id });
@@ -299,7 +296,7 @@ export class App {
   async onPot(plantId: string): Promise<void> {
     const result = await this.garden.potPlant(plantId);
     if (!result.ok) {
-      this.flash(POT_ERRORS[result.error]);
+      this.flash(failureText(POT_ERRORS, result.error));
       return;
     }
     this.flash(`${describeItem(result.itemId).name} is in the 🎒 inventory.`);
@@ -307,7 +304,7 @@ export class App {
 
   /** Place / move / water / put away finished: say how it went. */
   onDecorDone(outcome: DecorOutcome): void {
-    this.flash(outcome.ok ? outcome.message : DECOR_ERRORS[outcome.error]);
+    this.flash(outcome.ok ? outcome.message : failureText(DECOR_ERRORS, outcome.error));
   }
 
   /** Hold arrow keys / WASD to walk. Ignored while typing in a field. */
@@ -338,7 +335,7 @@ export class App {
   async onCare(plantId: string, action: CareAction): Promise<void> {
     const result = await this.garden.care(plantId, action);
     if (!result.ok) {
-      this.flash(CARE_ERRORS[result.error] ?? 'That didn\'t work. Try again.');
+      this.flash(failureText(CARE_ERRORS, result.error));
       return;
     }
     if (action === 'HARVEST') this.flash(result.earned ? `Harvested! 🌱 +${result.earned}` : 'Harvested! The plot is free again.');
