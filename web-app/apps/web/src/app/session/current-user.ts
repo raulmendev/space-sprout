@@ -1,5 +1,5 @@
 import { type Actor, type CrewId, type CrewMember, DEMO_MEMBERS, type HealthMetric, type Member, ROLE_COLORS, type Suit, type User, crewFor, metricsFor } from '@garden/shared';
-import { type PlayerChoice, currentMember, householdMembers, savePlayer, stationKey } from './member-session';
+import { type PlayerChoice, currentMember, householdMembers, savePlayer, signInAs, stationKey } from './member-session';
 
 /** The two demo members (seeded on the server too, station key GARDEN), credited in the demo garden and notes. */
 export const [ASTRONAUT_USER, FAMILY_USER]: readonly User[] = DEMO_MEMBERS;
@@ -25,6 +25,12 @@ export const NEEDS_PROFILE = !MEMBER;
  */
 export async function saveProfile(p: PlayerChoice): Promise<void> {
   await savePlayer(p);
+  location.assign(location.pathname);
+}
+
+/** "That's me" in the start menu: sign in as someone already in the station, then reload as them. */
+export async function switchTo(key: string, memberId: string): Promise<void> {
+  await signInAs(key, memberId);
   location.assign(location.pathname);
 }
 

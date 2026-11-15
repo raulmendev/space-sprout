@@ -22,6 +22,13 @@ export const JoinSchema = z.object({
 });
 export type JoinInput = z.infer<typeof JoinSchema>;
 
+/** "That's me": a member of the station the key names. */
+export const SignInSchema = z.object({
+  stationKey: z.string().max(32).transform(normalizeStationKey),
+  memberId: z.string().min(1).max(64),
+});
+export type SignInInput = z.infer<typeof SignInSchema>;
+
 export const MemberChangesSchema = z
   .object({ displayName: displayName.optional(), role: role.optional(), suit: suit.optional(), color: color.optional() })
   .refine((c) => Object.keys(c).length > 0, 'nothing to change');

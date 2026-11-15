@@ -1,9 +1,9 @@
-import { Component, ElementRef, afterNextRender, computed, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
 import { AssetService } from '../shared/assets.service';
 import { suitPortraitKey } from '../garden/game/asset-registry';
-import { DISPLAY_NAME_MAX, SUITS, type Suit } from '@garden/shared';
-import { ROLE, SAVED_PROFILE, SUIT, saveProfile } from './current-user';
-import type { PlayerChoice } from './member-session';
+import { DISPLAY_NAME_MAX, type Member, STATION_KEY_LENGTH, SUITS, type Suit, normalizeStationKey } from '@garden/shared';
+import { CURRENT_USER, ROLE, SAVED_PROFILE, SUIT, saveProfile, switchTo } from './current-user';
+import { type PlayerChoice, stationMembers } from './member-session';
 
 const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine' };
 
@@ -133,11 +133,37 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
                 [value]="stationKey()"
                 (input)="stationKey.set($any($event.target).value)"
               />
-              <span id="station-key-hint" class="flex items-center gap-1.5 text-xs text-bark">
-                <span class="grid size-4 shrink-0 place-items-center rounded-full bg-steel text-[0.65rem] font-black text-cream" aria-hidden="true">i</span>
-                Got a key from family? Type it to join their station.
-              </span>
+              @if (!aboard() && !keyError()) {
+                <span id="station-key-hint" class="flex items-center gap-1.5 text-xs text-bark">
+                  <span class="grid size-4 shrink-0 place-items-center rounded-full bg-steel text-[0.65rem] font-black text-cream" aria-hidden="true">i</span>
+                  Got a key from family? Type it to join their station.
+                </span>
+              } @else if (keyError()) {
+                <span id="station-key-hint" class="text-xs font-bold text-alert" role="alert">{{ keyError() }}</span>
+              }
             </label>
+            <!-- Someone already in this station, on a new device: tap yourself instead of joining again. -->
+            @if (aboard(); as a) {
+              <div class="flex flex-col gap-1 short:gap-0.5" role="group" aria-labelledby="aboard-title">
+                <span id="aboard-title" class="text-xs font-bold text-bark">Already aboard? Tap yourself:</span>
+                <ul class="flex gap-1.5 overflow-x-auto pb-1 short:pb-0.5">
+                  @for (m of a.members; track m.id) {
+                    <li class="shrink-0">
+                      <button
+                        type="button"
+                        class="soft-btn btn-press flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-sm font-extrabold"
+                        [disabled]="busy()"
+                        [attr.aria-label]="(m.id === me ? 'Keep playing as ' : 'Play as ') + m.displayName"
+                        (click)="pick(a.key, m)"
+                      >
+                        <span class="grid size-6 place-items-center rounded-full text-sm" [style.background]="m.color" aria-hidden="true">{{ m.role === 'ASTRONAUT' ? '🧑‍🚀' : '🏡' }}</span>
+                        {{ m.displayName }}@if (m.id === me) {<span class="font-normal text-bark">&nbsp;(you)</span>}
+                      </button>
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
           </div>
         </div>
 
@@ -298,6 +324,13 @@ export class StartMenuComponent {
   protected readonly busy = signal(false);
   /** Why Start didn't go through (an unknown key, no connection). */
   protected readonly error = signal('');
+  /** Who's in the station the typed key names (once it's a whole key). */
+  protected readonly aboard = signal<{ key: string; members: Member[] } | null>(null);
+  /** Why the typed key found nobody (unknown key, no connection). */
+  protected readonly keyError = signal('');
+  /** Who this page is playing as, marked "(you)" in the list. */
+  protected readonly me = SAVED_PROFILE ? CURRENT_USER.id : null;
+  private lookups = 0;
   /** Set once Start is pressed without a name; cleared as soon as one is typed. */
   private readonly triedStart = signal(false);
   protected readonly showNameError = computed(() => this.triedStart() && !this.name().trim());
@@ -315,6 +348,34 @@ export class StartMenuComponent {
 
   constructor() {
     afterNextRender(() => this.dialog().nativeElement.showModal());
+    effect(() => void this.lookUp(normalizeStationKey(this.stationKey())));
+  }
+
+  /** Looks up who's in the station once a whole key is typed; only the latest answer counts. */
+  private async lookUp(key: string): Promise<void> {
+    const n = ++this.lookups;
+    this.aboard.set(null);
+    this.keyError.set('');
+    if (key.length !== STATION_KEY_LENGTH) return;
+    try {
+      const members = await stationMembers(key);
+      if (n === this.lookups) this.aboard.set({ key, members });
+    } catch (e) {
+      if (n === this.lookups) this.keyError.set((e as Error).message);
+    }
+  }
+
+  /** "That's me": play as someone already in the station (yourself: just carry on). */
+  protected async pick(key: string, m: Member): Promise<void> {
+    if (m.id === this.me) return this.dialog().nativeElement.close();
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      await switchTo(key, m.id);
+    } catch (e) {
+      this.error.set((e as Error).message);
+      this.busy.set(false);
+    }
   }
 
   protected focusOf(p: number): number {

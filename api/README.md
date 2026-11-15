@@ -25,6 +25,8 @@ Everything is under `/api`.
 | `GET /api/health/db` | Readiness: `200` when the database answers, `503` otherwise. It wakes Neon, so don't poll it. |
 | `GET /api/catalog` | The plant catalog and Supply Store items, from `@garden/shared`. |
 | `POST /api/join` | The start menu: `{ displayName, role, suit, stationKey? }`. No key starts a new station; a key (any case, dashes ignored) joins that one. Creates the member and returns `{ token, expiresAt, member, stationKey }`. |
+| `GET /api/stations/:key/members` | Who's already in the station a key names, for the start menu's "Already aboard?". `404` for an unknown key. |
+| `POST /api/session` | "That's me": `{ stationKey, memberId }` signs in as someone already in that station, on a new device. Returns the same shape as `/join`. |
 | `GET /api/session` 🔒 | Who you are, your station's key and everyone in it: what the game loads at boot. |
 | `DELETE /api/session` 🔒 | Sign this device out. |
 | `PATCH /api/members/me` 🔒 | Change your `displayName`, `role`, `suit` or `color`. |

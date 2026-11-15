@@ -108,8 +108,19 @@ export async function savePlayer(choice: PlayerChoice): Promise<void> {
     saveJson(SESSION_KEY, { ...session, member, members: session.members.map((m) => (m.id === member.id ? member : m)) });
     return;
   }
-  const joined = await call<Omit<Session, 'members'>>('/join', { method: 'POST', body: JSON.stringify({ ...changes, stationKey: key || undefined }) });
-  // Leaving a station for another: end the old session without holding up the reload.
+  adopt(await call<Omit<Session, 'members'>>('/join', { method: 'POST', body: JSON.stringify({ ...changes, stationKey: key || undefined }) }));
+}
+
+/** Who's in the station a key names (an unknown key throws "No station has that key…"). */
+export const stationMembers = (key: string): Promise<Member[]> => call<Member[]>(`/stations/${encodeURIComponent(normalizeStationKey(key))}/members`);
+
+/** "That's me": sign in as someone already in that station. On success the caller reloads. */
+export async function signInAs(key: string, memberId: string): Promise<void> {
+  adopt(await call<Omit<Session, 'members'>>('/session', { method: 'POST', body: JSON.stringify({ stationKey: key, memberId }) }));
+}
+
+/** Use a new session on this device, ending the old one without holding up the reload. */
+function adopt(next: Omit<Session, 'members'>): void {
   if (session) void call('/session', { method: 'DELETE', keepalive: true }, session.token).catch(() => {});
-  saveJson(SESSION_KEY, { ...joined, members: [joined.member] });
+  saveJson(SESSION_KEY, { ...next, members: [next.member] });
 }
