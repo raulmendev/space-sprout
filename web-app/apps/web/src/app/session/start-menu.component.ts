@@ -2,7 +2,8 @@ import { Component, ElementRef, afterNextRender, computed, effect, inject, input
 import { AssetService } from '../shared/assets.service';
 import { suitPortraitKey } from '../garden/game/asset-registry';
 import { DISPLAY_NAME_MAX, type Member, STATION_KEY_LENGTH, SUITS, type Suit, normalizeStationKey } from '@garden/shared';
-import { CURRENT_USER, ROLE, SAVED_PROFILE, SUIT, saveProfile, switchTo } from './current-user';
+import { CURRENT_USER, MY_SUIT, ROLE, SAVED_PROFILE, saveProfile, switchTo } from './current-user';
+import { LiveChannel } from '../garden/live-channel';
 import { type PlayerChoice, stationMembers } from './member-session';
 
 const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine', purple: 'Purple', cactus: 'Cactus', leaf: 'Leaf' };
@@ -11,7 +12,6 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
  * already wear one keep it, and still see it here while it's theirs.
  */
 const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
-const PICKABLE_SUITS: readonly Suit[] = SUITS.filter((s) => !HIDDEN_SUITS.includes(s) || s === SUIT);
 
 /**
  * The start menu: astronaut (suit carousel), name, astronaut or family, and station
@@ -326,10 +326,11 @@ export class StartMenuComponent {
   readonly canCancel = input(false);
   readonly closed = output<void>();
   protected readonly assets = inject(AssetService);
+  private readonly live = inject(LiveChannel);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
 
-  protected readonly suits = PICKABLE_SUITS;
+  protected readonly suits: readonly Suit[] = SUITS.filter((s) => !HIDDEN_SUITS.includes(s) || s === MY_SUIT());
   protected readonly nameMax = DISPLAY_NAME_MAX;
   protected readonly roles = [
     { value: 'ASTRONAUT', label: 'Astronaut', icon: '🧑‍🚀' },
@@ -339,7 +340,7 @@ export class StartMenuComponent {
   // Start from what this page is playing as, so "Change player" only changes what you touch.
   protected readonly name = signal(SAVED_PROFILE?.role === ROLE ? SAVED_PROFILE.name : '');
   protected readonly role = signal<PlayerChoice['role']>(ROLE);
-  protected readonly suit = signal<Suit>(SUIT);
+  protected readonly suit = signal<Suit>(MY_SUIT());
   protected readonly stationKey = signal(SAVED_PROFILE?.stationKey ?? '');
   /** Waiting for the station to answer Start. */
   protected readonly busy = signal(false);
@@ -412,8 +413,8 @@ export class StartMenuComponent {
 
   /** Slide to a suit from the dots, the short way round. */
   protected goTo(s: Suit): void {
-    const n = PICKABLE_SUITS.length;
-    let by = (PICKABLE_SUITS.indexOf(s) - PICKABLE_SUITS.indexOf(this.suit()) + n) % n;
+    const n = this.suits.length;
+    let by = (this.suits.indexOf(s) - this.suits.indexOf(this.suit()) + n) % n;
     if (by > n / 2) by -= n;
     this.step(by);
   }
@@ -485,8 +486,8 @@ export class StartMenuComponent {
   }
 
   private neighbour(by: number): Suit {
-    const i = PICKABLE_SUITS.indexOf(this.suit());
-    return PICKABLE_SUITS[(((i + by) % PICKABLE_SUITS.length) + PICKABLE_SUITS.length) % PICKABLE_SUITS.length];
+    const i = this.suits.indexOf(this.suit());
+    return this.suits[(((i + by) % this.suits.length) + this.suits.length) % this.suits.length];
   }
 
   protected portrait(s: Suit): string {
@@ -513,7 +514,11 @@ export class StartMenuComponent {
     this.busy.set(true);
     this.error.set('');
     try {
-      await saveProfile({ name, role: this.role(), suit: this.suit(), stationKey: this.stationKey() });
+      if (await saveProfile({ name, role: this.role(), suit: this.suit(), stationKey: this.stationKey() })) {
+        // Just a new suit: wear it straight away, and reconnect so the station sees it too.
+        this.live.reconnect();
+        this.dialog().nativeElement.close();
+      }
     } catch (e) {
       this.error.set((e as Error).message);
       this.busy.set(false);

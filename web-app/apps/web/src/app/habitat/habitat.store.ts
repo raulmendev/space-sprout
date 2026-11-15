@@ -35,10 +35,8 @@ import {
   NOTE_BUBBLE_TEXTURE,
   NOTE_TEXTURES,
   PET_FRAMES,
-  PLAYER_FRAMES,
   SUIT_FRAMES,
   astronautAnim,
-  PLAYER_TEXTURE,
   crewPoseKey,
   hasCrewPoses,
   THIRST_TEXTURE,
@@ -59,7 +57,7 @@ import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
 import { NpcStore } from '../npc/npc.store';
 import type { ActorAnim, HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
-import { CURRENT_USER } from '../session/current-user';
+import { CURRENT_USER, MY_SUIT } from '../session/current-user';
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
 
@@ -250,7 +248,7 @@ export class HabitatStore {
     // Everyone else in the station who is in this room, in their own suits.
     for (const p of this.presence.others()) {
       if (p.stance.at.room !== this.activeRoom()) continue;
-      const frames = SUIT_FRAMES[p.member.suit] ?? PLAYER_FRAMES;
+      const frames = SUIT_FRAMES[p.member.suit] ?? SUIT_FRAMES.turquoise;
       actors.push({
         id: `peer:${p.peer}`,
         texture: frames.idle.down,
@@ -268,7 +266,7 @@ export class HabitatStore {
     const { x, y } = this.player.position();
     actors.push({
       id: 'player',
-      texture: PLAYER_TEXTURE,
+      texture: SUIT_FRAMES[MY_SUIT()].idle.down,
       x,
       y,
       flipX: false,
@@ -288,7 +286,7 @@ export class HabitatStore {
   });
 
   private readonly playerAnim = computed<ActorAnim>(() =>
-    astronautAnim(PLAYER_FRAMES, { facing: this.player.facing(), moving: this.player.moving(), waveAt: this.player.waveAt() }, WAVE_MS),
+    astronautAnim(SUIT_FRAMES[MY_SUIT()], { facing: this.player.facing(), moving: this.player.moving(), waveAt: this.player.waveAt() }, WAVE_MS),
   );
 
   readonly hoverRect = computed(() => this.targetRect(this.hover()));

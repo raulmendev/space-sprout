@@ -25,7 +25,6 @@ import {
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
 import { FACINGS, type Facing, type Suit } from '@garden/shared';
 import type { ActorAnim } from './habitat.scene';
-import { SUIT } from '../../session/current-user';
 import { BOARD_SIZE, NOTE_COLORS, NOTE_SIZE, noteBubbleArt, noteStackArt, stickyNoteArt } from './notice-board';
 import {
   ASTRONAUT,
@@ -494,8 +493,6 @@ export const suitPortraitKey = (suit: Suit) => `${SUITS[suit].prefix}-down-idle`
 
 /** Every suit's frames (other players wear theirs). */
 export const SUIT_FRAMES = Object.fromEntries(Object.entries(SUITS).map(([suit, s]) => [suit, suitFrames(s.prefix, s.wave)])) as Record<Suit, PlayerFrames>;
-/** The suit this page shows. */
-export const PLAYER_FRAMES: PlayerFrames = SUIT_FRAMES[SUIT];
 
 /** Walking: four frames the way they face. Standing: that direction's pose. Waving (standing, in a suit with a wave): the wave, twice. */
 export function astronautAnim(frames: PlayerFrames, s: { facing: Facing; moving: boolean; waveAt: number | null }, waveMs: number): ActorAnim {
@@ -504,8 +501,6 @@ export function astronautAnim(frames: PlayerFrames, s: { facing: Facing; moving:
   }
   return s.moving ? { frames: frames.walk[s.facing], fps: 8, loop: true, startedAt: 0 } : { frames: [frames.idle[s.facing]], fps: 1, loop: false, startedAt: 0 };
 }
-/** Standing, facing the camera: the astronaut wherever a single picture is needed. */
-export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
 /** The station pets walk like the astronaut (four frames a direction), no wave. Drawn to one scale. */
 const PET_SIZES: Record<PetId, [number, number]> = { DOG: [38, 34], CAT: [40, 39], RADISH: [40, 45] };
 export const PET_FRAMES = Object.fromEntries(
