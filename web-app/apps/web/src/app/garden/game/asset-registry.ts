@@ -146,6 +146,22 @@ for (const room of Object.keys(ROOMS) as RoomId[]) {
   register(roomTextureKey(room), 'habitat/rooms', [ROOM_COLS * TILE_SIZE, ROOM_ROWS * TILE_SIZE], TERRAIN, null);
 }
 
+/** A room's animated windows: the glass (the sky outside) drawn over the room picture, a frame every `frameMs`. */
+export interface RoomWindows {
+  frames: readonly string[];
+  /** Top-left corner on the room picture, in game px. */
+  at: readonly [number, number];
+  frameMs: number;
+}
+/** From tools/import_windows.py. Shown only with the room picture and every frame delivered. */
+export const ROOM_WINDOWS: Partial<Record<RoomId, RoomWindows>> = {};
+function roomWindows(room: RoomId, w: { frames: number; at: [number, number]; size: [number, number]; frameMs: number }): void {
+  const frames = Array.from({ length: w.frames }, (_, n) => `${roomTextureKey(room)}-window-${n}`);
+  for (const key of frames) register(key, 'habitat/rooms', w.size, TERRAIN, null);
+  ROOM_WINDOWS[room] = { frames, at: w.at, frameMs: w.frameMs };
+}
+roomWindows('SOCIAL', { frames: 8, at: [224, 32], size: [288, 96], frameMs: 170 });
+
 // ---------------------------------------------------------------- plants
 
 interface PlantVisual {
@@ -331,13 +347,16 @@ export interface PlayerFrames {
 
 /**
  * Each suit colour is its own set of frames, named by colour (player-astronaut-green-*);
- * the original turquoise suit keeps the plain names. Pick one with `?suit=green|black|wine`.
+ * the original turquoise suit keeps the plain names. Pick one with `?suit=green|black|wine|purple|cactus|leaf`.
  */
 const SUITS: Record<Suit, { prefix: string; size: [number, number]; wave: boolean }> = {
   turquoise: { prefix: 'player-astronaut', size: [36, 50], wave: true },
   green: { prefix: 'player-astronaut-green', size: [40, 50], wave: false },
   black: { prefix: 'player-astronaut-black', size: [38, 50], wave: false },
   wine: { prefix: 'player-astronaut-wine', size: [38, 50], wave: false },
+  purple: { prefix: 'player-astronaut-purple', size: [34, 50], wave: false },
+  cactus: { prefix: 'player-astronaut-cactus', size: [42, 50], wave: false },
+  leaf: { prefix: 'player-astronaut-leaf', size: [42, 50], wave: false },
 };
 
 function suitFrames(prefix: string, wave: boolean): PlayerFrames {
@@ -357,7 +376,7 @@ export const PLAYER_FRAMES: PlayerFrames = suitFrames(SUITS[SUIT].prefix, SUITS[
 /** Standing, facing the camera: the astronaut wherever a single picture is needed. */
 export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
 /** The station pets walk like the astronaut (four frames a direction), no wave. Drawn to one scale. */
-const PET_SIZES: Record<PetId, [number, number]> = { DOG: [38, 34], CAT: [40, 39] };
+const PET_SIZES: Record<PetId, [number, number]> = { DOG: [38, 34], CAT: [40, 39], RADISH: [40, 45] };
 export const PET_FRAMES = Object.fromEntries(
   Object.keys(PET_SIZES).map((id) => [id, suitFrames(`npc-${id.toLowerCase()}`, false)]),
 ) as Record<PetId, PlayerFrames>;

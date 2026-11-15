@@ -4,7 +4,7 @@ export class MembersAndSessions1794762111617 implements MigrationInterface {
     name = 'MembersAndSessions1794762111617'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
-        await queryRunner.query(`CREATE TABLE "member" ("id" text NOT NULL, "householdId" text NOT NULL, "displayName" text NOT NULL, "role" text NOT NULL, "suit" text NOT NULL, "color" text NOT NULL, "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "member_color_check" CHECK ("color" ~ '^#[0-9a-fA-F]{6}$'), CONSTRAINT "member_suit_check" CHECK ("suit" IN ('turquoise', 'green', 'black', 'wine')), CONSTRAINT "member_role_check" CHECK ("role" IN ('ASTRONAUT', 'FAMILY')), CONSTRAINT "PK_97cbbe986ce9d14ca5894fdc072" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "member" ("id" text NOT NULL, "householdId" text NOT NULL, "displayName" text NOT NULL, "role" text NOT NULL, "suit" text NOT NULL, "color" text NOT NULL, "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "member_color_check" CHECK ("color" ~ '^#[0-9a-fA-F]{6}$'), CONSTRAINT "member_role_check" CHECK ("role" IN ('ASTRONAUT', 'FAMILY')), CONSTRAINT "PK_97cbbe986ce9d14ca5894fdc072" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE INDEX "IDX_9d8aee1ad649ba2f7731f24dc7" ON "member"  ("householdId") `);
         await queryRunner.query(`CREATE TABLE "household" ("id" text NOT NULL, "name" text NOT NULL, "stationKey" text NOT NULL, "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(), CONSTRAINT "PK_26e9111eab2b8908fefe3c645f5" PRIMARY KEY ("id"))`);
         await queryRunner.query(`CREATE UNIQUE INDEX "IDX_adce3445f89c651d3bce67fca2" ON "household"  ("stationKey") `);

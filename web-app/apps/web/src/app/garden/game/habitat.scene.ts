@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
-import { GROUND_SHADOW_TEXTURE, TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
+import { GROUND_SHADOW_TEXTURE, ROOM_WINDOWS, RoomWindows, TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset, roomTextureKey } from './asset-registry';
 import { missingTexture } from './placeholders';
 import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingScale, restingSize } from './tile-manager';
 
@@ -158,6 +158,8 @@ export class HabitatScene extends Phaser.Scene {
   private readonly failed = new Set<string>();
   private room: RoomId | null = null;
   private ground: Phaser.GameObjects.Image[] = [];
+  /** The room's animated windows, part of its ground; null when it has none. */
+  private windows: { img: Phaser.GameObjects.Image; anim: RoomWindows } | null = null;
   /** While fading between rooms, the latest state waits here. */
   private queued: HabitatRenderState | null = null;
   private building = false;
@@ -299,6 +301,8 @@ export class HabitatScene extends Phaser.Scene {
     this.labels.clear();
     this.room = state.room;
     this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
+    this.windows = this.drawWindows(state.room);
+    if (this.windows) this.ground.push(this.windows.img);
     this.building = true;
     this.applyState(state);
     this.building = false;
@@ -444,6 +448,23 @@ export class HabitatScene extends Phaser.Scene {
       this.applyHover(id, img);
       this.followLabel(id, img);
     }
+    this.animateWindows();
+  }
+
+  /** The sky in the room's windows, over its picture (only when both were delivered). */
+  private drawWindows(room: RoomId): { img: Phaser.GameObjects.Image; anim: RoomWindows } | null {
+    const anim = ROOM_WINDOWS[room];
+    if (!anim || ![roomTextureKey(room), ...anim.frames].every((k) => this.textures.exists(k))) return null;
+    const img = fitToGame(this.add.image(anim.at[0], anim.at[1], anim.frames[0])).setOrigin(0).setDepth(DEPTH.GROUND + 1);
+    return { img, anim };
+  }
+
+  /** Next window frame when its time comes. Reduced motion: the first frame stays. */
+  private animateWindows(): void {
+    if (!this.windows || this.reducedMotion) return;
+    const { img, anim } = this.windows;
+    const key = anim.frames[Math.floor(this.time.now / anim.frameMs) % anim.frames.length];
+    if (img.texture.key !== key) img.setTexture(key);
   }
 
   /** The character's name tag: made once, kept on top of everything in the room. */

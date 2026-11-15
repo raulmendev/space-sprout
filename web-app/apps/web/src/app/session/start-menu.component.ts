@@ -5,7 +5,7 @@ import { DISPLAY_NAME_MAX, type Member, STATION_KEY_LENGTH, SUITS, type Suit, no
 import { CURRENT_USER, ROLE, SAVED_PROFILE, SUIT, saveProfile, switchTo } from './current-user';
 import { type PlayerChoice, stationMembers } from './member-session';
 
-const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine' };
+const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine', purple: 'Purple', cactus: 'Cactus', leaf: 'Leaf' };
 
 /**
  * The start menu: astronaut (suit carousel), name, astronaut or family, and station

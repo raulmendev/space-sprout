@@ -71,12 +71,26 @@ export interface Door extends TileCoord {
   arrive: TileCoord;
 }
 
+/** Edges of the floor as painted in a room's art, in tile units. */
+export interface FloorEdges {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 export interface Room {
   id: RoomId;
   name: string;
   layout: readonly string[];
   props: readonly HabitatProp[];
   doors: readonly Door[];
+  /**
+   * Where the painted floor ends, when the art draws its walls thicker than their tiles.
+   * Characters' sprites are kept inside it (except through a doorway). Without it, the
+   * floor ends at the outer wall tiles.
+   */
+  floor?: FloorEdges;
 }
 
 /** Two-tile door in a side wall (rows 7–8), mapped onto the matching door of the next room. */
@@ -120,6 +134,8 @@ export const ROOMS: Record<RoomId, Room> = {
       { id: 'vine-arch', kind: 'VINE_ARCH', name: 'Vine arch', x: 11, y: 14, w: 2, h: 1 },
     ],
     doors: sideDoor('E', 'SOCIAL'),
+    // Measured on habitat/rooms/room-garden.png (64 px per tile).
+    floor: { left: 1.3, top: 2.15, right: 22.65, bottom: 14.5 },
   },
   SOCIAL: {
     id: 'SOCIAL',
@@ -170,6 +186,8 @@ export const ROOMS: Record<RoomId, Room> = {
       { id: 'social-planter-2', kind: 'PLANTER_RED_FLOWERS', name: 'Flower planter', x: 19, y: 14, w: 3, h: 1 },
     ],
     doors: [...sideDoor('W', 'GARDEN'), ...sideDoor('E', 'MEDICAL')],
+    // Measured on habitat/rooms/room-social.png (64 px per tile): its side walls are thick.
+    floor: { left: 1.65, top: 3.6, right: 22.4, bottom: 14.45 },
   },
   MEDICAL: {
     id: 'MEDICAL',
@@ -235,4 +253,5 @@ export const NPC_HOME = { room: 'GARDEN' as RoomId, x: 12, y: 5 };
 export const PET_START = {
   DOG: { room: 'SOCIAL' as RoomId, x: 9.5, y: 13.5 },
   CAT: { room: 'MEDICAL' as RoomId, x: 7.5, y: 13.5 },
+  RADISH: { room: 'GARDEN' as RoomId, x: 7.5, y: 13.5 },
 };

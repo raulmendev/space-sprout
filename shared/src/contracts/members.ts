@@ -3,7 +3,7 @@ import type { User, UserRole } from '../types/domain';
 export const USER_ROLES = ['ASTRONAUT', 'FAMILY'] as const satisfies readonly UserRole[];
 
 /** The astronaut suit colours there is art for. Art only: nothing else changes with the suit. */
-export const SUITS = ['turquoise', 'green', 'black', 'wine'] as const;
+export const SUITS = ['turquoise', 'green', 'black', 'wine', 'purple', 'cactus', 'leaf'] as const;
 export type Suit = (typeof SUITS)[number];
 
 /** Each role's colour (notes, name tags) until a member picks their own. */

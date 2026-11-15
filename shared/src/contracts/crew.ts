@@ -26,7 +26,7 @@ export const CREW: readonly CrewMember[] = [
   { id: 'SCIENTIST', name: 'Dr. Okafor', role: 'Scientist', metrics: ['RADIATION', 'CO2'], scans: true, start: { room: 'GARDEN', x: 17.5, y: 8 } },
 ];
 
-export const PETS: readonly PetId[] = ['DOG', 'CAT'];
+export const PETS: readonly PetId[] = ['DOG', 'CAT', 'RADISH'];
 export const isPet = (id: NpcId): id is PetId => (PETS as readonly NpcId[]).includes(id);
 /** A crew member, as opposed to Sprout or a pet. */
 export const isCrew = (id: NpcId): id is CrewId => id !== 'SPROUT' && !isPet(id);
