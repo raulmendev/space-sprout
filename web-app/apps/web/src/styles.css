@@ -137,3 +137,98 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Loading screen: markup in index.html and LoadingScreenComponent (see there). */
+.boot {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 25%, var(--color-dusk), var(--color-night) 70%);
+  color: var(--color-cream);
+}
+.boot.loading-out { transition: opacity 450ms ease-out; opacity: 0; }
+.boot-stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 12% 18%, #fff, transparent),
+    radial-gradient(1px 1px at 78% 12%, #fff, transparent),
+    radial-gradient(2px 2px at 30% 62%, var(--color-cream), transparent),
+    radial-gradient(1px 1px at 88% 48%, #fff, transparent),
+    radial-gradient(1px 1px at 55% 22%, var(--color-sun), transparent),
+    radial-gradient(2px 2px at 6% 44%, #fff, transparent),
+    radial-gradient(1px 1px at 66% 70%, #fff, transparent),
+    radial-gradient(1px 1px at 42% 6%, var(--color-petal), transparent),
+    radial-gradient(1px 1px at 94% 26%, #fff, transparent),
+    radial-gradient(1px 1px at 20% 34%, #9cd2ff, transparent),
+    radial-gradient(1px 1px at 70% 40%, #fff, transparent),
+    radial-gradient(1px 1px at 36% 14%, #fff, transparent),
+    radial-gradient(2px 2px at 84% 8%, var(--color-cream), transparent),
+    radial-gradient(1px 1px at 50% 52%, #fff, transparent);
+  animation: boot-twinkle 3s ease-in-out infinite alternate;
+}
+/* A slice of Earth along the bottom, turning slowly under the station. */
+.boot-earth {
+  position: absolute;
+  left: 50%;
+  top: calc(100% - min(22vh, 9rem));
+  width: max(220vw, 140vh);
+  aspect-ratio: 1;
+  translate: -50% 0;
+  overflow: hidden;
+  border-radius: 50%;
+  background-color: #2b5aa8;
+  box-shadow: 0 0 0 3px rgb(156 210 255 / 0.55), 0 0 48px 14px rgb(110 170 255 / 0.35);
+}
+/* Land and clouds: painted once on a strip twice as wide, slid sideways (no repaint per frame). */
+.boot-earth::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 200%;
+  background-image:
+    radial-gradient(ellipse 9% 3% at 20% 4%, rgb(255 255 255 / 0.85), transparent 70%),
+    radial-gradient(ellipse 6% 2% at 58% 6%, rgb(255 255 255 / 0.7), transparent 70%),
+    radial-gradient(ellipse 12% 6% at 35% 9%, var(--color-leaf), transparent 70%),
+    radial-gradient(ellipse 8% 5% at 75% 7%, #8fae5a, transparent 70%),
+    radial-gradient(ellipse 7% 4% at 5% 8%, var(--color-leaf), transparent 70%);
+  background-size: 25% 100%;
+  animation: boot-turn 60s linear infinite;
+}
+.boot-earth::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 2%, color-mix(in srgb, var(--color-night) 55%, transparent) 12%);
+}
+.boot-body { position: relative; display: flex; flex-direction: column; align-items: center; gap: 1.25rem; margin-bottom: 8vh; }
+.boot-iss { width: min(384px, 62vw, 70vh); height: auto; animation: boot-drift 6s ease-in-out infinite; }
+.boot-title { font-family: var(--font-pixel); font-size: 1.75rem; line-height: 1; text-shadow: 0 3px 0 rgb(0 0 0 / 0.35); }
+.boot-text { font-family: var(--font-pixel); font-size: 0.875rem; opacity: 0.85; }
+.boot-bar {
+  width: 13rem;
+  height: 0.9rem;
+  padding: 2px;
+  overflow: hidden;
+  border: 2px solid var(--color-cream);
+  border-radius: 3px;
+  background: rgb(0 0 0 / 0.25);
+}
+.boot-fill {
+  height: 100%;
+  background: repeating-linear-gradient(90deg, var(--color-leaf) 0 6px, var(--color-leaf-dark) 6px 8px);
+  transition: width 250ms linear;
+}
+/* Before the game reports progress: a block sliding back and forth. */
+.boot-bar.waiting .boot-fill { width: 30%; animation: boot-wait 1.4s ease-in-out infinite alternate; }
+@media (max-height: 500px) {
+  .boot-body { gap: 0.6rem; margin-bottom: 14vh; }
+  .boot-title { font-size: 1.35rem; }
+}
+@keyframes boot-twinkle { to { opacity: 0.45; } }
+@keyframes boot-turn { to { translate: -50% 0; } }
+@keyframes boot-drift { 0%, 100% { translate: 0 0; } 50% { translate: 0 -8px; } }
+@keyframes boot-wait { from { translate: 0 0; } to { translate: 233% 0; } }

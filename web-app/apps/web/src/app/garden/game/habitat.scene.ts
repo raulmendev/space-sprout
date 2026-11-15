@@ -143,6 +143,8 @@ export interface HabitatSceneBridge {
   /** PNG keys listed as delivered in the asset manifest. */
   deliveredKeys: readonly string[];
   onReady(scene: HabitatScene): void;
+  /** Share of the pictures loaded so far, 0–1. */
+  onProgress(share: number): void;
   onInteraction(interaction: HabitatInteraction): void;
   onHover(interaction: HabitatInteraction | null): void;
 }
@@ -203,6 +205,7 @@ export class HabitatScene extends Phaser.Scene {
   }
 
   preload(): void {
+    this.load.on('progress', (share: number) => this.bridge.onProgress(share));
     this.load.on('loaderror', (file: Phaser.Loader.File) => {
       this.failed.add(file.key);
       this.pictures.delete(file.key);

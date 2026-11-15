@@ -22,6 +22,7 @@ import type { TileCoord } from './garden/game/tile-manager';
 import { DecorStore, DecorOutcome } from './decor/decor.store';
 import { DecorBarComponent } from './decor/decor-bar.component';
 import { StartMenuComponent } from './session/start-menu.component';
+import { LoadingScreenComponent } from './habitat/loading-screen.component';
 import { NEEDS_PROFILE } from './session/current-user';
 import { OFFLINE_MESSAGE } from './session/member-session';
 import { failureText } from './garden/failure-text';
@@ -83,13 +84,14 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     DialogueBubbleComponent,
     DecorBarComponent,
     StartMenuComponent,
+    LoadingScreenComponent,
   ],
   template: `
     <div class="fixed inset-0 overflow-hidden" [style.padding]="safeArea">
       <!-- The room: as large as the screen allows, centred; leftover space becomes margins. -->
       <div class="grid size-full place-items-center" data-habitat-slot>
         <div #roomView class="relative">
-          <app-habitat-canvas (interaction)="onInteraction($event)" />
+          <app-habitat-canvas (interaction)="onInteraction($event)" (progress)="loadProgress.set($event)" (ready)="loaded.set(true)" />
           <app-door-labels />
           @if (habitat.showLayout()) { <app-layout-overlay /> }
           @if (garden.pickerTile(); as t) {
@@ -134,6 +136,10 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
         <app-station-dialog [panel]="p" [anchor]="roomView" (closed)="habitat.openPanel.set(null)" />
       }
 
+      @if (!loaded()) {
+        <app-loading-screen [progress]="loadProgress()" animate.leave="loading-out" />
+      }
+
       @if (startMenu(); as m) {
         <app-start-menu [canCancel]="m === 'change'" (closed)="startMenu.set(null)" />
       }
@@ -175,6 +181,9 @@ export class App {
   private readonly health = inject(HealthStore);
   protected readonly notice = signal<string | null>(null);
   /** The start menu: on the first visit (must choose), or reopened from the HUD menu (can cancel). */
+  /** The loading screen shows until the room is on screen. */
+  protected readonly loadProgress = signal(0);
+  protected readonly loaded = signal(false);
   protected readonly startMenu = signal<'first' | 'change' | null>(NEEDS_PROFILE ? 'first' : null);
   /** Keep clear of notches and home indicators on phones. */
   protected readonly safeArea =

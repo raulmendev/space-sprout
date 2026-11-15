@@ -16,6 +16,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Pixelify+Sans:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <app-root></app-root>
+  <!-- The loading screen until Angular starts; keep in step with LoadingScreenComponent. -->
+  <app-root>
+    <div class="boot" role="status" aria-label="Loading the station">
+      <div class="boot-stars" aria-hidden="true"></div>
+      <div class="boot-earth" aria-hidden="true"></div>
+      <div class="boot-body">
+        <img class="boot-iss" src="assets/loading/iss.svg" alt="" width="384" height="176">
+        <p class="boot-title">Jardín Comunal</p>
+        <div class="boot-bar waiting" aria-hidden="true"><div class="boot-fill"></div></div>
+        <p class="boot-text">Docking at the station…</p>
+      </div>
+    </div>
+  </app-root>
 </body>
 </html>
