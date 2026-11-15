@@ -17,7 +17,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 // ---------------------------------------------------------------- compile
 const out = mkdtempSync(join(tmpdir(), 'check-dialogues-'));
-const program = ts.createProgram([join(root, 'packages/shared/src/index.ts')], {
+const program = ts.createProgram([join(root, '../shared/src/index.ts')], {
   module: ts.ModuleKind.CommonJS,
   target: ts.ScriptTarget.ES2022,
   outDir: join(out, 'shared'),

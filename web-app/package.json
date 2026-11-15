@@ -1,7 +1,7 @@
 {
   "name": "community-garden",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/*"],
   "scripts": {
     "dev:web": "npm run start -w web",
     "build:web": "npm run build -w web",

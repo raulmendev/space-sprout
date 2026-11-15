@@ -10,7 +10,7 @@ floor pieces on it (FLOOR: things you walk on, like a rug, found in the optional
 writes apps/web/public/assets/game/habitat/rooms/room-<room>.png at 2x (1536x1024) and marks it
 delivered.
 
-The picture must keep the room's grid (layout in packages/shared/src/contracts/habitat.ts):
+The picture must keep the room's grid (layout in shared/src/contracts/habitat.ts):
 beds, paths and doors on the same tiles. Needs Pillow (pip install pillow).
 """
 from __future__ import annotations

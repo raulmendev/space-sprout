@@ -8,7 +8,7 @@ This cleans and trims each sprite (so its feet sit on its footprint), sizes it f
 apps/web/public/assets/game/<folder>/prop-<kind>.png and marks it delivered. It prints the game
 size, which goes in PROP_VISUALS (asset-registry.ts): the game draws the sprite at that size.
 
-A new prop also needs a place in ROOMS (packages/shared/src/contracts/habitat.ts).
+A new prop also needs a place in ROOMS (shared/src/contracts/habitat.ts).
 Needs Pillow (pip install pillow).
 """
 import sys
