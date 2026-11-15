@@ -21,7 +21,7 @@ export interface HabitatPosition extends Point {
 }
 
 /** Where a new player appears: the middle of the social-space rug. */
-export const PLAYER_START: HabitatPosition = { room: 'SOCIAL', x: 12.5, y: 11.5 };
+export const PLAYER_START: HabitatPosition = { room: 'SOCIAL', x: 17.5, y: 13.5 }; // beside the lounge
 
 /** Which tiles of a room can be stood on. Built once per room: only floors and stations decide it. */
 const walkableGrids = new Map<RoomId, Uint8Array>();
