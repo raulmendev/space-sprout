@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { createHash, randomBytes } from 'node:crypto';
+import { Subject } from 'rxjs';
 import { type EntityManager, LessThan, MoreThan, Repository } from 'typeorm';
 import { MemberEntity } from '../members/member.entity';
 import { SessionEntity } from './session.entity';
@@ -16,6 +17,9 @@ const hash = (token: string) => createHash('sha256').update(token).digest('hex')
  */
 @Injectable()
 export class SessionService {
+  /** The token hash of each session ended (signed out), for whoever holds it open (the live channel). */
+  readonly ended = new Subject<string>();
+
   constructor(@InjectRepository(SessionEntity) private readonly sessions: Repository<SessionEntity>) {}
 
   /** A new token for a member, inside the caller's transaction. Also clears everyone's expired sessions. */
@@ -36,7 +40,14 @@ export class SessionService {
     return session?.member ?? null;
   }
 
+  /** A live token's station, and what's needed to end the connection when the session ends (live channel). */
+  async liveSessionFor(token: string): Promise<{ householdId: string; tokenHash: string; expiresAt: Date } | null> {
+    const session = await this.sessions.findOne({ where: { tokenHash: hash(token), expiresAt: MoreThan(new Date()) }, relations: { member: true } });
+    return session && { householdId: session.member.householdId, tokenHash: session.tokenHash, expiresAt: session.expiresAt };
+  }
+
   async end(token: string): Promise<void> {
     await this.sessions.delete({ tokenHash: hash(token) });
+    this.ended.next(hash(token));
   }
 }

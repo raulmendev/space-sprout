@@ -30,6 +30,8 @@ import {
 import { timeAgo } from '../health/format';
 import { whoDid } from '../shared/format';
 import { type GardenFailure, type GardenReply, GardenService, LOCAL_PLAYER } from './garden.service';
+import { type GardenNews, LiveChannel } from './live-channel';
+import { describeNews } from './live-news';
 import type { TileCoord } from './game/tile-manager';
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -43,6 +45,13 @@ export type PlantOutcome = Outcome<{ object: GardenObject }>;
 @Injectable({ providedIn: 'root' })
 export class GardenStore {
   private readonly service = inject(GardenService);
+  private readonly live = inject(LiveChannel);
+  /** The version of the state shown (server gardens only): anything older that arrives late is ignored. */
+  private version = -1;
+  /** The live channel dropped and is being retried (shown in the HUD). */
+  readonly reconnecting = this.live.reconnecting;
+  /** The latest thing someone else in the station did, e.g. "Mom watered the mustard." */
+  readonly news = signal<{ text: string } | null>(null);
 
   readonly catalog = CATALOG;
   /** The station's shared state as last heard (empty until it loads). Everything below reads from it. */
@@ -109,27 +118,52 @@ export class GardenStore {
 
   constructor() {
     setInterval(() => this.now.set(this.service.now()), 1000);
-    // Coming back to the tab: catch up with what the rest of the station did meanwhile.
+    // Coming back to the tab: catch up with what the rest of the station did meanwhile (a phone's socket
+    // can die quietly while asleep). When the live channel is already reconnecting, its catch-up covers it.
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') void this.init().catch(() => {});
+      if (document.visibilityState === 'visible' && !this.reconnecting()) void this.reload().catch(() => {});
     });
   }
 
+  /** First load; from then on, hear the rest of the station as it happens. */
   async init(): Promise<void> {
-    this.apply(await this.service.load());
+    await this.reload();
+    this.live.start({ garden: (news) => this.heard(news), caughtUp: () => void this.reload().catch(() => {}) });
   }
 
-  /** Show the station's state as it now stands (after any change, ours or anyone's). */
-  private apply(state: GardenState): void {
+  async reload(): Promise<void> {
+    const { state, version } = await this.service.load();
+    this.apply(state, version);
+  }
+
+  /** Someone changed the garden (maybe us, on another device). Their news is told only if it's new to us. */
+  private heard(news: GardenNews): void {
+    const before = { objects: this.objects(), decorations: this.decorations() };
+    this.service.heardFrom(news.serverTime);
+    if (this.apply(news.state, news.version) && news.by.id !== LOCAL_PLAYER.id) {
+      this.news.set({ text: describeNews(news, before.objects, before.decorations) });
+    }
+  }
+
+  /**
+   * Show the station's state as it now stands (after any change, ours or anyone's). A server state
+   * is skipped unless it's newer than the one shown (our own change comes back as a broadcast too).
+   */
+  private apply(state: GardenState, version?: number): boolean {
+    if (version !== undefined) {
+      if (version <= this.version) return false;
+      this.version = version;
+    }
     this.state.set(state);
     this.now.set(this.service.now());
     if (this.closeupId() && !state.objects.some((o) => o.id === this.closeupId())) this.closeupId.set(null);
+    return true;
   }
 
   /** Ask the station; show its latest state whatever it answered. */
   private async send(command: GardenCommand): Promise<GardenReply> {
     const reply = await this.service.run(command);
-    if (reply.state) this.apply(reply.state);
+    if (reply.state) this.apply(reply.state, reply.version);
     return reply;
   }
 
@@ -205,6 +239,6 @@ export class GardenStore {
     this.service.resetLocal();
     this.pickerTile.set(null);
     this.closeupId.set(null);
-    await this.init();
+    await this.reload();
   }
 }

@@ -14,5 +14,6 @@ import { MembersService } from './members.service';
   imports: [TypeOrmModule.forFeature([MemberEntity, SessionEntity])],
   controllers: [MembersController, SessionController],
   providers: [MembersService, SessionService, { provide: APP_GUARD, useClass: SessionGuard }],
+  exports: [SessionService],
 })
 export class MembersModule {}

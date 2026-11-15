@@ -3,6 +3,7 @@ import { ConflictException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
 import { DataSource, type EntityManager, LessThan } from 'typeorm';
+import { LiveService } from '../live/live.service';
 import type { MemberEntity } from '../members/member.entity';
 import { GardenCommandEntity } from './garden-command.entity';
 import { GardenEntity } from './garden.entity';
@@ -12,7 +13,10 @@ const COMMAND_MEMORY_MS = 24 * 60 * 60 * 1000;
 
 @Injectable()
 export class GardenService {
-  constructor(@InjectDataSource() private readonly db: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly db: DataSource,
+    private readonly live: LiveService,
+  ) {}
 
   async view(me: MemberEntity): Promise<GardenView> {
     const where = { householdId: me.householdId };
@@ -31,6 +35,15 @@ export class GardenService {
    * of the transaction, so two players acting at once are applied one after the other.
    */
   async run(me: MemberEntity, commandId: string, cmd: GardenCommand): Promise<CommandReply> {
+    const { reply, changed } = await this.apply(me, commandId, cmd);
+    // Only once it's committed: tell everyone in the station (the sender too, on their other devices).
+    if (changed) {
+      this.live.broadcast(me.householdId, { type: 'GARDEN', version: reply.version, state: reply.state, serverTime: reply.serverTime, by: toActor(me), command: cmd });
+    }
+    return reply;
+  }
+
+  private async apply(me: MemberEntity, commandId: string, cmd: GardenCommand): Promise<{ reply: CommandReply; changed: boolean }> {
     return this.db.transaction(async (tx) => {
       const locked = () => tx.findOne(GardenEntity, { where: { householdId: me.householdId }, lock: { mode: 'pessimistic_write' } });
       let garden = await locked();
@@ -42,7 +55,7 @@ export class GardenService {
       const seen = await tx.findOneBy(GardenCommandEntity, { id: commandId });
       if (seen) {
         if (seen.householdId !== me.householdId) throw new ConflictException('That command id was used by another station.');
-        return { ...viewOf(garden), ...seen.outcome };
+        return { reply: { ...viewOf(garden), ...seen.outcome }, changed: false };
       }
 
       const { state, ...answer } = runCommand(garden.state, cmd, toActor(me), Date.now(), randomUUID);
@@ -52,7 +65,7 @@ export class GardenService {
         garden.version++;
       }
       await tx.insert(GardenCommandEntity, { id: commandId, householdId: me.householdId, memberId: me.id, type: cmd.type, outcome: answer });
-      return { ...viewOf(garden), ...answer };
+      return { reply: { ...viewOf(garden), ...answer }, changed: answer.ok };
     });
   }
 

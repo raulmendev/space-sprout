@@ -2,7 +2,7 @@
 
 NestJS 12 + TypeORM on Postgres ([Neon](https://neon.tech)). It runs the same game rules as the web app, from `@garden/shared` ([`../shared`](../shared)).
 
-So far: config, the database connection, migrations, a health check, the catalog, **stations (households), members and sessions** behind the web app's start menu, and **each station's shared garden** (seeds, inventory, plants, decorations, notes), changed only by commands. Live updates come next; health check-ins still live in the browser.
+So far: config, the database connection, migrations, a health check, the catalog, **stations (households), members and sessions** behind the web app's start menu, **each station's shared garden** (seeds, inventory, plants, decorations, notes), changed only by commands, and a **live channel** that sends every change to the rest of the station as it happens. Health check-ins still live in the browser.
 
 ## Run it
 
@@ -32,6 +32,8 @@ Everything is under `/api`.
 | `PATCH /api/members/me` 🔒 | Change your `displayName`, `role`, `suit` or `color`. |
 | `GET /api/garden` 🔒 | The station's shared state (garden, seeds, inventory, purchases, decorations, notes), its `version` and the server's clock. The first visit plants the starting garden. |
 | `POST /api/garden/commands` 🔒 | `{ id, command }`: one change, e.g. `{ "type": "PLANT", "itemType": "lettuce", "x": 2, "y": 9 }`. The shared rules (`runCommand` in `@garden/shared`) decide; the answer is `{ ok, result \| error, version, state }`, always with the latest state. The station's row is locked while a command runs, and a repeated `id` gets the stored answer instead of running again. |
+
+**Live channel:** a WebSocket at `/api/live` (same port). The client's first message is `{ "type": "AUTH", "token": "…" }` (browsers can't set headers on a WebSocket, and a token in the URL would end up in logs); the server answers `READY`, or `DENIED` and closes with 4401. After every change to a station's garden, everyone connected to that station gets `{ "type": "GARDEN", version, state, serverTime, by, command }`: the whole state, so a missed message can't leave anyone behind (clients ignore versions older than what they show). Broadcasts live in memory, which is right for one API instance; running more would need a shared channel such as Redis. Message shapes: `shared/src/contracts/live.ts`.
 
 🔒 needs `Authorization: Bearer <token>`. The session guard is global: every new route needs a session unless it's marked `@Public()`. Tokens last 30 days and only their SHA-256 is stored. There is no password yet: anyone with a station key can join that station. Bodies are validated with Zod (`@Body({ schema })`, Nest's `StandardSchemaValidationPipe`).
 

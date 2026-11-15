@@ -1,5 +1,5 @@
 import type { GardenObject } from '../types/domain';
-import { CATALOG, getCatalogItem } from './catalog';
+import { CATALOG, plantName } from './catalog';
 import { getPlantStage } from './growth';
 import { ALL_STORE_ITEMS, CLAY_POT, Inventory, consume, getStoreItem, owned } from './store';
 
@@ -61,7 +61,7 @@ export const INVENTORY_ITEM_IDS: readonly string[] = [
 /** Name and icon of anything that can be in the inventory: store items and potted plants. */
 export function describeItem(itemId: string): { name: string; icon?: string; plant?: string } {
   const plant = pottedPlantOf(itemId);
-  if (plant) return { name: `Potted ${(getCatalogItem(plant)?.name ?? plant).toLowerCase()}`, icon: '🪴', plant };
+  if (plant) return { name: `Potted ${plantName(plant)}`, icon: '🪴', plant };
   const item = getStoreItem(itemId);
   return { name: item?.name ?? itemId, icon: item?.icon, plant: item?.plant };
 }
