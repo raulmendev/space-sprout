@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { type CrewId, type CrewMember, DEMO_MEMBERS, type HealthMetric, type Member, ROLE_COLORS, type Suit, type User, crewFor, metricsFor } from '@garden/shared';
 import { type PlayerChoice, currentMember, householdMembers, savePlayer, signInAs, stationKey } from './member-session';
 
@@ -19,13 +20,19 @@ export const SAVED_PROFILE: PlayerChoice | null = MEMBER && {
 export const NEEDS_PROFILE = !MEMBER;
 
 /**
- * The start menu's Start: saved on the server (joining or starting a station as needed),
- * then a reload into the game as that player, with any dev URL stand-in dropped.
- * Throws with a message for the menu to show.
+ * The start menu's Start: saved on the server (joining or starting a station as needed).
+ * Only a new suit for the same member is put on in place (resolves true: the game carries on).
+ * Anything else (a new name, role or station) reloads into the game as that player, with any
+ * dev URL stand-in dropped. Throws with a message for the menu to show.
  */
-export async function saveProfile(p: PlayerChoice): Promise<void> {
-  await savePlayer(p);
+export async function saveProfile(p: PlayerChoice): Promise<boolean> {
+  const sameOtherwise = MEMBER !== null && p.name === MEMBER.displayName && p.role === MEMBER.role;
+  if ((await savePlayer(p)) === 'updated' && sameOtherwise) {
+    mySuit.set(p.suit);
+    return true;
+  }
   location.assign(location.pathname);
+  return false;
 }
 
 /** "That's me" in the start menu: sign in as someone already in the station, then reload as them. */
@@ -39,8 +46,9 @@ export const CURRENT_USER: User = MEMBER ?? ASTRONAUT_USER;
 
 export const ROLE = CURRENT_USER.role;
 
-/** The suit this page shows. Art only: nothing else changes. */
-export const SUIT: Suit = MEMBER?.suit ?? 'turquoise';
+/** The suit this player wears. Art only, so it can change mid-game (the start menu). */
+const mySuit = signal<Suit>(MEMBER?.suit ?? 'turquoise');
+export const MY_SUIT = mySuit.asReadonly();
 
 export const IS_FAMILY = ROLE === 'FAMILY';
 

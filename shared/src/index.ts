@@ -19,6 +19,7 @@ export * from './contracts/goals';
 export * from './contracts/health-record';
 export * from './contracts/decor';
 export * from './contracts/potting';
+export * from './contracts/labels';
 export * from './contracts/emotes';
 export * from './contracts/presence';
 export * from './contracts/garden';

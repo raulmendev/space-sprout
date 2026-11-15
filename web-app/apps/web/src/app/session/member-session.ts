@@ -161,17 +161,19 @@ export interface PlayerChoice {
 /**
  * The start menu's Start. Signed in and staying on the same station: updates your member.
  * Otherwise: becomes a new member of the station the key names (or of a new station).
- * Throws with a message to show; on success the caller reloads.
+ * Throws with a message to show. Says which it did: `updated` (same member) or `joined` (a new one).
  */
-export async function savePlayer(choice: PlayerChoice): Promise<void> {
+export async function savePlayer(choice: PlayerChoice): Promise<'updated' | 'joined'> {
   const key = normalizeStationKey(choice.stationKey);
   const changes = { displayName: choice.name, role: choice.role, suit: choice.suit };
   if (session && (!key || key === session.stationKey)) {
     const member = await call<Member>('/members/me', { method: 'PATCH', body: JSON.stringify(changes) }, session.token);
-    saveJson(SESSION_KEY, { ...session, member, members: session.members.map((m) => (m.id === member.id ? member : m)) });
-    return;
+    session = { ...session, member, members: session.members.map((m) => (m.id === member.id ? member : m)) };
+    saveJson(SESSION_KEY, session);
+    return 'updated';
   }
   adopt(await call<Omit<Session, 'members'>>('/join', { method: 'POST', body: JSON.stringify({ ...changes, stationKey: key || undefined }) }));
+  return 'joined';
 }
 
 /** Who's in the station a key names (an unknown key throws "No station has that key…"). */

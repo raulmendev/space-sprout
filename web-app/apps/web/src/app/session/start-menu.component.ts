@@ -2,10 +2,16 @@ import { Component, ElementRef, afterNextRender, computed, effect, inject, input
 import { AssetService } from '../shared/assets.service';
 import { suitPortraitKey } from '../garden/game/asset-registry';
 import { DISPLAY_NAME_MAX, type Member, STATION_KEY_LENGTH, SUITS, type Suit, normalizeStationKey } from '@garden/shared';
-import { CURRENT_USER, ROLE, SAVED_PROFILE, SUIT, saveProfile, switchTo } from './current-user';
+import { CURRENT_USER, MY_SUIT, ROLE, SAVED_PROFILE, saveProfile, switchTo } from './current-user';
+import { LiveChannel } from '../garden/live-channel';
 import { type PlayerChoice, stationMembers } from './member-session';
 
 const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine', purple: 'Purple', cactus: 'Cactus', leaf: 'Leaf' };
+/**
+ * Suits no longer offered (the turquoise art now draws the cactus character). Members who
+ * already wear one keep it, and still see it here while it's theirs.
+ */
+const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
 
 /**
  * The start menu: astronaut (suit carousel), name, astronaut or family, and station
@@ -25,7 +31,7 @@ const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Gree
     >
       <!-- Only the fields scroll when the screen is too short for them: Start always stays in view. -->
       <form class="panel relative flex min-h-0 max-h-full flex-col gap-4 p-5 short:gap-2 short:p-3 tiny:gap-1.5 tiny:p-2" novalidate (submit)="$event.preventDefault(); start()">
-        <h1 id="start-title" class="sr-only">Jardín Comunal: who's coming aboard?</h1>
+        <h1 id="start-title" class="sr-only">Space Sprout: who's coming aboard?</h1>
         @if (canCancel()) {
           <button type="button" class="soft-btn btn-press absolute right-1.5 top-1.5 z-10 grid size-7 place-items-center rounded-lg text-xs" aria-label="Close" (click)="dialog.close()">✕</button>
         }
@@ -357,10 +363,11 @@ export class StartMenuComponent {
   readonly canCancel = input(false);
   readonly closed = output<void>();
   protected readonly assets = inject(AssetService);
+  private readonly live = inject(LiveChannel);
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
   private readonly nameInput = viewChild.required<ElementRef<HTMLInputElement>>('nameInput');
 
-  protected readonly suits = SUITS;
+  protected readonly suits: readonly Suit[] = SUITS.filter((s) => !HIDDEN_SUITS.includes(s) || s === MY_SUIT());
   protected readonly nameMax = DISPLAY_NAME_MAX;
   protected readonly roles = [
     { value: 'ASTRONAUT', label: 'Astronaut', icon: '🧑‍🚀' },
@@ -370,7 +377,7 @@ export class StartMenuComponent {
   // Start from what this page is playing as, so "Change player" only changes what you touch.
   protected readonly name = signal(SAVED_PROFILE?.role === ROLE ? SAVED_PROFILE.name : '');
   protected readonly role = signal<PlayerChoice['role']>(ROLE);
-  protected readonly suit = signal<Suit>(SUIT);
+  protected readonly suit = signal<Suit>(MY_SUIT());
   protected readonly stationKey = signal(SAVED_PROFILE?.stationKey ?? '');
   /** Waiting for the station to answer Start. */
   protected readonly busy = signal(false);
@@ -454,8 +461,8 @@ export class StartMenuComponent {
 
   /** Slide to a suit from the dots, the short way round. */
   protected goTo(s: Suit): void {
-    const n = SUITS.length;
-    let by = (SUITS.indexOf(s) - SUITS.indexOf(this.suit()) + n) % n;
+    const n = this.suits.length;
+    let by = (this.suits.indexOf(s) - this.suits.indexOf(this.suit()) + n) % n;
     if (by > n / 2) by -= n;
     this.step(by);
   }
@@ -527,8 +534,8 @@ export class StartMenuComponent {
   }
 
   private neighbour(by: number): Suit {
-    const i = SUITS.indexOf(this.suit());
-    return SUITS[(((i + by) % SUITS.length) + SUITS.length) % SUITS.length];
+    const i = this.suits.indexOf(this.suit());
+    return this.suits[(((i + by) % this.suits.length) + this.suits.length) % this.suits.length];
   }
 
   protected portrait(s: Suit): string {
@@ -555,7 +562,11 @@ export class StartMenuComponent {
     this.busy.set(true);
     this.error.set('');
     try {
-      await saveProfile({ name, role: this.role(), suit: this.suit(), stationKey: this.stationKey() });
+      if (await saveProfile({ name, role: this.role(), suit: this.suit(), stationKey: this.stationKey() })) {
+        // Just a new suit: wear it straight away, and reconnect so the station sees it too.
+        this.live.reconnect();
+        this.dialog().nativeElement.close();
+      }
     } catch (e) {
       this.error.set((e as Error).message);
       this.busy.set(false);

@@ -21,7 +21,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from art import ASSETS, HI_RES, add_shadow, clear_background, drop_strays, game_size, mark_delivered, save_scaled, trim
+from art import ASSETS, ICON, add_shadow, clear_background, drop_strays, game_size, icon_from, mark_delivered, save_scaled, trim
 
 # store item id → (game width in px, stands on the floor (gets a shadow)). Wall things fit their
 # wall tiles; floor things are sized to the astronaut (a lamp about waist high). A sprite may
@@ -40,20 +40,6 @@ DECOR: dict[str, tuple[int, bool]] = {
     'memory-board': (56, False),
     'galaxy-lamp': (20, True),
 }
-
-ICON = 64  # game px; written at 2x
-ICON_MARGIN = 4
-
-
-def icon_from(sprite: Image.Image) -> Image.Image:
-    """A store card picture from the sprite: fitted inside the icon with a small margin, centred."""
-    box = (ICON - 2 * ICON_MARGIN) * HI_RES
-    scale = min(box / sprite.width, box / sprite.height)
-    small = sprite.resize((max(1, round(sprite.width * scale)), max(1, round(sprite.height * scale))), Image.LANCZOS)
-    canvas = Image.new('RGBA', (ICON * HI_RES, ICON * HI_RES))
-    canvas.alpha_composite(small, ((canvas.width - small.width) // 2, (canvas.height - small.height) // 2))
-    return canvas
-
 
 def main() -> None:
     if len(sys.argv) != 2:

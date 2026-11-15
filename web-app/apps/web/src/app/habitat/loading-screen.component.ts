@@ -22,7 +22,7 @@ import { Component, computed, input } from '@angular/core';
         <img src="assets/loading/station.webp" alt="" width="384" height="157" />
         <span class="boot-shine"></span><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
       </div>
-      <p class="boot-title">Jardín Comunal</p>
+      <p class="boot-title">Space Sprout</p>
       <div class="boot-bar" [class.waiting]="!percent()" aria-hidden="true">
         <div class="boot-fill" [style.width.%]="percent() || null"></div>
       </div>

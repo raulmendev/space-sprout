@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { CareAction, CareError, DecorError, HabitatInteraction, PlacementError, PotError, describeItem, isPet } from '@garden/shared';
+import { CareAction, CareError, DecorError, HabitatInteraction, LabelError, PlacementError, PotError, describeItem, isPet } from '@garden/shared';
 import { GardenStore } from './garden/garden.store';
 import { PlantPickerComponent } from './garden/components/plant-picker.component';
 import { PlantCloseupComponent } from './garden/components/plant-closeup.component';
@@ -23,6 +23,7 @@ import { DecorStore, DecorOutcome } from './decor/decor.store';
 import { DecorBarComponent } from './decor/decor-bar.component';
 import { StartMenuComponent } from './session/start-menu.component';
 import { LoadingScreenComponent } from './habitat/loading-screen.component';
+import { TitleScreenComponent } from './session/title-screen.component';
 import { NEEDS_PROFILE } from './session/current-user';
 import { OFFLINE_MESSAGE } from './session/member-session';
 import { failureText } from './garden/failure-text';
@@ -58,6 +59,11 @@ const POT_ERRORS: Record<PotError, string> = {
   NOT_FOUND: 'That plant is gone.',
 };
 
+const LABEL_ERRORS: Record<LabelError, string> = {
+  OUT_OF_LABELS: 'You need a plant label. The Supply Store has them.',
+  NOT_FOUND: 'That plant is gone.',
+};
+
 const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
   ArrowUp: 'up', w: 'up', ArrowDown: 'down', s: 'down',
   ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right',
@@ -71,6 +77,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     '(window:blur)': 'player.releaseKeys()',
   },
   imports: [
+    TitleScreenComponent,
     HabitatCanvasComponent,
     LayoutOverlayComponent,
     DoorLabelsComponent,
@@ -87,7 +94,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     LoadingScreenComponent,
   ],
   template: `
-    <div class="fixed inset-0 overflow-hidden" [style.padding]="safeArea">
+    <div class="stage fixed inset-x-0 top-0 overflow-hidden" [style.padding]="safeArea">
       <!-- The room: as large as the screen allows, centred; leftover space becomes margins. -->
       <div class="grid size-full place-items-center" data-habitat-slot>
         <div #roomView class="relative">
@@ -98,7 +105,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
             <app-plant-picker [tile]="t" (picked)="plantAt(t, $event)" (closed)="garden.pickerTile.set(null)" />
           }
           @if (garden.closeup(); as c) {
-            <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" (pot)="onPot(c.object.id)" />
+            <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" (pot)="onPot(c.object.id)" (label)="onLabel(c.object.id, $event)" />
           }
         </div>
       </div>
@@ -140,6 +147,10 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
         <app-loading-screen [progress]="loadProgress()" animate.leave="loading-out" />
       }
 
+      @if (title()) {
+        <app-title-screen animate.leave="loading-out" (play)="leaveTitle(null)" (changePlayer)="leaveTitle('change')" />
+      }
+
       @if (startMenu(); as m) {
         <app-start-menu [canCancel]="m === 'change'" (closed)="startMenu.set(null)" />
       }
@@ -148,11 +159,13 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       <div class="rotate-hint absolute inset-0 z-50 flex-col items-center justify-center gap-3 bg-night p-6 text-center text-cream" role="alert">
         <span class="text-5xl" aria-hidden="true">📱↻</span>
         <p class="font-pixel text-2xl">Turn your phone sideways</p>
-        <p class="max-w-xs text-sm text-cream/70">Jardín Comunal is made for landscape.</p>
+        <p class="max-w-xs text-sm text-cream/70">Space Sprout is made for landscape.</p>
       </div>
     </div>
   `,
   styles: `
+    /* The screen without the on-screen keyboard: the game doesn't reflow when it opens (shared/keyboard.ts). */
+    .stage { height: var(--stage-h, 100dvh); }
     /* Only on touch phones held upright (not narrow desktop windows). */
     .rotate-hint { display: none; }
     @media (orientation: portrait) and (pointer: coarse) and (max-width: 600px) {
@@ -168,6 +181,8 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     @media (max-height: 420px) and (min-width: 640px) {
       .bubble-slot { width: min(26rem, 100% - 19rem); }
     }
+    /* Answering a crew question: the bubble rides just above the keyboard. */
+    :host-context(.keyboard-open) .bubble-slot { position: fixed; bottom: 0.25rem; }
   `,
 })
 export class App {
@@ -184,7 +199,9 @@ export class App {
   /** The loading screen shows until the room is on screen. */
   protected readonly loadProgress = signal(0);
   protected readonly loaded = signal(false);
-  protected readonly startMenu = signal<'first' | 'change' | null>(NEEDS_PROFILE ? 'first' : null);
+  /** The title screen, on every visit; Play leaves it (for the start menu, on a first visit). */
+  protected readonly title = signal(true);
+  protected readonly startMenu = signal<'first' | 'change' | null>(null);
   /** Keep clear of notches and home indicators on phones. */
   protected readonly safeArea =
     'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
@@ -244,6 +261,12 @@ export class App {
       return;
     }
     this.use(i, true);
+  }
+
+  /** Off the title screen: into the game, through the start menu when nobody's playing yet (or to change player). */
+  protected leaveTitle(menu: 'change' | null): void {
+    this.title.set(false);
+    this.startMenu.set(NEEDS_PROFILE ? 'first' : menu);
   }
 
   /** Action button / E / Space: use whatever is in reach, right where you stand. */
@@ -316,6 +339,16 @@ export class App {
     this.flash(`${describeItem(result.itemId).name} is in the 🎒 inventory.`);
   }
 
+  /** A plant named, renamed or its label taken off, from its close-up (`text` comes tidied: see labelText). */
+  async onLabel(plantId: string, text: string): Promise<void> {
+    const result = await this.garden.labelPlant(plantId, text);
+    if (!result.ok) {
+      this.flash(failureText(LABEL_ERRORS, result.error));
+      return;
+    }
+    this.flash(text ? `🏷️ “${text}”` : 'The label is off.');
+  }
+
   /** Place / move / water / put away finished: say how it went. */
   onDecorDone(outcome: DecorOutcome): void {
     this.flash(outcome.ok ? outcome.message : failureText(DECOR_ERRORS, outcome.error));
@@ -323,6 +356,7 @@ export class App {
 
   /** Hold arrow keys / WASD to walk. Ignored while typing in a field. */
   onKey(e: KeyboardEvent, down: boolean): void {
+    if (this.title()) return; // the title screen's own buttons take the keys
     const el = e.target as HTMLElement | null;
     if (e.key === 'Escape' && down && this.decor.active() && !el?.closest('dialog')) {
       this.decor.clear();

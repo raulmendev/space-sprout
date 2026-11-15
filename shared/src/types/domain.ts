@@ -30,6 +30,8 @@ export interface GardenObject {
   placedByName?: string;
   /** Plants only: care history and the growth it has earned. */
   care?: PlantCare;
+  /** Plants only: the name on its label, if it has one (see labels.ts). */
+  label?: string;
 }
 
 /** Every stage a plant can have, in growth order. Each species uses a subset (see CatalogItem.growth). */

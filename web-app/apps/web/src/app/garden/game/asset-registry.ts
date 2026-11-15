@@ -25,7 +25,6 @@ import {
 import { closeupPlantArt, closeupSoilArt } from './closeup-art';
 import { FACINGS, type Facing, type Suit } from '@garden/shared';
 import type { ActorAnim } from './habitat.scene';
-import { SUIT } from '../../session/current-user';
 import { BOARD_SIZE, NOTE_COLORS, NOTE_SIZE, noteBubbleArt, noteStackArt, stickyNoteArt } from './notice-board';
 import {
   ASTRONAUT,
@@ -471,11 +470,11 @@ export interface PlayerFrames {
  * the original turquoise suit keeps the plain names. Pick one with `?suit=green|black|wine|purple|cactus|leaf`.
  */
 const SUITS: Record<Suit, { prefix: string; size: [number, number]; wave: boolean }> = {
-  turquoise: { prefix: 'player-astronaut', size: [36, 50], wave: true },
+  turquoise: { prefix: 'player-astronaut', size: [34, 50], wave: false },
   green: { prefix: 'player-astronaut-green', size: [40, 50], wave: false },
   black: { prefix: 'player-astronaut-black', size: [38, 50], wave: false },
   wine: { prefix: 'player-astronaut-wine', size: [38, 50], wave: false },
-  purple: { prefix: 'player-astronaut-purple', size: [34, 50], wave: false },
+  purple: { prefix: 'player-astronaut-purple', size: [36, 50], wave: false },
   cactus: { prefix: 'player-astronaut-cactus', size: [42, 50], wave: false },
   leaf: { prefix: 'player-astronaut-leaf', size: [42, 50], wave: false },
 };
@@ -494,8 +493,6 @@ export const suitPortraitKey = (suit: Suit) => `${SUITS[suit].prefix}-down-idle`
 
 /** Every suit's frames (other players wear theirs). */
 export const SUIT_FRAMES = Object.fromEntries(Object.entries(SUITS).map(([suit, s]) => [suit, suitFrames(s.prefix, s.wave)])) as Record<Suit, PlayerFrames>;
-/** The suit this page shows. */
-export const PLAYER_FRAMES: PlayerFrames = SUIT_FRAMES[SUIT];
 
 /** Walking: four frames the way they face. Standing: that direction's pose. Waving (standing, in a suit with a wave): the wave, twice. */
 export function astronautAnim(frames: PlayerFrames, s: { facing: Facing; moving: boolean; waveAt: number | null }, waveMs: number): ActorAnim {
@@ -504,8 +501,6 @@ export function astronautAnim(frames: PlayerFrames, s: { facing: Facing; moving:
   }
   return s.moving ? { frames: frames.walk[s.facing], fps: 8, loop: true, startedAt: 0 } : { frames: [frames.idle[s.facing]], fps: 1, loop: false, startedAt: 0 };
 }
-/** Standing, facing the camera: the astronaut wherever a single picture is needed. */
-export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
 /** The station pets walk like the astronaut (four frames a direction), no wave. Drawn to one scale. */
 const PET_SIZES: Record<PetId, [number, number]> = { DOG: [38, 34], CAT: [40, 39], RADISH: [40, 45] };
 export const PET_FRAMES = Object.fromEntries(
@@ -574,6 +569,13 @@ register(NOTE_BUBBLE_TEXTURE, 'gui/icons', [20, 19], BOTTOM_CENTER, noteBubbleAr
 register(NOTE_TEXTURES.astronaut, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.astronaut));
 register(NOTE_TEXTURES.family, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], () => stickyNoteArt(NOTE_COLORS.family));
 register(NOTE_TEXTURES.more, 'social/board', [NOTE_SIZE, NOTE_SIZE], [0.5, 0.5], noteStackArt);
+/** Plant labels (tools/import_label.py): the sign that pops up over a named plant, and the little one standing by it. */
+export const PLANT_LABEL_TEXTURE = 'plant-label';
+export const PLANT_LABEL_MINI_TEXTURE = 'plant-label-mini';
+/** The cream panel the name goes on, as fractions of the sign picture (printed by tools/import_label.py). */
+export const LABEL_PANEL = { left: 0.083, top: 0.18, right: 0.915, bottom: 0.502 } as const;
+register(PLANT_LABEL_TEXTURE, 'garden/labels', [144, 71], BOTTOM_CENTER, null);
+register(PLANT_LABEL_MINI_TEXTURE, 'garden/labels', [26, 13], BOTTOM_CENTER, null);
 
 // ---------------------------------------------------------------- lookup
 

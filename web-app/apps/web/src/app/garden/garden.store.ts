@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   CARE_RULES,
   CLAY_POT,
+  PLANT_LABEL,
   CATALOG,
   CareAction,
   FERTILIZER,
@@ -106,6 +107,8 @@ export class GardenStore {
       capReached: ctx.earnedToday >= CARE_RULES.dailyGardenCoinCap,
       /** Clay pots in the inventory (a grown plant can be potted with one). */
       pots: owned(this.inventory(), CLAY_POT),
+      /** Plant labels in the inventory (naming a plant that has none uses one). */
+      labels: owned(this.inventory(), PLANT_LABEL),
     };
   });
 
@@ -223,6 +226,11 @@ export class GardenStore {
   async potPlant(plantId: string): Promise<Outcome<{ itemId: string }>> {
     const reply = await this.send({ type: 'POT', plantId });
     return reply.ok ? { ok: true, itemId: reply.result.itemId! } : reply;
+  }
+
+  /** Name a plant, rename it, or (with an empty text) take its label off. */
+  labelPlant(plantId: string, text: string): Promise<Outcome> {
+    return this.send({ type: 'LABEL', plantId, text });
   }
 
   putAwayDecor(decorId: string): Promise<Outcome> {

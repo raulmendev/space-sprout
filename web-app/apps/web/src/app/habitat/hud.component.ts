@@ -87,7 +87,7 @@ import { stationKey } from '../session/member-session';
         >⋯</button>
         @if (popover() === 'menu') {
           <div id="hud-menu" class="panel absolute right-0 top-14 z-40 flex w-48 flex-col gap-1 p-2 text-sm">
-            <p class="px-2 pt-1 font-pixel text-base">Jardín Comunal</p>
+            <p class="px-2 pt-1 font-pixel text-base">Space Sprout</p>
             <label class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-parchment">
               <input type="checkbox" class="accent-leaf-dark" [checked]="habitat.showLayout()" (change)="habitat.showLayout.set(!habitat.showLayout())" />
               Show layout

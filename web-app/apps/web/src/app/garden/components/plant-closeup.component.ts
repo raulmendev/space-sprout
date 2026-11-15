@@ -1,10 +1,10 @@
 import { Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { CARE_PAST } from '../care-labels';
 import { seeds, whoDid } from '../../shared/format';
-import { plantStages, type CareAction, type CareCheck, type CareEvent, type PlantStage } from '@garden/shared';
+import { LABEL_RULES, labelText, plantStages, type CareAction, type CareCheck, type CareEvent, type PlantStage } from '@garden/shared';
 import type { CloseupInfo } from '../garden.store';
 import { CLOSEUP_GEOMETRY as G } from '../game/closeup-art';
-import { PREVIEW_SOIL, closeupHasSoil, glowPreviewTextureKey, previewTextureKey } from '../game/asset-registry';
+import { LABEL_PANEL, PLANT_LABEL_TEXTURE, PREVIEW_SOIL, closeupHasSoil, glowPreviewTextureKey, previewTextureKey } from '../game/asset-registry';
 import { AssetService } from '../../shared/assets.service';
 
 const SCALE = 4; // integer scale keeps placeholder pixels crisp (64px art → 256px)
@@ -92,6 +92,43 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
                 <span class="sparkle" [style.left.%]="s.x" [style.top.%]="s.y" [style.animation-delay.ms]="s.d"></span>
               }
             }
+
+            <!--
+              The plant's label stands in its soil, over the plant's foot, so it never makes the popup taller.
+              Unnamed, a faded sign offers to name it (it uses a label from the inventory); tap a name to rename it.
+            -->
+            @let named = info().object.label;
+            <div class="sign" [class.ghost]="!named && !editing()">
+              <img [src]="signArt" alt="" class="sign-art" />
+              <div class="sign-panel" [style.left.%]="panel.left * 100" [style.right.%]="(1 - panel.right) * 100" [style.top.%]="panel.top * 100" [style.bottom.%]="(1 - panel.bottom) * 100">
+                @if (editing()) {
+                  <input
+                    #nameInput
+                    class="sign-input"
+                    [style.--chars]="draftChars()"
+                    [value]="draft()"
+                    [attr.maxlength]="maxLength"
+                    placeholder="Birth of Johanna"
+                    aria-label="Name on the label"
+                    enterkeyhint="done"
+                    autocomplete="off"
+                    (input)="draft.set(nameInput.value)"
+                    (keydown.enter)="save()"
+                    (keydown.escape)="cancel($event)"
+                  />
+                } @else {
+                  <button type="button" class="sign-name" [style.--chars]="signChars()" [disabled]="!named && !info().labels" [attr.aria-label]="signLabel()" (click)="edit()">
+                    {{ signText() }}
+                  </button>
+                }
+              </div>
+              @if (editing()) {
+                <span class="sign-tools">
+                  <button type="button" class="round-btn ok" [attr.aria-label]="clearing() ? 'Take the label off' : 'Save the name'" (click)="save()">{{ clearing() ? '🗑️' : '✓' }}</button>
+                  <button type="button" class="round-btn" aria-label="Cancel" (click)="cancel()">✕</button>
+                </span>
+              }
+            </div>
           </div>
 
           <div class="actions" role="group" aria-label="Care">
@@ -297,6 +334,36 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
     .pot:disabled .disc { border-style: dashed; border-color: #b9a58f; background: #f6e6c6; filter: grayscale(.85); box-shadow: none; }
     .pot:disabled .label { color: rgb(107 74 50 / .6); }
 
+    /* The label: the design team's sign standing in the plant's soil, the name centred on its cream panel. */
+    .sign { position: absolute; z-index: 1; left: 50%; bottom: -6px; width: 168px; translate: -50% 0; }
+    .sign.ghost { opacity: .6; transition: opacity 150ms; }
+    .sign.ghost:hover, .sign.ghost:focus-within { opacity: 1; }
+    .sign-art { display: block; width: 100%; }
+    .sign-panel { position: absolute; display: grid; place-items: center; padding: 0 4px; container-type: inline-size; }
+    .sign-tools { position: absolute; left: 100%; bottom: 30%; display: flex; gap: 4px; margin-left: 6px; }
+    .round-btn.ok { background: var(--color-sun); }
+    /* Pixelify Sans runs about 0.6em a character: the text fills the panel's width, between 8 and 18 px. */
+    .sign-name, .sign-input {
+      font-size: clamp(8px, 100cqw / (var(--chars) * 0.62), 18px);
+      border-radius: 4px;
+      width: 100%;
+      font-family: var(--font-pixel);
+      font-weight: 600;
+      line-height: 1;
+      color: #4a2c1c;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sign-name { cursor: text; }
+    .sign-name:enabled:hover { background: rgb(255 255 255 / .25); }
+    .sign-name:disabled { cursor: default; }
+    .sign-name:focus-visible { outline: 2px solid var(--color-sun); outline-offset: 1px; }
+    /* While typing, the text shrinks as it grows, like the name it becomes. */
+    .sign-input { height: 100%; background: rgb(255 255 255 / .55); outline: 2px solid var(--color-sun); }
+    .sign-input::placeholder { color: rgb(74 44 28 / .4); }
+
     .fx { position: absolute; width: 6px; height: 6px; opacity: 0; pointer-events: none; }
     .fx-WATER { background: #5fb7e8; border-radius: 0 50% 50% 50%; rotate: 45deg; animation: drip 800ms ease-in forwards; }
     .fx-FERTILIZE { background: #c6f07a; box-shadow: 0 0 6px #c6f07a; animation: rise 900ms ease-out forwards; }
@@ -326,6 +393,9 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
       .label { margin-top: 2px; font-size: .8rem; }
       .hint { font-size: .7rem; }
       .pot .disc { width: 40px; height: 40px; font-size: 1.15rem; }
+      /* Inside the zoomed plant spot: a little wider so the name stays readable. */
+      .sign { width: 200px; }
+      .sign-tools { zoom: 1.3; }
       .tl, .tr { top: 8px; }
       .bl, .br { bottom: 6px; }
     }
@@ -337,6 +407,50 @@ export class PlantCloseupComponent {
   readonly care = output<CareAction>();
   /** "Pot it": move this grown plant into a pot, in the inventory. */
   readonly pot = output<void>();
+  /** The plant's new name (empty: take the label off). */
+  readonly label = output<string>();
+
+  protected readonly signArt = inject(AssetService).url(PLANT_LABEL_TEXTURE);
+  protected readonly panel = LABEL_PANEL;
+  protected readonly maxLength = LABEL_RULES.maxLength;
+  /** Writing the plant's name on its label. */
+  protected readonly editing = signal(false);
+  protected readonly draft = signal('');
+  private readonly nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
+  /** What the sign says: the plant's name, or an offer to name it (and where labels come from). */
+  protected readonly signText = computed(() => {
+    const { object, labels } = this.info();
+    return object.label ?? (labels ? '🏷️ Name it' : '🛒 Get a label');
+  });
+  /** Its length, for sizing it to fill the panel. */
+  protected readonly signChars = computed(() => [...this.signText()].length);
+  protected readonly signLabel = computed(() => {
+    const { object, labels } = this.info();
+    if (object.label) return `Label: ${object.label}. Rename`;
+    return labels ? `Name this plant (uses a plant label, ${labels} left)` : 'Name this plant: plant labels are sold at the Supply Store';
+  });
+  /** The draft's length for sizing it, never below a short name's so the first letters aren't huge. */
+  protected readonly draftChars = computed(() => Math.max(10, [...this.draft()].length + 1));
+  /** Saving an empty name on a named plant takes its label off. */
+  protected readonly clearing = computed(() => !!this.info().object.label && !labelText(this.draft()));
+
+  protected edit(): void {
+    this.draft.set(this.info().object.label ?? '');
+    this.editing.set(true);
+  }
+
+  protected save(): void {
+    const text = labelText(this.draft());
+    this.editing.set(false);
+    if (text !== (this.info().object.label ?? '')) this.label.emit(text);
+  }
+
+  /** Esc stops writing but keeps the close-up open. */
+  protected cancel(e?: Event): void {
+    e?.preventDefault();
+    e?.stopPropagation();
+    this.editing.set(false);
+  }
 
   protected readonly potHint = computed(() =>
     this.info().pots ? `Uses a clay pot (${this.info().pots} left)` : '🛒 Clay pots are sold at the Supply Store',
@@ -402,6 +516,8 @@ export class PlantCloseupComponent {
       dialog.showModal();
       lightDismissFallback(dialog);
     });
+    // Writing a name: select what's there, ready to type over.
+    effect(() => this.nameInput()?.nativeElement.select());
     // Pop whenever the art changes (opening, or growing while open).
     effect(() => {
       this.plant();

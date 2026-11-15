@@ -1,11 +1,26 @@
 {
-  "name": "Jardín Comunal",
-  "short_name": "Jardín",
+  "name": "Space Sprout",
+  "short_name": "Space Sprout",
   "description": "A cozy shared space-habitat garden for astronauts and their families.",
   "start_url": "/",
   "display": "fullscreen",
-  "display_override": ["fullscreen", "standalone"],
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "landscape",
   "background_color": "#1d1b3a",
-  "theme_color": "#1d1b3a"
+  "theme_color": "#1d1b3a",
+  "icons": [
+    {
+      "src": "assets/brand/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "assets/brand/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }

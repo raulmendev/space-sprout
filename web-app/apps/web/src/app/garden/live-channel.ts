@@ -60,6 +60,14 @@ export class LiveChannel {
     if (this.ready) this.socket?.send(JSON.stringify(message));
   }
 
+  /**
+   * Connect again now. The station keeps who we are (name, suit) from when we connected, so
+   * a change to them reaches everyone else only through a new connection.
+   */
+  reconnect(): void {
+    if (this.listener) this.open();
+  }
+
   private open(): void {
     this.ready = false;
     clearTimeout(this.retryTimer);
