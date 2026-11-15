@@ -1,5 +1,5 @@
 import { Component, computed, inject, output } from '@angular/core';
-import { DECOR_SPECS } from '@garden/shared';
+import { decorSpec } from '@garden/shared';
 import { DecorOutcome, DecorStore } from './decor.store';
 import { LOCAL_PLAYER } from '../garden/garden.service';
 import { timeAgo } from '../health/format';
@@ -24,6 +24,9 @@ import { whoDid } from '../shared/format';
         </button>
         <button type="button" class="btn btn-press bg-parchment hover:bg-sun" (click)="decor.clear()">Cancel</button>
       } @else {
+        @if (decor.selectedWaterable()) {
+          <button type="button" class="btn btn-press" [class]="decor.selectedThirsty() ? 'bg-sun' : 'bg-parchment hover:bg-sun'" (click)="finish(decor.water())">💧 Water</button>
+        }
         <button type="button" class="btn btn-press bg-parchment hover:bg-sun" (click)="decor.startMove()">Move</button>
         <button type="button" class="btn btn-press bg-parchment hover:bg-sun" (click)="finish(decor.putAway())">Put away</button>
         <button type="button" class="self-start text-bark/70 hover:text-bark-dark" aria-label="Close" (click)="decor.clear()">✕</button>
@@ -50,11 +53,16 @@ export class DecorBarComponent {
     const m = this.decor.mode();
     if (!m) {
       const d = this.decor.selected();
-      return d ? `Put up by ${whoDid(d.placedBy, d.placedByName, LOCAL_PLAYER.id)}, ${timeAgo(d.placedAt)}.` : '';
+      if (!d) return '';
+      if (this.decor.selectedWaterable()) {
+        if (this.decor.selectedThirsty()) return 'Thirsty. A drink would help it shine.';
+        return `Watered by ${whoDid(d.care?.by, d.care?.byName, LOCAL_PLAYER.id)}, ${timeAgo(d.care!.lastWateredAt)}.`;
+      }
+      return `Put up by ${whoDid(d.placedBy, d.placedByName, LOCAL_PLAYER.id)}, ${timeAgo(d.placedAt)}.`;
     }
     if (this.decor.candidate()) return 'Looks good? Or tap another spot.';
     if (!this.decor.spotTiles()?.length) return 'No free spot here. Put something away first.';
-    return DECOR_SPECS[m.itemId]?.mount === 'WALL' ? 'Tap a glowing spot on the wall.' : 'Tap a glowing spot on the floor.';
+    return decorSpec(m.itemId)?.mount === 'WALL' ? 'Tap a glowing spot on the wall.' : 'Tap a glowing spot on the floor.';
   });
 
   protected async finish(pending: Promise<DecorOutcome | null>): Promise<void> {

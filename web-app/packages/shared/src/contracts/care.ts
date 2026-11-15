@@ -51,7 +51,7 @@ export function careDay(now: number): string {
 }
 
 /** Needs water: never watered, or last watered longer ago than the thirst interval. Thirst never harms a plant. */
-export function isThirsty(obj: Pick<GardenObject, 'care'>, now: number): boolean {
+export function isThirsty(obj: { care?: { lastWateredAt?: string } }, now: number): boolean {
   const last = obj.care?.lastWateredAt;
   return !last || now - Date.parse(last) >= CARE_RULES.thirstIntervalMs;
 }

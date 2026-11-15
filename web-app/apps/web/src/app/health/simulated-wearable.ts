@@ -1,4 +1,5 @@
 import type { HealthMetric, MeasurementProvider, NewMeasurement } from '@garden/shared';
+import { MY_METRICS, ROLE } from '../session/current-user';
 
 /** Plausible demo ranges (also used for the seeded history); values are always labelled SIMULATED. */
 const RANGES: Partial<Record<HealthMetric, [min: number, max: number, step: number]>> = {
@@ -14,11 +15,17 @@ const RANGES: Partial<Record<HealthMetric, [min: number, max: number, step: numb
   CO2: [1800, 5400, 10],
 };
 
-/** What the wearable (watch + personal dosimeter) can read. Mood and water only come from the astronaut. */
-export const WEARABLE_METRICS: readonly HealthMetric[] = ['HEART_RATE', 'SLEEP', 'ACTIVITY', 'RADIATION'];
+/** Everyday life on Earth: less training than on the station, the usual couple of litres of water. */
+const EARTH_RANGES: Partial<Record<HealthMetric, [min: number, max: number, step: number]>> = {
+  ACTIVITY: [10, 60, 5],
+  WATER: [1.25, 2.75, 0.25],
+};
+
+/** What the wearable (watch + personal dosimeter) can read, of this player's readings. Mood and water only come from the player. */
+export const WEARABLE_METRICS: readonly HealthMetric[] = (['HEART_RATE', 'SLEEP', 'ACTIVITY', 'RADIATION'] as const).filter((m) => MY_METRICS.includes(m));
 
 export function simulatedValue(metric: HealthMetric, rand: () => number = Math.random): number {
-  const [min, max, step] = RANGES[metric] ?? [1, 5, 1];
+  const [min, max, step] = (ROLE === 'FAMILY' ? EARTH_RANGES[metric] : undefined) ?? RANGES[metric] ?? [1, 5, 1];
   // Round to the step, then clear float noise (0.62000001).
   return +(Math.round((min + rand() * (max - min)) / step) * step).toFixed(2);
 }

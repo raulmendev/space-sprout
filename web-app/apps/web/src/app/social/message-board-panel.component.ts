@@ -60,7 +60,7 @@ const CONFIRM_MS = 4000;
               {{ confirmTakeDown() ? 'Tap again to take it down' : '🗑️ Take down' }}
             </button>
           } @else {
-            <span class="text-xs font-bold text-cream">Only {{ author(note) }} can take this note down.</span>
+            <span class="text-xs font-bold text-cream">Only the {{ author(note).toLowerCase() }} can take this note down.</span>
           }
         </div>
       </div>
@@ -72,7 +72,7 @@ const CONFIRM_MS = 4000;
       <span class="text">{{ note.content }}</span>
       <span class="flex items-end justify-between gap-1">
         <span class="meta">{{ author(note) }} · {{ ago(note.createdAt) }}</span>
-        <span class="avatar" aria-hidden="true">{{ notes.isMine(note) ? '🧑‍🚀' : '🏡' }}</span>
+        <span class="avatar" aria-hidden="true">{{ notes.fromAstronaut(note) ? '🧑‍🚀' : '🏡' }}</span>
       </span>
     </ng-template>
 
@@ -327,11 +327,11 @@ export class MessageBoardPanelComponent {
   }
 
   protected author(note: SocialNote): string {
-    return this.notes.isMine(note) ? 'You' : 'Family';
+    return this.notes.author(note);
   }
 
   protected color(note: SocialNote): string {
-    return this.notes.isMine(note) ? NOTE_COLORS.astronaut : NOTE_COLORS.family;
+    return this.notes.fromAstronaut(note) ? NOTE_COLORS.astronaut : NOTE_COLORS.family;
   }
 
   /** Esc closes the full-size note, then the text box, before it closes the board itself. */

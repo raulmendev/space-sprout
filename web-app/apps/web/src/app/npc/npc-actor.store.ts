@@ -13,8 +13,8 @@ import {
   tileCenter,
   tileOf,
 } from '@garden/shared';
-import { GardenStore } from '../garden/garden.store';
-import { PlayerStore } from '../habitat/player.store';
+import { PlayerStore, nextFacing } from '../habitat/player.store';
+import type { Facing } from '../garden/game/asset-registry';
 import { Ticker } from '../habitat/ticker.service';
 import { NpcStore } from './npc.store';
 
@@ -23,6 +23,8 @@ export interface NpcView {
   id: NpcId;
   position: HabitatPosition;
   facingLeft: boolean;
+  /** Which of the four ways they face, for crew art drawn per direction. */
+  facing: Facing;
   moving: boolean;
 }
 
@@ -58,7 +60,6 @@ interface Walker extends NpcView {
  */
 @Injectable({ providedIn: 'root' })
 export class NpcActorStore {
-  private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
   private readonly dialogue = inject(NpcStore);
   private readonly ticker = inject(Ticker);
@@ -99,6 +100,7 @@ export class NpcActorStore {
       ...m,
       position: m.start,
       facingLeft: false,
+      facing: 'down' as Facing,
       moving: false,
       route: [],
       door: null,
@@ -114,11 +116,13 @@ export class NpcActorStore {
     let changed = false;
     for (const w of this.walkers) {
       if (w.id === speaking) {
+        const before = w.facing;
         if (w.moving || w.route.length || w.facingLeft !== (this.player.position().x < w.position.x)) changed = true;
         w.route = [];
         w.door = null;
         w.approach = null;
         this.face(w, 1500); // stand still facing the player while talking, and a moment after
+        if (w.facing !== before) changed = true;
       } else {
         changed = this.step(w, dt, now) || changed;
       }
@@ -166,8 +170,7 @@ export class NpcActorStore {
     // The player may be walking, so re-plan the route a few times a second.
     if (now >= approach.replanAt) {
       approach.replanAt = now + 400;
-      const objects = this.garden.objects();
-      w.route = clearLine(me.room, w.position, me, objects) ? [{ x: me.x, y: me.y }] : (planRoute(me.room, w.position, tileOf(me), objects) ?? []);
+      w.route = clearLine(me.room, w.position, me) ? [{ x: me.x, y: me.y }] : (planRoute(me.room, w.position, tileOf(me)) ?? []);
       if (!w.route.length) {
         w.approach = null; // can't get there from here
         return false;
@@ -187,8 +190,10 @@ export class NpcActorStore {
       w.position = { room, x: target.x, y: target.y };
     } else {
       const dx = ((target.x - x) / dist) * stepLen;
-      w.position = { room, x: x + dx, y: y + ((target.y - y) / dist) * stepLen };
+      const dy = ((target.y - y) / dist) * stepLen;
+      w.position = { room, x: x + dx, y: y + dy };
       if (Math.abs(dx) > 1e-4) w.facingLeft = dx < 0;
+      w.facing = nextFacing(w.facing, dx, dy);
     }
     w.moving = true;
   }
@@ -196,11 +201,10 @@ export class NpcActorStore {
   /** Pick what to do after resting: stroll somewhere nearby, or (roamers only) head through a door. */
   private planNext(w: Walker): void {
     const room = w.position.room;
-    const objects = this.garden.objects();
     const doors = ROOMS[room].doors;
     if (!w.home && doors.length && Math.random() < TRAVEL_CHANCE) {
       const door = doors[Math.floor(Math.random() * doors.length)];
-      const route = planRoute(room, w.position, door, objects);
+      const route = planRoute(room, w.position, door);
       if (route?.length) {
         w.route = route;
         w.door = { room: door.to, ...tileCenter(door.arrive) };
@@ -212,7 +216,7 @@ export class NpcActorStore {
       const a = Math.random() * Math.PI * 2;
       const r = 0.8 + Math.random() * w.radius;
       const p = { x: centre.x + Math.cos(a) * r, y: centre.y + Math.sin(a) * r * 0.6 };
-      if (canStand(room, p, objects) && clearLine(room, w.position, p, objects)) {
+      if (canStand(room, p) && clearLine(room, w.position, p)) {
         w.route = [p];
         return;
       }
@@ -222,7 +226,9 @@ export class NpcActorStore {
   private face(w: Walker, ms: number): void {
     w.moving = false;
     w.restUntil = Math.max(w.restUntil, performance.now() + ms);
-    w.facingLeft = this.player.position().x < w.position.x;
+    const me = this.player.position();
+    w.facingLeft = me.x < w.position.x;
+    w.facing = nextFacing(w.facing, me.x - w.position.x, me.y - w.position.y);
   }
 
   private walker(id: NpcId): Walker {
@@ -235,9 +241,9 @@ export class NpcActorStore {
     this.view.set(
       this.walkers.map((w, i) => {
         const p = prev[i];
-        return p && p.position === w.position && p.facingLeft === w.facingLeft && p.moving === w.moving
+        return p && p.position === w.position && p.facingLeft === w.facingLeft && p.facing === w.facing && p.moving === w.moving
           ? p
-          : { id: w.id, position: w.position, facingLeft: w.facingLeft, moving: w.moving };
+          : { id: w.id, position: w.position, facingLeft: w.facingLeft, facing: w.facing, moving: w.moving };
       }),
     );
   }

@@ -6,7 +6,9 @@ import {
   MedicalTerminalState,
   PropInteraction,
   ROOMS,
-  DECOR_SPECS,
+  PlacedDecor,
+  decorSpec,
+  pottedPlantOf,
   TileCoord,
   TileRect,
   decorAt,
@@ -30,7 +32,12 @@ import {
   NOTE_TEXTURES,
   PLAYER_FRAMES,
   PLAYER_TEXTURE,
+  crewPoseKey,
+  hasCrewPoses,
   THIRST_TEXTURE,
+  POT_SIZE,
+  POT_FRONT_TEXTURE,
+  getAsset,
   decorTextureKey,
   plantSways,
   plantTextureKey,
@@ -41,6 +48,7 @@ import { PlayerStore, WAVE_MS } from './player.store';
 import { DecorStore } from '../decor/decor.store';
 import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
+import { NpcStore } from '../npc/npc.store';
 import type { ActorAnim, HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
@@ -56,6 +64,14 @@ export interface Reachable {
   label: string;
 }
 
+/**
+ * A potted plant: the pot, the plant's own map art (same size as in the garden, swaying the same way)
+ * with its base this many px below the pot's top edge, then the pot's front lip over it. The lip
+ * hides most of the soil mound baked into the art, so the plant grows out of the pot.
+ */
+const POTTED_PLANT_BASE = 16;
+const POT_FRONT_DECAL: RenderDecal = { texture: POT_FRONT_TEXTURE, dx: POT_SIZE[0] / 2, dy: POT_SIZE[1] / 2 };
+
 /** How far from the player's feet something can be and still be usable (tiles, to its nearest edge). */
 const REACH = 1.5;
 
@@ -68,6 +84,7 @@ export class HabitatStore {
   private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
   private readonly npcs = inject(NpcActorStore);
+  private readonly npcDialogue = inject(NpcStore);
   private readonly notes = inject(NotesStore);
   private readonly decor = inject(DecorStore);
   /** NPCs in the room on screen. Unchanged while only NPCs in other rooms move, so those don't redraw this one. */
@@ -104,7 +121,7 @@ export class HabitatStore {
     const overflow = notes.length > NOTE_SLOTS.length;
     const shown = overflow ? notes.slice(0, NOTE_SLOTS.length - 1) : notes;
     const decals: RenderDecal[] = shown.map((n, i) => ({
-      texture: this.notes.isMine(n) ? NOTE_TEXTURES.astronaut : NOTE_TEXTURES.family,
+      texture: this.notes.fromAstronaut(n) ? NOTE_TEXTURES.astronaut : NOTE_TEXTURES.family,
       ...NOTE_SLOTS[i],
     }));
     if (overflow) decals.push({ texture: NOTE_TEXTURES.more, ...NOTE_SLOTS[shown.length] });
@@ -139,7 +156,8 @@ export class HabitatStore {
         texture: decorTextureKey(d.itemId),
         ...decorRect(d),
         interaction: { type: 'DECOR_SELECTED', decorId: d.id },
-        flat: DECOR_SPECS[d.itemId]?.flat,
+        flat: decorSpec(d.itemId)?.flat,
+        ...this.potLook(d, now),
       });
     }
 
@@ -166,17 +184,32 @@ export class HabitatStore {
     return { room, sprites, wetTiles };
   });
 
+  /** A potted plant: the grown plant stands in the pot (pinned on it), and shines once watered. */
+  private potLook(d: PlacedDecor, now: number): Pick<RenderSprite, 'decals' | 'shine'> {
+    const plant = pottedPlantOf(d.itemId);
+    if (!plant) return {};
+    const texture = plantTextureKey(plant, 'MATURE');
+    const height = getAsset(texture)?.height ?? 64;
+    const plantDecal = { texture, dx: POT_SIZE[0] / 2, dy: POTTED_PLANT_BASE - height / 2, sway: plantSways(plant) };
+    return { decals: [plantDecal, POT_FRONT_DECAL], shine: !isThirsty(d, now) };
+  }
+
   /** Moving characters in the active room. Updates every frame, separately from the room. */
   readonly actors = computed<RenderActor[]>(() => {
-    const actors: RenderActor[] = this.npcsHere().map((n) => ({
-      id: `npc:${n.id}`,
-      texture: NPC_IDENTITY[n.id].texture,
-      x: n.position.x,
-      y: n.position.y,
-      flipX: n.facingLeft,
-      moving: n.moving,
-      interaction: { type: 'NPC_SELECTED', npcId: n.id },
-    }));
+    const speaking = this.npcDialogue.current()?.speaker;
+    const actors: RenderActor[] = this.npcsHere().map((n) => {
+      const posed = n.id !== 'SPROUT' && hasCrewPoses(n.id);
+      return {
+        id: `npc:${n.id}`,
+        texture: posed && n.id !== 'SPROUT' ? crewPoseKey(n.id, n.facing, speaking === n.id) : NPC_IDENTITY[n.id].texture,
+        x: n.position.x,
+        y: n.position.y,
+        flipX: posed ? false : n.facingLeft, // posed art is drawn for each way it faces
+        moving: n.moving,
+        interaction: { type: 'NPC_SELECTED', npcId: n.id },
+        float: n.id !== 'SPROUT', // the crew are robots: they hover
+      };
+    });
     const { x, y } = this.player.position();
     actors.push({
       id: 'player',
@@ -194,7 +227,7 @@ export class HabitatStore {
   /** Walking: four frames in the way they face. Standing: that direction's standing pose. Waving: the wave, twice. */
   private readonly playerAnim = computed<ActorAnim>(() => {
     const waveAt = this.player.waveAt();
-    if (waveAt !== null && !this.player.moving()) {
+    if (waveAt !== null && !this.player.moving() && PLAYER_FRAMES.wave.length) {
       return { frames: [...PLAYER_FRAMES.wave, ...PLAYER_FRAMES.wave], fps: (2 * PLAYER_FRAMES.wave.length * 1000) / WAVE_MS, loop: false, startedAt: waveAt };
     }
     const facing = this.player.facing();

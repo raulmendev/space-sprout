@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { CareAction, CareError, DecorError, HabitatInteraction, PlacementError } from '@garden/shared';
+import { CareAction, CareError, DecorError, HabitatInteraction, PlacementError, PotError, describeItem } from '@garden/shared';
 import { GardenStore } from './garden/garden.store';
 import { PlantPickerComponent } from './garden/components/plant-picker.component';
 import { PlantCloseupComponent } from './garden/components/plant-closeup.component';
@@ -42,8 +42,15 @@ const DECOR_ERRORS: Record<DecorError, string> = {
   WRONG_ROOM: 'Decorations go in the Social Space.',
   OUT_OF_BOUNDS: "That's outside the room.",
   NONE_OWNED: 'None of those left in the inventory.',
+  NOT_WATERABLE: "That one doesn't need water.",
   NOT_DECOR: "That isn't a decoration.",
   NOT_FOUND: 'That decoration is gone.',
+};
+
+const POT_ERRORS: Record<PotError, string> = {
+  NO_POT: 'You need a clay pot. The Supply Store has them.',
+  NOT_MATURE: 'Let it finish growing first.',
+  NOT_FOUND: 'That plant is gone.',
 };
 
 const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
@@ -84,7 +91,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
             <app-plant-picker [tile]="t" (picked)="plantAt(t, $event)" (closed)="garden.pickerTile.set(null)" />
           }
           @if (garden.closeup(); as c) {
-            <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" />
+            <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" (pot)="onPot(c.object.id)" />
           }
         </div>
       </div>
@@ -270,7 +277,17 @@ export class App {
     this.npc.maybeSay('PLANT_CREATED');
   }
 
-  /** Place / move / put away finished: say how it went. */
+  /** "Pot it" from a plant's close-up: say where the potted plant went. */
+  async onPot(plantId: string): Promise<void> {
+    const result = await this.garden.potPlant(plantId);
+    if (!result.ok) {
+      this.flash(POT_ERRORS[result.error]);
+      return;
+    }
+    this.flash(`${describeItem(result.itemId).name} is in the 🎒 inventory.`);
+  }
+
+  /** Place / move / water / put away finished: say how it went. */
   onDecorDone(outcome: DecorOutcome): void {
     this.flash(outcome.ok ? outcome.message : DECOR_ERRORS[outcome.error]);
   }

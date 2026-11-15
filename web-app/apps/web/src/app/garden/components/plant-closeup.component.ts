@@ -120,9 +120,21 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
           <p class="rounded-md bg-parchment/70 p-2 text-center text-xs">🧺 Harvesting frees the plot for something new.</p>
         }
 
-        <p class="text-center text-sm" [class]="info().thirsty ? 'font-bold text-sky-700' : 'text-bark'" role="status">
-          💧 {{ info().thirsty ? 'Thirsty. A drink would help.' : 'Last watered ' + ago(info().object.care?.lastWateredAt) }}
-        </p>
+        <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+          <p class="text-center text-sm" [class]="info().thirsty ? 'font-bold text-sky-700' : 'text-bark'" role="status">
+            💧 {{ info().thirsty ? 'Thirsty. A drink would help.' : 'Last watered ' + ago(info().object.care?.lastWateredAt) }}
+          </p>
+          <!-- Grown plants can move indoors: potting takes it out of the plot and into the inventory. -->
+          @if (info().stage === 'MATURE') {
+            <button
+              type="button"
+              class="btn-press inline-flex items-baseline gap-1.5 bg-parchment px-2.5 py-0.5 text-sm font-bold hover:bg-sun disabled:opacity-60 short:py-0"
+              [disabled]="!info().pots"
+              [attr.aria-label]="'Pot it, ' + potHint()"
+              (click)="pot.emit()"
+            >🪴 Pot it <span class="hint">{{ potHint() }}</span></button>
+          }
+        </div>
 
         @if (showDetails()) {
           <section id="closeup-details" class="flex flex-col gap-2 rounded-lg border-2 border-bark/15 p-3 text-sm" aria-label="Details">
@@ -310,6 +322,12 @@ export class PlantCloseupComponent {
   readonly info = input.required<CloseupInfo>();
   readonly closed = output<void>();
   readonly care = output<CareAction>();
+  /** "Pot it": move this grown plant into a pot, in the inventory. */
+  readonly pot = output<void>();
+
+  protected readonly potHint = computed(() =>
+    this.info().pots ? `uses a clay pot (${this.info().pots} left)` : 'Get a clay pot at the store',
+  );
 
   protected readonly actions = ACTIONS;
   protected readonly particles = Array.from({ length: 8 }, (_, i) => ({ x: 30 + ((i * 37) % 40), y: 15 + ((i * 23) % 35), d: i * 60 }));

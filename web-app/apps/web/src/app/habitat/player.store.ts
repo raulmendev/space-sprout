@@ -1,8 +1,15 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { HabitatPosition, PLAYER_START, Point, TileRect, doorAt, planReach, slide, tileCenter, tileOf } from '@garden/shared';
-import { GardenStore } from '../garden/garden.store';
 import { Ticker } from './ticker.service';
 import type { Facing } from '../garden/game/asset-registry';
+
+/** Which way someone moving by (dx, dy) faces. Keeps the current axis unless the other clearly wins, so diagonals don't flicker. */
+export function nextFacing(cur: Facing, dx: number, dy: number): Facing {
+  const ax = Math.abs(dx);
+  const ay = Math.abs(dy);
+  const horizontal = cur === 'left' || cur === 'right' ? ax * 1.25 >= ay : ax > ay * 1.25;
+  return horizontal ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+}
 
 /** Walking speed, in tiles per second. */
 const SPEED = 6;
@@ -18,7 +25,6 @@ export const WAVE_MS = 1400;
  */
 @Injectable({ providedIn: 'root' })
 export class PlayerStore {
-  private readonly garden = inject(GardenStore);
   private readonly ticker = inject(Ticker);
 
   readonly position = signal<HabitatPosition>(PLAYER_START);
@@ -40,7 +46,7 @@ export class PlayerStore {
 
   /** Walk up to something in the current room, then do `action`. Unreachable targets act immediately. */
   approach(rect: TileRect, action: () => void): void {
-    const route = planReach(this.room(), this.position(), rect, this.garden.objects());
+    const route = planReach(this.room(), this.position(), rect);
     if (!route) {
       this.stopRoute();
       action();
@@ -131,7 +137,7 @@ export class PlayerStore {
       return;
     }
 
-    const next = slide(pos.room, pos, dx, dy, this.garden.objects());
+    const next = slide(pos.room, pos, dx, dy);
     if (next.x === pos.x && next.y === pos.y) {
       // Blocked (shouldn't happen on a planned route): give up rather than push against a wall.
       this.route = [];
@@ -152,14 +158,9 @@ export class PlayerStore {
     this.position.set({ room: pos.room, ...next });
   };
 
-  /** Keep the current axis unless the other clearly wins, so diagonals don't flicker. */
   private faceToward(dx: number, dy: number): void {
-    const ax = Math.abs(dx);
-    const ay = Math.abs(dy);
-    const cur = this.facing();
-    const horizontal = cur === 'left' || cur === 'right' ? ax * 1.25 >= ay : ax > ay * 1.25;
-    const next: Facing = horizontal ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
-    if (next !== cur) this.facing.set(next);
+    const next = nextFacing(this.facing(), dx, dy);
+    if (next !== this.facing()) this.facing.set(next);
   }
 
   private arrive(): void {
