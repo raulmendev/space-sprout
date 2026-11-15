@@ -3,7 +3,7 @@ import { HealthMeasurement, HealthMetric, METRIC_ORDER, NewMeasurement, RewardOu
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
 import { HealthService } from './health.service';
-import { SimulatedWearable } from './simulated-wearable';
+import { SimulatedWearable, WEARABLE_METRICS } from './simulated-wearable';
 
 export interface CheckInResult {
   readings: HealthMeasurement[];
@@ -57,8 +57,8 @@ export class HealthStore {
     return out;
   });
 
-  /** Metrics the wearable can provide; the rest (mood) only come from the astronaut. */
-  readonly wearableMetrics: readonly HealthMetric[] = ['HEART_RATE', 'SLEEP', 'ACTIVITY'];
+  /** Metrics the wearable can provide; the rest (mood, water) only come from the astronaut. */
+  readonly wearableMetrics = WEARABLE_METRICS;
 
   constructor() {
     // Health Insights: "new data" until opened, "active" while open.
@@ -89,8 +89,8 @@ export class HealthStore {
     }
   }
 
-  /** Manual check-in with any subset of metrics. */
-  async submitManual(values: Partial<Record<HealthMetric, number>>): Promise<void> {
+  /** Manual check-in with any subset of metrics. Resolves to the seeds it earned. */
+  async submitManual(values: Partial<Record<HealthMetric, number>>): Promise<number> {
     const measuredAt = new Date().toISOString();
     const readings: NewMeasurement[] = METRIC_ORDER.filter((m) => values[m] !== undefined).map((metric) => ({
       metric,
@@ -98,7 +98,9 @@ export class HealthStore {
       measuredAt,
       source: 'MANUAL',
     }));
-    if (readings.length) await this.save(readings);
+    if (!readings.length) return 0;
+    await this.save(readings);
+    return this.lastResult()?.earned ?? 0;
   }
 
   async reset(): Promise<void> {

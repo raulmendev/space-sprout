@@ -24,7 +24,6 @@ import {
 import { GardenStore } from '../garden/garden.store';
 import {
   HINT_TEXTURE,
-  NPC_TEXTURE,
   PLAYER_TEXTURE,
   THIRST_TEXTURE,
   plantSways,
@@ -33,7 +32,8 @@ import {
   propTextureKey,
 } from '../garden/game/asset-registry';
 import { PlayerStore } from './player.store';
-import { NpcActorStore } from '../npc/npc-actor.store';
+import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
+import { NPC_IDENTITY } from '../npc/npc-identity';
 import type { HabitatRenderState, RenderActor, RenderSprite } from '../garden/game/habitat.scene';
 
 /** A panel is identified by the station interaction that opens it. */
@@ -58,7 +58,11 @@ const REACH = 1.5;
 export class HabitatStore {
   private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
-  private readonly npc = inject(NpcActorStore);
+  private readonly npcs = inject(NpcActorStore);
+  /** NPCs in the room on screen. Unchanged while only NPCs in other rooms move, so those don't redraw this one. */
+  private readonly npcsHere = computed(() => this.npcs.view().filter((c) => c.position.room === this.activeRoom()), {
+    equal: (a: readonly NpcView[], b: readonly NpcView[]) => a.length === b.length && a.every((v, i) => v === b[i]),
+  });
 
   /** The room on screen: wherever the local player is. */
   readonly activeRoom = computed(() => this.player.room());
@@ -67,6 +71,8 @@ export class HabitatStore {
   readonly hover = signal<HabitatInteraction | null>(null);
   readonly selection = signal<HabitatInteraction | null>(null);
   readonly openPanel = signal<HabitatPanel | null>(null);
+  /** Something is open over the room (a panel, plant close-up or picker), so NPCs shouldn't walk over to chat. */
+  readonly busy = computed(() => !!(this.openPanel() || this.garden.closeupId() || this.garden.pickerTile()));
   /** Debug aid for the layout checkpoint: outline zones and footprints. */
   readonly showLayout = signal(false);
 
@@ -121,17 +127,15 @@ export class HabitatStore {
 
   /** Moving characters in the active room. Updates every frame, separately from the room. */
   readonly actors = computed<RenderActor[]>(() => {
-    const actors: RenderActor[] = [];
-    if (this.activeRoom() === this.npc.room) {
-      actors.push({
-        id: 'npc',
-        texture: NPC_TEXTURE,
-        ...this.npc.position(),
-        flipX: this.npc.facingLeft(),
-        moving: this.npc.moving(),
-        interaction: { type: 'NPC_SELECTED' },
-      });
-    }
+    const actors: RenderActor[] = this.npcsHere().map((n) => ({
+      id: `npc:${n.id}`,
+      texture: NPC_IDENTITY[n.id].texture,
+      x: n.position.x,
+      y: n.position.y,
+      flipX: n.facingLeft,
+      moving: n.moving,
+      interaction: { type: 'NPC_SELECTED', npcId: n.id },
+    }));
     const { x, y } = this.player.position();
     actors.push({ id: 'player', texture: PLAYER_TEXTURE, x, y, flipX: this.player.facingLeft(), moving: this.player.moving(), interaction: null });
     return actors;
@@ -150,7 +154,7 @@ export class HabitatStore {
     return tiles;
   })();
 
-  /** The nearest usable thing within reach of the player (stations, plants, free plots, Sprout). */
+  /** The nearest usable thing within reach of the player (stations, plants, free plots, NPCs). */
   readonly reachable = computed<Reachable | null>(() => {
     const room = this.activeRoom();
     const feet = this.player.position();
@@ -177,8 +181,8 @@ export class HabitatStore {
         if (this.garden.isEmptyPlot(t)) consider({ ...t, w: 1, h: 1 }, { type: 'PLOT_SELECTED', ...t }, 'Plant here');
       }
     }
-    if (room === this.npc.room) {
-      consider({ ...tileOf(this.npc.position()), w: 1, h: 1 }, { type: 'NPC_SELECTED' }, 'Talk to Sprout');
+    for (const n of this.npcsHere()) {
+      consider({ ...tileOf(n.position), w: 1, h: 1 }, { type: 'NPC_SELECTED', npcId: n.id }, `Talk to ${NPC_IDENTITY[n.id].name}`);
     }
     return best;
   });
@@ -218,8 +222,10 @@ export class HabitatStore {
       case 'PLOT_SELECTED':
       case 'TILE_SELECTED':
         return { x: i.x, y: i.y, w: 1, h: 1 };
-      case 'NPC_SELECTED':
-        return { ...tileOf(this.npc.position()), w: 1, h: 1 };
+      case 'NPC_SELECTED': {
+        const at = this.npcs.get(i.npcId)?.position;
+        return at ? { ...tileOf(at), w: 1, h: 1 } : null;
+      }
       case 'PROP_SELECTED':
         return this.roomProps().find((p) => p.id === i.propId) ?? null;
       default:

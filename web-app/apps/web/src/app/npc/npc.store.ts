@@ -1,14 +1,20 @@
 import { Injectable, signal } from '@angular/core';
-import type { Dialogue, DialogueTrigger } from '@garden/shared';
+import type { Dialogue, DialogueTrigger, HealthMetric, NpcId } from '@garden/shared';
 import { dialoguesFor } from './dialogues';
 
+/** A line on screen. With `ask`, the bubble offers a quick answer for that reading. */
+export interface Line extends Omit<Dialogue, 'trigger'> {
+  speaker: NpcId;
+  ask?: HealthMetric;
+}
+
 /**
- * Controls when Sprout speaks. Respects dismissal: automatic (non user-initiated)
+ * Controls what's said in the speech bubble: Sprout's lines and the crew's. Respects dismissal: automatic (non user-initiated)
  * lines are rate-limited so the NPC never nags.
  */
 @Injectable({ providedIn: 'root' })
 export class NpcStore {
-  readonly current = signal<Dialogue | null>(null);
+  readonly current = signal<Line | null>(null);
   private readonly lastAuto = new Map<DialogueTrigger, number>();
   private readonly counters = new Map<DialogueTrigger, number>();
   private autoCloseTimer?: ReturnType<typeof setTimeout>;
@@ -40,14 +46,22 @@ export class NpcStore {
     if (options.length) this.show(this.next(trigger, options));
   }
 
+  /** Someone says a line. Lines without a question fade on their own. */
+  sayAs(speaker: NpcId, text: string, ask?: HealthMetric): void {
+    clearTimeout(this.autoCloseTimer);
+    this.current.set({ id: `${speaker}:${ask ?? 'line'}`, speaker, text, ask });
+    if (!ask) this.autoCloseTimer = setTimeout(() => this.dismiss(), 4500);
+  }
+
   dismiss(): void {
     clearTimeout(this.autoCloseTimer);
     this.current.set(null);
   }
 
+  /** One of Sprout's predefined lines. */
   private show(d: Dialogue): void {
     clearTimeout(this.autoCloseTimer);
-    this.current.set(d);
+    this.current.set({ ...d, speaker: 'SPROUT' });
   }
 
   private next(trigger: DialogueTrigger, options: Dialogue[]): Dialogue {

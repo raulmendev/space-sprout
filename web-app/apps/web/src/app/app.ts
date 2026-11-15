@@ -10,6 +10,7 @@ import { HealthStore } from './health/health.store';
 import { HabitatStore } from './habitat/habitat.store';
 import { PlayerStore } from './habitat/player.store';
 import { NpcActorStore } from './npc/npc-actor.store';
+import { CrewReminders } from './npc/crew-reminders';
 import { HabitatCanvasComponent } from './habitat/habitat-canvas.component';
 import { LayoutOverlayComponent } from './habitat/layout-overlay.component';
 import { DoorLabelsComponent } from './habitat/door-labels.component';
@@ -85,7 +86,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       <app-touch-pad class="absolute bottom-3 right-3 z-20" />
       @if (!garden.closeup()) {
         <div class="bubble-slot pointer-events-none absolute z-20 [&>*]:pointer-events-auto">
-          <app-dialogue-bubble (action)="onDialogueAction($event)" />
+          <app-dialogue-bubble (action)="onDialogueAction($event)" (answer)="crewReminders.answer($event)" />
         </div>
       }
 
@@ -107,7 +108,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     @media (orientation: portrait) and (pointer: coarse) and (max-width: 600px) {
       .rotate-hint { display: flex; }
     }
-    /* Sprout's bubble: between the corner controls when there's room, above them when there isn't. */
+    /* The speech bubble (Sprout's and the crew's): between the corner controls when there's room, above them when there isn't. */
     .bubble-slot { left: 0.5rem; right: 0.5rem; bottom: 10.5rem; }
     @media (min-width: 640px) {
       .bubble-slot { left: 50%; right: auto; bottom: 0.75rem; width: min(30rem, 100% - 21rem); translate: -50% 0; }
@@ -122,7 +123,8 @@ export class App {
   protected readonly habitat = inject(HabitatStore);
   protected readonly npc = inject(NpcStore);
   protected readonly player = inject(PlayerStore);
-  private readonly npcActor = inject(NpcActorStore);
+  private readonly npcActors = inject(NpcActorStore);
+  protected readonly crewReminders = inject(CrewReminders);
   private readonly health = inject(HealthStore);
   protected readonly notice = signal<string | null>(null);
   /** Keep clear of notches and home indicators on phones. */
@@ -169,7 +171,7 @@ export class App {
     this.habitat.selection.set(i.type === 'NPC_SELECTED' ? this.habitat.selection() : i);
 
     if (i.type === 'TILE_SELECTED') return; // floor taps only inspect; move with the pad or keys
-    if (i.type === 'NPC_SELECTED') this.npcActor.hold(); // stop wandering so you can catch up
+    if (i.type === 'NPC_SELECTED') this.npcActors.hold(i.npcId); // stop wandering so you can catch up
     const rect = walkThere ? this.habitat.targetRect(i) : null;
     if (rect) this.player.approach(rect, () => this.act(i, plot));
     else this.act(i, plot);
@@ -192,7 +194,8 @@ export class App {
         this.habitat.openPanel.set(i.type);
         break;
       case 'NPC_SELECTED':
-        this.npc.talk();
+        if (i.npcId === 'SPROUT') this.npc.talk();
+        else this.crewReminders.talk(i.npcId);
         break;
       case 'TILE_SELECTED':
       case 'PROP_SELECTED':
@@ -253,6 +256,7 @@ export class App {
     await this.garden.resetDemo();
     await this.health.reset();
     this.player.reset();
+    this.crewReminders.reset();
     this.habitat.selection.set(null);
     this.habitat.openPanel.set(null);
     this.npc.say('GREETING');

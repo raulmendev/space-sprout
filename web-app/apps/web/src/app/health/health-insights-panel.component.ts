@@ -8,7 +8,8 @@ import { SOURCE_LABEL, formatValue, timeAgo } from './format';
 @Component({
   selector: 'app-health-insights-panel',
   imports: [TrendChartComponent],
-  host: { class: 'grid gap-3 short:gap-2 @lg:grid-cols-2 @3xl:grid-cols-4' },
+  // Six readings: 3 + 3 when wide; on short (landscape phone) screens 3 across, so nothing scrolls.
+  host: { class: 'grid gap-3 short:gap-2 @lg:grid-cols-2 short:@lg:grid-cols-3 @2xl:grid-cols-3' },
   template: `
     @for (metric of order; track metric) {
       @let readings = health.trends()[metric];
@@ -27,7 +28,7 @@ import { SOURCE_LABEL, formatValue, timeAgo } from './format';
         <p class="mt-1 text-xs text-bark short:hidden">{{ def(metric).about }}</p>
       </article>
     }
-    <p class="text-[11px] text-bark/70 @lg:col-span-2 @3xl:col-span-4">🔒 Private to you. Your own readings, newest on the right. This isn't a diagnosis; if something worries you, talk to your flight surgeon.</p>
+    <p class="col-span-full text-[11px] text-bark/70">🔒 Private to you. Your own readings, newest on the right. This isn't a diagnosis; if something worries you, talk to your flight surgeon.</p>
   `,
 })
 export class HealthInsightsPanelComponent {

@@ -64,7 +64,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
           <ng-container [ngTemplateOutlet]="privacy" />
         </div>
 
-        <section class="card flex flex-col gap-2 short:gap-1.5" aria-labelledby="today-title">
+        <section class="card flex flex-col gap-2 short:gap-1" aria-labelledby="today-title">
           <h3 id="today-title" class="flex items-center gap-2 font-bold short:text-sm">
             <span aria-hidden="true">📅</span>Today's check-in
             <span class="stripes ml-auto h-3 w-10" aria-hidden="true"></span>
@@ -72,14 +72,15 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
           <ul class="flex flex-col gap-1 text-sm short:gap-0.5">
             @for (metric of order; track metric) {
               @let reading = health.today()[metric];
-              <li class="row">
+              <!-- On short screens a missing mood is just the faces below (no room for both). -->
+              <li class="row" [attr.data-mood-pending]="metric === 'MOOD' && !reading ? '' : null">
                 <span class="row-icon" aria-hidden="true">{{ icon[metric] }}</span>
                 <span class="flex-1 font-semibold">{{ label(metric) }}</span>
                 @if (reading) {
                   <span class="font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
                   <span class="w-10 text-[10px] text-bark/60" [title]="source[reading.source]">{{ sourceShort[reading.source] }}</span>
                 } @else {
-                  @if (metric !== 'MOOD' && syncedToday()) {
+                  @if (metric !== 'MOOD' && (syncedToday() || !health.wearableMetrics.includes(metric))) {
                     <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it</button>
                   }
                   <span class="rounded-md bg-sun/60 px-1.5 text-xs font-extrabold">Missing</span>
@@ -88,7 +89,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
             }
           </ul>
           @if (!health.today()['MOOD']) {
-            <div class="rounded-lg bg-parchment/40 p-1.5">
+            <div class="rounded-lg bg-parchment/40 p-1.5 short:py-1">
               <p class="px-1 text-xs text-bark/80"><span class="short:hidden">The wearable can't read mood. </span>How are you feeling?</p>
               <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: true }" />
             </div>
@@ -134,7 +135,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
 
     <!-- Mood faces. Quick: one tap saves the mood. Otherwise: toggles the mood in the manual draft. -->
     <ng-template #moodPicker let-quick>
-      <div class="mt-1 grid grid-cols-5 gap-1" [attr.role]="quick ? 'group' : null" [attr.aria-label]="quick ? 'Quick mood check-in' : null">
+      <div class="mt-1 grid grid-cols-5 gap-1" [class.quick]="quick" [attr.role]="quick ? 'group' : null" [attr.aria-label]="quick ? 'Quick mood check-in' : null">
         @for (mood of moods; track mood.value) {
           <button
             type="button"
@@ -142,7 +143,7 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
             [attr.aria-label]="quick ? 'Mood: ' + mood.label : null"
             [attr.aria-pressed]="quick ? null : draft()['MOOD'] === '' + mood.value"
             (click)="quick ? quickMood(mood.value) : toggleMood(mood.value)"
-          ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ mood.face }}</span>{{ mood.label }}</button>
+          ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ mood.face }}</span><span class="word">{{ mood.label }}</span></button>
         }
       </div>
     </ng-template>
@@ -295,7 +296,9 @@ import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } 
       .card { padding: 8px 10px; }
       .watch-tile { width: 3.5rem; height: 4.5rem; padding: 3px 4px; }
       .chunky-btn { padding: 0.3rem 0.75rem; font-size: 1rem; }
-      .row-icon { min-height: 1.45rem; }
+      .row-icon { min-height: 1.3rem; }
+      .row[data-mood-pending] { display: none; }
+      .quick .word { display: none; } /* faces only; each button keeps its "Mood: …" label */
       .mood { padding: 0.1rem 0; font-size: 10px; }
       .reward { padding: 0.2rem 0.5rem; font-size: 0.8rem; }
     }
@@ -349,7 +352,7 @@ export class MedicalTerminalPanelComponent {
   }
 
   /** One-tap mood from the checklist, since the wearable can't provide it. */
-  protected quickMood(value: number): Promise<void> {
+  protected quickMood(value: number): Promise<number> {
     return this.health.submitManual({ MOOD: value });
   }
 
