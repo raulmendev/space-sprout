@@ -9,6 +9,7 @@ import {
   ALL_PROPS,
   ALL_STORE_ITEMS,
   CrewId,
+  PetId,
   PlantStage,
   ROOMS,
   ROOM_COLS,
@@ -354,6 +355,11 @@ export const suitPortraitKey = (suit: Suit) => `${SUITS[suit].prefix}-down-idle`
 export const PLAYER_FRAMES: PlayerFrames = suitFrames(SUITS[SUIT].prefix, SUITS[SUIT].wave);
 /** Standing, facing the camera: the astronaut wherever a single picture is needed. */
 export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
+/** The station pets walk like the astronaut (four frames a direction), no wave. Drawn to one scale. */
+const PET_SIZES: Record<PetId, [number, number]> = { DOG: [38, 34], CAT: [40, 39] };
+export const PET_FRAMES = Object.fromEntries(
+  Object.keys(PET_SIZES).map((id) => [id, suitFrames(`npc-${id.toLowerCase()}`, false)]),
+) as Record<PetId, PlayerFrames>;
 export const THIRST_TEXTURE = 'gui-thirst-bubble';
 export const TWINKLE_TEXTURE = 'fx-twinkle';
 export const NOTE_BUBBLE_TEXTURE = 'gui-note-bubble';
@@ -364,6 +370,11 @@ for (const { prefix, size, wave } of Object.values(SUITS)) {
   const f = suitFrames(prefix, wave);
   for (const key of [...Object.values(f.walk).flat(), ...Object.values(f.idle), ...f.wave]) {
     register(key, 'characters', size, BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, ...size));
+  }
+}
+for (const [id, size] of Object.entries(PET_SIZES) as [PetId, [number, number]][]) {
+  for (const key of [...Object.values(PET_FRAMES[id].walk).flat(), ...Object.values(PET_FRAMES[id].idle)]) {
+    register(key, 'characters', size, BOTTOM_CENTER, () => gridInCanvas(NPC_SPROUT, 1, ...size));
   }
 }
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));

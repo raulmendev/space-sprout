@@ -1,5 +1,5 @@
 import { Component, computed, inject, linkedSignal, output } from '@angular/core';
-import { CrewId, HealthMetric, METRICS, choicesFor, unknownRewardFor, validateMeasurement } from '@garden/shared';
+import { CrewId, HealthMetric, METRICS, choicesFor, isCrew, unknownRewardFor, validateMeasurement } from '@garden/shared';
 import { Line, NpcStore } from './npc.store';
 import { AssetService } from '../shared/assets.service';
 import { MoodPickerComponent } from '../health/mood-picker.component';
@@ -21,7 +21,7 @@ import { ROLE } from '../session/current-user';
           </div>
           <p class="mt-0.5 text-[15px] leading-snug">{{ line.text }}</p>
 
-          @if (line.ask && line.speaker !== 'SPROUT') {
+          @if (line.ask && isCrew(line.speaker)) {
             @if (line.scan) {
               <div class="mt-2 flex flex-wrap gap-2">
                 <button type="button" class="rounded-md border-2 border-bark-dark bg-sun px-3 py-1 text-sm font-bold" (click)="scan.emit(line.speaker)">📡 Scan</button>
@@ -108,13 +108,14 @@ export class DialogueBubbleComponent {
 
   protected readonly identity = NPC_IDENTITY;
   protected readonly metrics = METRICS;
+  protected readonly isCrew = isCrew;
   /** Answer buttons for scale questions other than mood (stress); null when it's typed in. */
   protected choices = (m: HealthMetric) => (m === 'MOOD' || !choicesFor(m, ROLE).length ? null : choicesFor(m, ROLE));
   protected canSayUnknown = (m: HealthMetric) => unknownRewardFor(m, ROLE) !== null;
 
   /** Putting off a crew question gets a goodbye with a reminder; anything else just closes. */
   protected putOff(line: Line): void {
-    if (line.ask && line.speaker !== 'SPROUT') this.later.emit(line.speaker);
+    if (line.ask && isCrew(line.speaker)) this.later.emit(line.speaker);
     else this.npc.dismiss();
   }
   /** The typed answer; every new line starts with an empty field. */

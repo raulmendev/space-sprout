@@ -1,5 +1,5 @@
 import { Injectable, effect, inject, untracked } from '@angular/core';
-import { CREW_REMINDER, CrewId, CrewMember, HealthMetric, METRICS, UNKNOWN_BAND, bandFor, distance, nextAsk } from '@garden/shared';
+import { CREW_REMINDER, CrewId, CrewMember, HealthMetric, METRICS, UNKNOWN_BAND, bandFor, distance, isCrew, nextAsk } from '@garden/shared';
 import { MY_CREW, MY_CREW_BY_ID, ROLE } from '../session/current-user';
 import { HealthStore } from '../health/health.store';
 import { HabitatStore } from '../habitat/habitat.store';
@@ -114,10 +114,10 @@ export class CrewReminders {
     this.actors.reset();
   }
 
-  /** The crew member speaking right now, if any (not Sprout). */
+  /** The crew member speaking right now, if any (not Sprout or the dog). */
   private crewSpeaking(): CrewId | null {
     const id = this.npc.current()?.speaker;
-    return id && id !== 'SPROUT' ? id : null;
+    return id && isCrew(id) ? id : null;
   }
 
   private readonly check = (): void => {

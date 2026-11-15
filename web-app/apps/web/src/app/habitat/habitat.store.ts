@@ -18,6 +18,9 @@ import {
   getCatalogItem,
   getPlantStage,
   getTileKind,
+  isCrew,
+  isPet,
+  PetId,
   isThirsty,
   isThriving,
   objectRect,
@@ -30,6 +33,7 @@ import {
   HINT_TEXTURE,
   NOTE_BUBBLE_TEXTURE,
   NOTE_TEXTURES,
+  PET_FRAMES,
   PLAYER_FRAMES,
   PLAYER_TEXTURE,
   crewPoseKey,
@@ -52,6 +56,12 @@ import { NpcStore } from '../npc/npc.store';
 import type { ActorAnim, HabitatRenderState, RenderActor, RenderDecal, RenderSprite } from '../garden/game/habitat.scene';
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
+
+/** A pet: trotting frames the way it's heading, else standing that way. A bit quicker than the astronaut's step. */
+const petAnim = (id: PetId, n: NpcView): ActorAnim =>
+  n.moving
+    ? { frames: PET_FRAMES[id].walk[n.facing], fps: 10, loop: true, startedAt: 0 }
+    : { frames: [PET_FRAMES[id].idle[n.facing]], fps: 1, loop: false, startedAt: 0 };
 
 /** A popup: a station's (opened from its prop), or one opened from the top bar (the inventory). */
 export type HabitatPanel = PropInteraction | 'INVENTORY';
@@ -198,16 +208,19 @@ export class HabitatStore {
   readonly actors = computed<RenderActor[]>(() => {
     const speaking = this.npcDialogue.current()?.speaker;
     const actors: RenderActor[] = this.npcsHere().map((n) => {
-      const posed = n.id !== 'SPROUT' && hasCrewPoses(n.id);
+      const crew = isCrew(n.id) ? n.id : null;
+      const pet = isPet(n.id) ? n.id : null;
+      const posed = pet !== null || (crew !== null && hasCrewPoses(crew));
       return {
         id: `npc:${n.id}`,
-        texture: posed && n.id !== 'SPROUT' ? crewPoseKey(n.id, n.facing, speaking === n.id) : NPC_IDENTITY[n.id].texture,
+        texture: crew && posed ? crewPoseKey(crew, n.facing, speaking === n.id) : NPC_IDENTITY[n.id].texture,
         x: n.position.x,
         y: n.position.y,
         flipX: posed ? false : n.facingLeft, // posed art is drawn for each way it faces
         moving: n.moving,
         interaction: { type: 'NPC_SELECTED', npcId: n.id },
-        float: n.id !== 'SPROUT', // the crew are robots: they hover
+        float: crew !== null, // the crew are robots: they hover
+        anim: pet ? petAnim(pet, n) : undefined, // pets trot like the astronaut walks
       };
     });
     const { x, y } = this.player.position();
@@ -279,7 +292,7 @@ export class HabitatStore {
       }
     }
     for (const n of this.npcsHere()) {
-      consider({ ...tileOf(n.position), w: 1, h: 1 }, { type: 'NPC_SELECTED', npcId: n.id }, `Talk to ${NPC_IDENTITY[n.id].name}`);
+      consider({ ...tileOf(n.position), w: 1, h: 1 }, { type: 'NPC_SELECTED', npcId: n.id }, `${isPet(n.id) ? 'Pet' : 'Talk to'} ${NPC_IDENTITY[n.id].name}`);
     }
     return best;
   });
