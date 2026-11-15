@@ -94,7 +94,7 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     LoadingScreenComponent,
   ],
   template: `
-    <div class="fixed inset-0 overflow-hidden" [style.padding]="safeArea">
+    <div class="stage fixed inset-x-0 top-0 overflow-hidden" [style.padding]="safeArea">
       <!-- The room: as large as the screen allows, centred; leftover space becomes margins. -->
       <div class="grid size-full place-items-center" data-habitat-slot>
         <div #roomView class="relative">
@@ -164,6 +164,8 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     </div>
   `,
   styles: `
+    /* The screen without the on-screen keyboard: the game doesn't reflow when it opens (shared/keyboard.ts). */
+    .stage { height: var(--stage-h, 100dvh); }
     /* Only on touch phones held upright (not narrow desktop windows). */
     .rotate-hint { display: none; }
     @media (orientation: portrait) and (pointer: coarse) and (max-width: 600px) {
@@ -179,6 +181,8 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
     @media (max-height: 420px) and (min-width: 640px) {
       .bubble-slot { width: min(26rem, 100% - 19rem); }
     }
+    /* Answering a crew question: the bubble rides just above the keyboard. */
+    :host-context(.keyboard-open) .bubble-slot { position: fixed; bottom: 0.25rem; }
   `,
 })
 export class App {
