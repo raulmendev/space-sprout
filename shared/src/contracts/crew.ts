@@ -1,4 +1,4 @@
-import type { CrewId, HealthMetric } from '../types/domain';
+import type { CrewId, HealthMetric, NpcId, PetId } from '../types/domain';
 import type { HabitatPosition } from './movement';
 
 /**
@@ -25,6 +25,11 @@ export const CREW: readonly CrewMember[] = [
   { id: 'CHEF', name: 'Chef Rosa', role: 'Chef', metrics: ['CALORIES', 'WATER'], start: { room: 'SOCIAL', x: 20.5, y: 5.5 } },
   { id: 'SCIENTIST', name: 'Dr. Okafor', role: 'Scientist', metrics: ['RADIATION', 'CO2'], scans: true, start: { room: 'GARDEN', x: 17.5, y: 8 } },
 ];
+
+export const PETS: readonly PetId[] = ['DOG', 'CAT'];
+export const isPet = (id: NpcId): id is PetId => (PETS as readonly NpcId[]).includes(id);
+/** A crew member, as opposed to Sprout or a pet. */
+export const isCrew = (id: NpcId): id is CrewId => id !== 'SPROUT' && !isPet(id);
 
 export const CREW_BY_ID = Object.fromEntries(CREW.map((c) => [c.id, c])) as Record<CrewId, CrewMember>;
 

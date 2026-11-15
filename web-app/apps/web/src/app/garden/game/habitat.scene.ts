@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { HabitatInteraction, RoomId, TILE_SIZE, getTileKind } from '@garden/shared';
-import { TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
+import { GROUND_SHADOW_TEXTURE, TWINKLE_TEXTURE, WET_SOIL_TEXTURE, allAssets, getAsset } from './asset-registry';
 import { missingTexture } from './placeholders';
 import { TileCoord, TileManager, TileRect, WORLD_H, WORLD_W, fitToGame, restingScale, restingSize } from './tile-manager';
 
@@ -68,11 +68,6 @@ const FOOT_OFFSET_PX = 6;
 const ACTOR_DEPTH_BIAS = 0.5;
 /** Hovering robots: always `lift` px up, drifting `amplitude` px more and back every `periodMs`. */
 const FLOAT = { lift: 3, amplitude: 3, periodMs: 1800 } as const;
-/**
- * Contact shadow under a standing character, matching the furniture pack's (tools/art.py add_shadow):
- * one dark purple in stepped rings, darkest in the middle. Size in world px.
- */
-const GROUND_SHADOW = { width: 28, height: 6, color: 0x341f4f, rings: [[1, 32], [0.82, 78], [0.62, 128], [0.42, 169]] } as const;
 
 interface FloatState {
   /** Where the feet would be on the floor (px). */
@@ -128,10 +123,8 @@ export class HabitatScene extends Phaser.Scene {
   private readonly sprites = new Map<string, SpriteEntry>();
   private readonly wet = new Map<string, Phaser.GameObjects.Image>();
   private readonly actors = new Map<string, Phaser.GameObjects.Image>();
-  /** The small shadow under each hovering character. */
-  private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse>();
-  /** The contact shadow under each character that stands on the floor. */
-  private readonly groundShadows = new Map<string, Phaser.GameObjects.Graphics>();
+  /** The shadow under each character: a small oval under a hovering one, the furniture's contact shadow under one standing. */
+  private readonly shadows = new Map<string, Phaser.GameObjects.Ellipse | Phaser.GameObjects.Image>();
   /** The latest characters sent, kept for when a room change held them back. */
   private lastActors: readonly RenderActor[] = [];
   private readonly failed = new Set<string>();
@@ -265,8 +258,6 @@ export class HabitatScene extends Phaser.Scene {
     this.actors.clear();
     this.shadows.forEach((s) => s.destroy());
     this.shadows.clear();
-    this.groundShadows.forEach((s) => s.destroy());
-    this.groundShadows.clear();
     this.room = state.room;
     this.ground = this.tiles.drawGround(state.room, DEPTH.GROUND);
     this.building = true;
@@ -356,6 +347,7 @@ export class HabitatScene extends Phaser.Scene {
     this.lastActors = actors;
     if (this.queued || !this.room) return; // mid room change: enterRoom draws the latest
     const seen = new Set<string>();
+    const shadowed = new Set<string>();
     const bob = this.reducedMotion ? 0 : Math.abs(Math.sin(this.time.now / 90)) * 2;
     for (const a of actors) {
       seen.add(a.id);
@@ -378,8 +370,10 @@ export class HabitatScene extends Phaser.Scene {
         .setData('anim', a.anim ?? null)
         .setData('float', float);
       if (!a.anim && img.texture.key !== a.texture) img.setTexture(a.texture); // e.g. crew art that turns
-      if (float) this.placeShadow(a.id, img, px, py);
-      if (a.shadow) this.placeGroundShadow(a.id, px, py);
+      if (float || a.shadow) {
+        this.placeShadow(a.id, img, px, py, !float);
+        shadowed.add(a.id);
+      }
       this.showFrame(img);
       this.applyHover(a.id, img);
     }
@@ -390,15 +384,9 @@ export class HabitatScene extends Phaser.Scene {
       }
     }
     for (const [id, shadow] of this.shadows) {
-      if (!seen.has(id) || !this.actors.get(id)?.getData('float')) {
+      if (!shadowed.has(id)) {
         shadow.destroy();
         this.shadows.delete(id);
-      }
-    }
-    for (const [id, shadow] of this.groundShadows) {
-      if (!actors.some((a) => a.id === id && a.shadow)) {
-        shadow.destroy();
-        this.groundShadows.delete(id);
       }
     }
   }
@@ -411,32 +399,19 @@ export class HabitatScene extends Phaser.Scene {
     }
   }
 
-  /** A soft oval on the floor under a hovering character, about half as wide as it. */
-  private placeShadow(id: string, img: Phaser.GameObjects.Image, px: number, py: number): void {
+  /**
+   * The shadow on the floor, just behind the character. Hovering: a soft oval about half as wide as
+   * it. Standing: the furniture's contact shadow under its feet, which stays put through the walk bob.
+   */
+  private placeShadow(id: string, img: Phaser.GameObjects.Image, px: number, py: number, ground: boolean): void {
     let shadow = this.shadows.get(id);
     if (!shadow) {
-      shadow = this.add.ellipse(0, 0, Math.round(img.width * 0.55), 6, 0x000000, 0.22);
+      shadow = ground
+        ? fitToGame(this.add.image(0, 0, GROUND_SHADOW_TEXTURE))
+        : this.add.ellipse(0, 0, Math.round(img.width * 0.55), 6, 0x000000, 0.22);
       this.shadows.set(id, shadow);
     }
-    shadow.setPosition(px, py - 2).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
-  }
-
-  /** The contact shadow, centred under the feet and drawn just behind the character. It stays put during the walk bob. */
-  private placeGroundShadow(id: string, px: number, py: number): void {
-    let shadow = this.groundShadows.get(id);
-    if (!shadow) {
-      shadow = this.add.graphics();
-      const { width, height, color, rings } = GROUND_SHADOW;
-      // Each ring blends over the ones under it, so it adds only what takes the total to its alpha.
-      let under = 0;
-      for (const [scale, alpha] of rings) {
-        const target = alpha / 255;
-        shadow.fillStyle(color, (target - under) / (1 - under)).fillEllipse(0, 0, width * scale, height * scale);
-        under = target;
-      }
-      this.groundShadows.set(id, shadow);
-    }
-    shadow.setPosition(px, py - 1).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
+    shadow.setPosition(px, py - (ground ? 1 : 2)).setDepth(DEPTH.WORLD + py + ACTOR_DEPTH_BIAS - 0.01);
   }
 
   /** Lift a hovering character for this moment; its shadow shrinks a little as it rises. Reduced motion: it just hovers, still. */

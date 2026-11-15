@@ -3,6 +3,8 @@ import {
   CREW,
   HabitatPosition,
   NPC_HOME,
+  PETS,
+  PET_START,
   NpcId,
   Point,
   ROOMS,
@@ -35,9 +37,10 @@ const TRAVEL_CHANCE = 0.3;
 /** Close enough to talk (tiles, feet to feet). */
 const TALK_DISTANCE = 1.3;
 
-/** How each NPC moves: Sprout potters around its spot in the garden; the crew roam the station. */
+/** How each NPC moves: Sprout potters around its spot in the garden; the pets and the crew roam the station. */
 const MOVES: readonly { id: NpcId; start: HabitatPosition; home?: Point; radius: number }[] = [
   { id: 'SPROUT', start: NPC_HOME, home: NPC_HOME, radius: 2.5 },
+  ...PETS.map((id) => ({ id, start: PET_START[id], radius: 3.5 })),
   ...CREW.map((c) => ({ id: c.id, start: c.start, radius: 3 })),
 ];
 

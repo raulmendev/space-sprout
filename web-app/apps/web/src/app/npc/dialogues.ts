@@ -1,4 +1,4 @@
-import type { Dialogue, DialogueTrigger } from '@garden/shared';
+import type { Dialogue, DialogueTrigger, PetId } from '@garden/shared';
 
 /** Predefined, deterministic dialogue. Friendly, brief, never clinical. */
 export const DIALOGUES: readonly Dialogue[] = [
@@ -37,6 +37,24 @@ export const DIALOGUES: readonly Dialogue[] = [
     ],
   },
 ];
+
+/** What each station pet "says" when you go over to it, in turn. */
+export const PET_LINES: Record<PetId, readonly string[]> = {
+  DOG: [
+    'Woof! 🐾',
+    '*wags tail so hard the whole dog wiggles*',
+    'Arf! (Bolita rolls over for a belly rub.)',
+    '*sniffs your boots, then sneezes* Woof!',
+    '*brings you a lost sock from the laundry module*',
+  ],
+  CAT: [
+    'Mrrp! 🐾',
+    '*purrs and headbutts your glove*',
+    '*stretches, yawns, and pretends not to see you*',
+    'Meow? (Miso wants the sunny spot by the window.)',
+    '*kneads your space suit like a pillow*',
+  ],
+};
 
 export function dialoguesFor(trigger: DialogueTrigger): Dialogue[] {
   return DIALOGUES.filter((d) => d.trigger === trigger);

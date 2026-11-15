@@ -77,8 +77,10 @@ export type HealthMetric =
 
 /** The station crew: NPCs who each look after some of the astronaut's daily readings. */
 export type CrewId = 'MEDIC' | 'TRAINER' | 'CHEF' | 'SCIENTIST';
-/** Every NPC: Sprout (the garden's) plus the crew. */
-export type NpcId = 'SPROUT' | CrewId;
+/** The station's pets: they roam like the crew but only react when you go over. */
+export type PetId = 'DOG' | 'CAT';
+/** Every NPC: Sprout (the garden's), the pets and the crew. */
+export type NpcId = 'SPROUT' | PetId | CrewId;
 export type MeasurementSource = 'MANUAL' | 'SIMULATED' | 'DEVICE';
 
 export interface HealthMeasurement {

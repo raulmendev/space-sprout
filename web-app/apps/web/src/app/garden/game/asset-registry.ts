@@ -7,9 +7,9 @@
  */
 import {
   ALL_PROPS,
-  CLAY_POT,
+  ALL_STORE_ITEMS,
   CrewId,
-  FERTILIZER,
+  PetId,
   PlantStage,
   ROOMS,
   ROOM_COLS,
@@ -47,6 +47,7 @@ import {
   wetSoilTile,
   woodPathTile,
   DECOR_ART,
+  groundShadowArt,
   potArt,
   potFrontArt,
 } from './placeholders';
@@ -304,7 +305,7 @@ for (const [kind, v] of Object.entries(PROP_VISUALS)) {
  */
 export const POT_TEXTURE = 'decor-pot';
 export const POT_FRONT_TEXTURE = 'decor-pot-front';
-export const POT_SIZE: [number, number] = [45, 38];
+export const POT_SIZE: [number, number] = [45, 39]; // the bottom 2-3 px are the contact shadow
 register(POT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potArt);
 register(POT_FRONT_TEXTURE, 'social/decorations', POT_SIZE, BOTTOM_CENTER, potFrontArt);
 
@@ -355,6 +356,11 @@ export const suitPortraitKey = (suit: Suit) => `${SUITS[suit].prefix}-down-idle`
 export const PLAYER_FRAMES: PlayerFrames = suitFrames(SUITS[SUIT].prefix, SUITS[SUIT].wave);
 /** Standing, facing the camera: the astronaut wherever a single picture is needed. */
 export const PLAYER_TEXTURE = PLAYER_FRAMES.idle.down;
+/** The station pets walk like the astronaut (four frames a direction), no wave. Drawn to one scale. */
+const PET_SIZES: Record<PetId, [number, number]> = { DOG: [38, 34], CAT: [40, 39] };
+export const PET_FRAMES = Object.fromEntries(
+  Object.keys(PET_SIZES).map((id) => [id, suitFrames(`npc-${id.toLowerCase()}`, false)]),
+) as Record<PetId, PlayerFrames>;
 export const THIRST_TEXTURE = 'gui-thirst-bubble';
 export const TWINKLE_TEXTURE = 'fx-twinkle';
 export const NOTE_BUBBLE_TEXTURE = 'gui-note-bubble';
@@ -367,11 +373,19 @@ for (const { prefix, size, wave } of Object.values(SUITS)) {
     register(key, 'characters', size, BOTTOM_CENTER, () => gridInCanvas(ASTRONAUT, 2, ...size));
   }
 }
+for (const [id, size] of Object.entries(PET_SIZES) as [PetId, [number, number]][]) {
+  for (const key of [...Object.values(PET_FRAMES[id].walk).flat(), ...Object.values(PET_FRAMES[id].idle)]) {
+    register(key, 'characters', size, BOTTOM_CENTER, () => gridInCanvas(NPC_SPROUT, 1, ...size));
+  }
+}
 register(HINT_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(HINT_PLUS));
 register(THIRST_TEXTURE, 'gui/icons', [32, 32], BOTTOM_CENTER, () => gridToCanvas(THIRST_BUBBLE));
-/** Supply Store items drawn by the design team (cards in the store and inventory; others keep their emoji). */
+/** Store item art for the store and inventory cards. Items whose art isn't delivered keep their emoji. */
 export const storeItemTextureKey = (itemId: string) => `store-${itemId}`;
-for (const id of [FERTILIZER, CLAY_POT]) register(storeItemTextureKey(id), 'gui/store', [64, 64], BOTTOM_CENTER, null, true);
+for (const { id } of ALL_STORE_ITEMS) register(storeItemTextureKey(id), 'gui/store', [64, 64], BOTTOM_CENTER, null, true);
+/** The contact shadow under a character standing on the floor (the astronaut), like the furniture's. */
+export const GROUND_SHADOW_TEXTURE = 'fx-ground-shadow';
+register(GROUND_SHADOW_TEXTURE, 'fx', [28, 6], [0.5, 0.5], () => groundShadowArt(56, 12));
 /** Station crew (placeholders until the design team's character art lands). */
 const CREW_LOOKS: Record<CrewId, Parameters<typeof crewGrid>[0]> = {
   MEDIC: { uniform: 'W', badge: 'R', hair: 'b' },

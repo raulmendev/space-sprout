@@ -1,5 +1,5 @@
 import { Component, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { CareAction, CareError, DecorError, HabitatInteraction, PlacementError, PotError, describeItem } from '@garden/shared';
+import { CareAction, CareError, DecorError, HabitatInteraction, PlacementError, PotError, describeItem, isPet } from '@garden/shared';
 import { GardenStore } from './garden/garden.store';
 import { PlantPickerComponent } from './garden/components/plant-picker.component';
 import { PlantCloseupComponent } from './garden/components/plant-closeup.component';
@@ -265,6 +265,7 @@ export class App {
         break;
       case 'NPC_SELECTED':
         if (i.npcId === 'SPROUT') this.npc.talk();
+        else if (isPet(i.npcId)) this.npc.petSays(i.npcId);
         else this.crewReminders.talk(i.npcId);
         break;
       case 'TILE_SELECTED':
