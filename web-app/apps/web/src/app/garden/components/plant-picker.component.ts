@@ -20,7 +20,7 @@ function reason(error: PlacementError, itemType: string): string {
   host: { '(document:keydown.escape)': 'closed.emit()' },
   template: `
     <div
-      class="panel picker absolute z-10 flex gap-1 p-1.5"
+      class="panel picker absolute z-10 grid grid-cols-4 gap-1 p-1.5 sm:grid-cols-6"
       [style.left.%]="pos().left"
       [style.top.%]="pos().top"
       [style.transform]="pos().transform"
@@ -31,13 +31,13 @@ function reason(error: PlacementError, itemType: string): string {
         <button
           type="button"
           role="menuitem"
-          class="flex w-20 flex-col items-center rounded-md px-1 py-1 enabled:hover:bg-sun/60 focus-visible:outline-2 focus-visible:outline-sun disabled:opacity-45"
+          class="flex w-16 flex-col items-center rounded-md px-0.5 py-0.5 enabled:hover:bg-sun/60 focus-visible:outline-2 focus-visible:outline-sun disabled:opacity-45"
           [disabled]="!!opt.reason"
           [attr.aria-label]="opt.item.name + ', ' + opt.item.price + ' seeds' + (opt.reason ? ', ' + opt.reason : '')"
           [title]="opt.reason ?? opt.item.name"
           (click)="picked.emit(opt.item.id)"
         >
-          <img [src]="assets.url(preview(opt.item.id))" alt="" class="pixelated size-16" />
+          <img [src]="assets.url(preview(opt.item.id))" alt="" class="pixelated size-12 short:size-10" />
           <span class="text-xs font-extrabold">🌱 {{ opt.item.price }}</span>
           @if (opt.reason) { <span class="text-[10px] leading-tight">{{ opt.reason }}</span> }
         </button>
