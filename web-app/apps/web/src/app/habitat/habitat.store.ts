@@ -218,7 +218,7 @@ export class HabitatStore {
   /** Walking: four frames in the way they face. Standing: that direction's standing pose. Waving: the wave, twice. */
   private readonly playerAnim = computed<ActorAnim>(() => {
     const waveAt = this.player.waveAt();
-    if (waveAt !== null && !this.player.moving()) {
+    if (waveAt !== null && !this.player.moving() && PLAYER_FRAMES.wave.length) {
       return { frames: [...PLAYER_FRAMES.wave, ...PLAYER_FRAMES.wave], fps: (2 * PLAYER_FRAMES.wave.length * 1000) / WAVE_MS, loop: false, startedAt: waveAt };
     }
     const facing = this.player.facing();

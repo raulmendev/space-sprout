@@ -2,7 +2,7 @@ import { Component, ElementRef, effect, inject, output, signal } from '@angular/
 import { ROOMS, RoomId } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from './habitat.store';
-import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, IS_FAMILY } from '../session/current-user';
+import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, IS_FAMILY, SUIT, urlWith } from '../session/current-user';
 
 /**
  * Slim overlay along the top of the screen: rooms, seeds, fullscreen and a small
@@ -69,6 +69,7 @@ import { ASTRONAUT_USER, CURRENT_USER, FAMILY_USER, IS_FAMILY } from '../session
               Show layout
             </label>
             <a class="rounded-md px-2 py-1.5 hover:bg-parchment" [href]="switchTo.href">Play as {{ switchTo.name }}</a>
+            <a class="rounded-md px-2 py-1.5 hover:bg-parchment" [href]="suitSwitch.href">{{ suitSwitch.label }}</a>
             <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="menuOpen.set(false); reset.emit()">Reset demo</button>
           </div>
         }
@@ -89,8 +90,11 @@ export class HudComponent {
   protected readonly me = CURRENT_USER;
   protected readonly meIcon = IS_FAMILY ? '🏡' : '🧑‍🚀';
   protected readonly switchTo = IS_FAMILY
-    ? { name: ASTRONAUT_USER.displayName, href: '?' }
-    : { name: FAMILY_USER.displayName, href: '?user=family' };
+    ? { name: ASTRONAUT_USER.displayName, href: urlWith('user', null) }
+    : { name: FAMILY_USER.displayName, href: urlWith('user', 'family') };
+  /** Try the other suit colour (art only). */
+  protected readonly suitSwitch =
+    SUIT === 'green' ? { label: 'Turquoise suit', href: urlWith('suit', null) } : { label: 'Green suit', href: urlWith('suit', 'green') };
   private readonly host = inject(ElementRef<HTMLElement>);
   protected readonly isFullscreen = signal(false);
   /** iPhone Safari has no element fullscreen; there, "Add to Home Screen" gives full screen instead. */

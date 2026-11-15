@@ -18,6 +18,30 @@ export const CURRENT_USER: User = (() => {
 })();
 
 export const ROLE = CURRENT_USER.role;
+
+/** The astronaut's suit colour, from `?suit=green` (turquoise otherwise). Art only: nothing else changes. */
+export type Suit = 'turquoise' | 'green';
+export const SUIT: Suit = (() => {
+  try {
+    return new URLSearchParams(location.search).get('suit')?.toLowerCase() === 'green' ? 'green' : 'turquoise';
+  } catch {
+    return 'turquoise';
+  }
+})();
+
+/** This page's URL with one parameter changed (null removes it), for the menu's switch links. */
+export function urlWith(param: string, value: string | null): string {
+  try {
+    const q = new URLSearchParams(location.search);
+    if (value === null) q.delete(param);
+    else q.set(param, value);
+    const s = q.toString();
+    return s ? `?${s}` : '?';
+  } catch {
+    return '?';
+  }
+}
+
 export const IS_FAMILY = ROLE === 'FAMILY';
 
 export const asActor = (u: User): Actor => ({ id: u.id, name: u.displayName });
