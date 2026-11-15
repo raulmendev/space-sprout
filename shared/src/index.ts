@@ -20,5 +20,6 @@ export * from './contracts/health-record';
 export * from './contracts/decor';
 export * from './contracts/potting';
 export * from './contracts/emotes';
+export * from './contracts/presence';
 export * from './contracts/garden';
 export * from './contracts/live';

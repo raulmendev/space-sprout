@@ -36,6 +36,8 @@ import {
   NOTE_TEXTURES,
   PET_FRAMES,
   PLAYER_FRAMES,
+  SUIT_FRAMES,
+  astronautAnim,
   PLAYER_TEXTURE,
   crewPoseKey,
   hasCrewPoses,
@@ -50,6 +52,7 @@ import {
   propTextureKey,
 } from '../garden/game/asset-registry';
 import { PlayerStore, WAVE_MS } from './player.store';
+import { PresenceStore } from './presence.store';
 import { DecorStore } from '../decor/decor.store';
 import { NpcActorStore, NpcView } from '../npc/npc-actor.store';
 import { NPC_IDENTITY } from '../npc/npc-identity';
@@ -95,6 +98,7 @@ const REACH = 1.5;
 export class HabitatStore {
   private readonly garden = inject(GardenStore);
   private readonly player = inject(PlayerStore);
+  private readonly presence = inject(PresenceStore);
   private readonly npcs = inject(NpcActorStore);
   private readonly npcDialogue = inject(NpcStore);
   private readonly notes = inject(NotesStore);
@@ -225,6 +229,24 @@ export class HabitatStore {
         anim: pet ? petAnim(pet, n) : undefined, // pets trot like the astronaut walks
       };
     });
+    // Everyone else in the station who is in this room, in their own suits.
+    for (const p of this.presence.others()) {
+      if (p.stance.at.room !== this.activeRoom()) continue;
+      const frames = SUIT_FRAMES[p.member.suit] ?? PLAYER_FRAMES;
+      actors.push({
+        id: `peer:${p.peer}`,
+        texture: frames.idle.down,
+        x: p.x,
+        y: p.y,
+        flipX: false,
+        moving: p.moving,
+        interaction: null,
+        anim: astronautAnim(frames, { facing: p.stance.facing, moving: p.moving, waveAt: p.waveAt }, WAVE_MS),
+        shadow: true,
+        label: p.member.name,
+        emote: p.emote ? { glyph: emoteGlyph(p.emote.id), at: p.emote.at } : undefined,
+      });
+    }
     const { x, y } = this.player.position();
     actors.push({
       id: 'player',
@@ -247,17 +269,9 @@ export class HabitatStore {
     return e ? { glyph: emoteGlyph(e.id), at: e.at } : undefined;
   });
 
-  /** Walking: four frames in the way they face. Standing: that direction's standing pose. Waving: the wave, twice. */
-  private readonly playerAnim = computed<ActorAnim>(() => {
-    const waveAt = this.player.waveAt();
-    if (waveAt !== null && !this.player.moving() && PLAYER_FRAMES.wave.length) {
-      return { frames: [...PLAYER_FRAMES.wave, ...PLAYER_FRAMES.wave], fps: (2 * PLAYER_FRAMES.wave.length * 1000) / WAVE_MS, loop: false, startedAt: waveAt };
-    }
-    const facing = this.player.facing();
-    return this.player.moving()
-      ? { frames: PLAYER_FRAMES.walk[facing], fps: 8, loop: true, startedAt: 0 }
-      : { frames: [PLAYER_FRAMES.idle[facing]], fps: 1, loop: false, startedAt: 0 };
-  });
+  private readonly playerAnim = computed<ActorAnim>(() =>
+    astronautAnim(PLAYER_FRAMES, { facing: this.player.facing(), moving: this.player.moving(), waveAt: this.player.waveAt() }, WAVE_MS),
+  );
 
   readonly hoverRect = computed(() => this.targetRect(this.hover()));
   readonly selectionRect = computed(() => {
