@@ -56,6 +56,31 @@ body {
 .btn-press:enabled:active { translate: 0 2px; box-shadow: 0 1px 0 var(--press); }
 .btn-press:focus-visible { outline: 2px solid var(--color-steel); outline-offset: 2px; }
 
+/* Full-width primary action in a console panel (sun yellow). Pair with .btn-press. */
+.chunky-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-sun);
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+.chunky-btn:enabled:hover { filter: brightness(1.04); }
+.chunky-btn:disabled { opacity: 0.55; }
+
+/* Secondary console button (parchment). Pair with .btn-press. */
+.soft-btn {
+  --press: color-mix(in srgb, var(--color-bark) 30%, transparent);
+  background: var(--color-parchment);
+  color: var(--color-bark-dark);
+  font-weight: 800;
+}
+.soft-btn:enabled:hover { filter: brightness(1.04); }
+.soft-btn:disabled { opacity: 0.5; }
+
 /* Decorative console slashes. Size with utilities (w-10 h-3); --stripe sets the colour. */
 .stripes {
   background: repeating-linear-gradient(
@@ -66,7 +91,7 @@ body {
 }
 
 /*
- * Station console pieces (Supply Store; the Medical Terminal has its own copy to fold in later).
+ * Station console pieces (Medical Terminal, Message Board, Supply Store).
  * .console-screen: the cream screen inside the steel bezel. .console-tab: a chunky tab
  * (with .btn-press). .riveted-card: a card with a screw in each corner.
  */

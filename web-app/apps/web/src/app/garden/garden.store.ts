@@ -7,6 +7,7 @@ import {
   GARDEN_ROOM,
   GardenObject,
   Inventory,
+  SocialNote,
   PlacementError,
   Purchase,
   PurchaseError,
@@ -27,7 +28,7 @@ import {
   propAtTile,
 } from '@garden/shared';
 import { timeAgo } from '../health/format';
-import { CareResult, GardenService, LOCAL_PLAYER, earnedToday } from './garden.service';
+import { CareResult, GardenService, LOCAL_PLAYER, PostNoteResult, earnedToday } from './garden.service';
 import type { TileCoord } from './game/tile-manager';
 
 export type CloseupInfo = NonNullable<ReturnType<GardenStore['closeup']>>;
@@ -45,6 +46,8 @@ export class GardenStore {
   readonly inventory = signal<Inventory>({});
   /** Recent store purchases (anyone in the household), newest first. */
   readonly purchases = signal<Purchase[]>([]);
+  /** Notes pinned from this device (see NotesStore for the whole board). */
+  readonly notes = signal<SocialNote[]>([]);
   /** The purchases as one line: "You: Fertilizer (2 min ago) · Family: Photo frame (1 h ago)". */
   readonly recentPurchases = computed(() =>
     this.purchases()
@@ -98,7 +101,23 @@ export class GardenStore {
     this.balance.set(snap.balance);
     this.inventory.set(snap.inventory);
     this.purchases.set(snap.purchases);
+    this.notes.set(snap.notes ?? []);
     this.earnedToday.set(earnedToday(snap.earnings, LOCAL_PLAYER.id, Date.now()));
+  }
+
+  async postNote(content: string): Promise<PostNoteResult> {
+    const result = await this.service.postNote(content);
+    if (result.ok) {
+      this.inventory.set(result.inventory);
+      this.notes.update((list) => [...list, result.note]);
+    }
+    return result;
+  }
+
+  async takeDownNote(noteId: string): Promise<boolean> {
+    const ok = await this.service.takeDownNote(noteId);
+    if (ok) this.notes.update((list) => list.filter((n) => n.id !== noteId));
+    return ok;
   }
 
   async care(plantId: string, action: CareAction): Promise<CareResult> {

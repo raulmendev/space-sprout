@@ -1,5 +1,23 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { ALL_METRICS, HealthMeasurement, HealthMetric, MeasurementSource, NewMeasurement, RewardOutcome, dayOf } from '@garden/shared';
+import {
+  ALL_METRICS,
+  GOAL_METRICS,
+  GoalMetric,
+  Goals,
+  HabitBonus,
+  HealthMeasurement,
+  HealthMetric,
+  MeasurementSource,
+  MetricSummary,
+  NewMeasurement,
+  RewardOutcome,
+  checkInStreak,
+  dayOf,
+  goalMet,
+  goalTarget,
+  nextMilestone,
+  summarize,
+} from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
 import { HealthService, UnknownAnswer } from './health.service';
@@ -7,13 +25,18 @@ import { SimulatedWearable, WEARABLE_METRICS } from './simulated-wearable';
 
 export interface CheckInResult {
   readings: HealthMeasurement[];
+  /** Seeds for the check-in itself. */
   earned: number;
+  /** Goal and streak bonuses on top. */
+  bonuses: HabitBonus[];
   /** True when nothing earned only because today's seeds were already given. */
   alreadyRewarded: boolean;
 }
 
-/** How many past readings each trend shows. */
-const TREND_LENGTH = 7;
+/** Days each insight card covers (the detail view can widen it). */
+export const CARD_WINDOW_DAYS = 7;
+
+const today = () => dayOf(new Date().toISOString());
 
 /**
  * The astronaut's health check-ins: readings, wearable sync, rewards, and the
@@ -38,14 +61,38 @@ export class HealthStore {
   private readonly unseen = signal(false);
   private completeTimer?: ReturnType<typeof setTimeout>;
 
-  /** Last readings per metric, oldest first. */
-  readonly trends = computed(() => {
-    const byMetric = {} as Record<HealthMetric, HealthMeasurement[]>;
-    for (const metric of ALL_METRICS) byMetric[metric] = [];
-    for (const m of [...this.measurements()].sort((a, b) => a.measuredAt.localeCompare(b.measuredAt))) byMetric[m.metric]?.push(m);
-    for (const metric of ALL_METRICS) byMetric[metric] = byMetric[metric].slice(-TREND_LENGTH);
-    return byMetric;
+  /** The astronaut's daily targets (defaults where not set). */
+  readonly goals = signal<Goals>({});
+
+  /** Readings per metric. */
+  readonly byMetric = computed(() => {
+    const out = {} as Record<HealthMetric, HealthMeasurement[]>;
+    for (const metric of ALL_METRICS) out[metric] = [];
+    for (const m of this.measurements()) out[m.metric]?.push(m);
+    return out;
   });
+
+  /** Insight card per metric: the last week against the astronaut's own usual range. */
+  readonly cards = computed(() => {
+    const out = {} as Record<HealthMetric, MetricSummary>;
+    for (const metric of ALL_METRICS) out[metric] = this.summary(metric, CARD_WINDOW_DAYS);
+    return out;
+  });
+
+  /** Consecutive days with a check-in, and the next streak bonus. */
+  readonly streak = computed(() => {
+    const s = checkInStreak(this.measurements().map((m) => dayOf(m.measuredAt)), today());
+    return { ...s, checkedInToday: this.measurements().some((m) => dayOf(m.measuredAt) === today()), next: nextMilestone(s.length) };
+  });
+
+  /** Today's progress on each goal. */
+  readonly goalProgress = computed(() =>
+    GOAL_METRICS.map((metric) => {
+      const value = this.today()[metric]?.value ?? null;
+      const target = goalTarget(this.goals(), metric);
+      return { metric, value, target, met: value !== null && goalMet(this.goals(), metric, value) };
+    }),
+  );
 
   /** Today's latest reading per metric (undefined = not checked in yet today). Same day boundary as rewards. */
   readonly today = computed(() => {
@@ -84,6 +131,7 @@ export class HealthStore {
     const snap = await this.service.load();
     this.measurements.set(snap.measurements);
     this.unknowns.set(snap.unknowns ?? []);
+    this.goals.set(snap.goals ?? {});
     const synced = snap.measurements.filter((m) => m.source !== 'MANUAL').map((m) => m.measuredAt).sort();
     this.lastSyncAt.set(synced.at(-1) ?? null);
   }
@@ -123,6 +171,15 @@ export class HealthStore {
     return earned;
   }
 
+  /** One metric over the last `windowDays` days (cards use a week; the detail view a week or a month). */
+  summary(metric: HealthMetric, windowDays: number): MetricSummary {
+    return summarize(metric, this.byMetric()[metric], windowDays, today());
+  }
+
+  async setGoal(metric: GoalMetric, value: number): Promise<void> {
+    this.goals.set(await this.service.setGoal(metric, value));
+  }
+
   async reset(): Promise<void> {
     this.service.reset();
     this.lastResult.set(null);
@@ -132,11 +189,12 @@ export class HealthStore {
 
   private async save(readings: NewMeasurement[]): Promise<void> {
     const result = await this.service.record(readings);
-    await this.garden.credit(result.earned);
+    await this.garden.credit(result.earned + result.bonuses.reduce((sum, b) => sum + b.amount, 0));
     this.measurements.update((list) => [...list, ...result.saved]);
     this.lastResult.set({
       readings: result.saved,
       earned: result.earned,
+      bonuses: result.bonuses,
       alreadyRewarded: result.earned === 0 && result.outcomes.some((o: RewardOutcome) => o !== 'REWARDED'),
     });
     if (result.saved.length) this.unseen.set(true);

@@ -23,8 +23,11 @@ import { StationPanelComponent } from './station-panel.component';
       background: transparent;
       /* Never bigger than the room view it sits on (or the screen). */
       width: min(52rem, var(--anchor-w, 100vw) - 1rem, 100vw - 1rem);
-      max-height: min(var(--anchor-h, 100dvh) - 1rem, 100dvh - 1rem);
-      overflow: auto;
+      /* One fixed height for every panel (never taller than the room view or the screen):
+         the popup doesn't jump as content changes, and the panel body scrolls inside it. */
+      height: min(36rem, var(--anchor-h, 100dvh) - 1rem, 100dvh - 1rem);
+      max-height: none; /* the height above already caps it; the browser's modal default is tighter */
+      overflow: hidden;
     }
     /* Centre over the room view (falls back to the viewport centre without an anchor). */
     dialog:modal {

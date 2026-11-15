@@ -6,15 +6,21 @@ import {
   GardenObject,
   Inventory,
   PlacementError,
+  PostNoteError,
+  SocialNote,
   Purchase,
   PurchaseError,
   STARTER_INVENTORY,
   applyCare,
+  canTakeDown,
   careDay,
   applyPurchase,
   checkCare,
+  checkPostNote,
+  noteText,
   consume,
   FERTILIZER,
+  POST_IT,
   getCatalogItem,
   owned,
   seedItemId,
@@ -33,11 +39,14 @@ export interface GardenSnapshot {
   inventory: Inventory;
   /** Recent purchases, newest first. */
   purchases: Purchase[];
+  /** Notes pinned on the message board from this device, until a server holds them. */
+  notes?: SocialNote[];
 }
 
 export type BuyResult =
   | { ok: true; balance: number; inventory: Inventory; purchases: Purchase[] }
   | { ok: false; error: PurchaseError };
+export type PostNoteResult = { ok: true; note: SocialNote; inventory: Inventory } | { ok: false; error: PostNoteError };
 
 export type PlaceResult =
   | { ok: true; object: GardenObject; inventory: Inventory }
@@ -126,6 +135,28 @@ export class GardenService {
     snap.balance += Math.max(0, Math.floor(amount));
     this.save(snap);
     return snap.balance;
+  }
+
+  /** Pin a note: uses one post-it from the household inventory and stores the note in the same save. */
+  async postNote(content: string, actor: Actor = LOCAL_PLAYER): Promise<PostNoteResult> {
+    const snap = await this.load();
+    const error = checkPostNote(content, owned(snap.inventory, POST_IT));
+    if (error) return { ok: false, error };
+    const note: SocialNote = { id: crypto.randomUUID(), authorId: actor.id, content: noteText(content), createdAt: new Date().toISOString() };
+    snap.inventory = consume(snap.inventory, POST_IT);
+    snap.notes = [...(snap.notes ?? []), note];
+    this.save(snap);
+    return { ok: true, note, inventory: snap.inventory };
+  }
+
+  /** Take one of your own notes off the board (the post-it isn't refunded). */
+  async takeDownNote(noteId: string, actor: Actor = LOCAL_PLAYER): Promise<boolean> {
+    const snap = await this.load();
+    const note = snap.notes?.find((n) => n.id === noteId);
+    if (!note || !canTakeDown(note, actor.id)) return false;
+    snap.notes = snap.notes!.filter((n) => n.id !== noteId);
+    this.save(snap);
+    return true;
   }
 
   /** Water, fertilize, prune or harvest a plant. Harvest removes it and frees the plot (`object: null`). */
