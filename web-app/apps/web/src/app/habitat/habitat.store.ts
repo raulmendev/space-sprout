@@ -60,6 +60,7 @@ import type { ActorAnim, HabitatRenderState, RenderActor, RenderDecal, RenderSpr
 import { CURRENT_USER, MY_SUIT } from '../session/current-user';
 import { BUBBLE_AT, NOTE_SLOTS } from '../garden/game/notice-board';
 import { NotesStore } from '../social/notes.store';
+import { t } from '../i18n/i18n';
 
 /** A pet: trotting frames the way it's heading, else standing that way. A bit quicker than the astronaut's step. */
 const petAnim = (id: PetId, n: NpcView): ActorAnim =>
@@ -318,20 +319,21 @@ export class HabitatStore {
     };
 
     for (const p of this.roomProps()) {
-      if (p.interaction) consider(p, { type: p.interaction }, `Open ${p.name}`);
+      if (p.interaction) consider(p, { type: p.interaction }, t('Open {name}', { name: t(p.name) }));
     }
     if (room === GARDEN_ROOM) {
       for (const o of this.garden.objects()) {
-        consider(objectRect(o), { type: 'PLANT_SELECTED', plantId: o.id }, `Look at ${getCatalogItem(o.itemType)?.name ?? 'plant'}`);
+        consider(objectRect(o), { type: 'PLANT_SELECTED', plantId: o.id }, t('Look at {name}', { name: t(getCatalogItem(o.itemType)?.name ?? 'plant') }));
       }
       const underfoot = tileOf(feet);
-      for (const t of this.soilTiles) {
-        if (t.x === underfoot.x && t.y === underfoot.y) continue; // plant in front of you, not on your toes
-        if (this.garden.isEmptyPlot(t)) consider({ ...t, w: 1, h: 1 }, { type: 'PLOT_SELECTED', ...t }, 'Plant here');
+      const plantHere = t('Plant here');
+      for (const tile of this.soilTiles) {
+        if (tile.x === underfoot.x && tile.y === underfoot.y) continue; // plant in front of you, not on your toes
+        if (this.garden.isEmptyPlot(tile)) consider({ ...tile, w: 1, h: 1 }, { type: 'PLOT_SELECTED', ...tile }, plantHere);
       }
     }
     for (const n of this.npcsHere()) {
-      consider({ ...tileOf(n.position), w: 1, h: 1 }, { type: 'NPC_SELECTED', npcId: n.id }, `${isPet(n.id) && n.id !== 'RADISH' ? 'Pet' : 'Talk to'} ${NPC_IDENTITY[n.id].name}`);
+      consider({ ...tileOf(n.position), w: 1, h: 1 }, { type: 'NPC_SELECTED', npcId: n.id }, t(isPet(n.id) && n.id !== 'RADISH' ? 'Pet {name}' : 'Talk to {name}', { name: NPC_IDENTITY[n.id].name }));
     }
     return best;
   });
@@ -357,10 +359,10 @@ export class HabitatStore {
     const room = ROOMS[this.activeRoom()];
     if (s.type === 'PROP_SELECTED') {
       const prop = room.props.find((p) => p.id === s.propId);
-      return prop ? { title: prop.name, roomName: room.name, kind: null } : null;
+      return prop ? { title: t(prop.name), roomName: t(room.name), kind: null } : null;
     }
     if (s.type === 'TILE_SELECTED' || s.type === 'PLOT_SELECTED') {
-      return { title: null, roomName: room.name, kind: getTileKind(room.id, s.x, s.y) ?? null };
+      return { title: null, roomName: t(room.name), kind: getTileKind(room.id, s.x, s.y) ?? null };
     }
     return null;
   });

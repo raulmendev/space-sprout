@@ -2,8 +2,9 @@ import { Component, computed, inject } from '@angular/core';
 import { INVENTORY_ITEM_IDS, describeItem, getCatalogItem, getStoreItem, isDecor, owned, pottedPlantOf } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { AssetService } from '../shared/assets.service';
-import { DECOR_ROOM_NAMES, DecorStore } from '../decor/decor.store';
+import { DecorStore } from '../decor/decor.store';
 import { HabitatStore } from '../habitat/habitat.store';
+import { t } from '../i18n/i18n';
 
 interface Group {
   title: string;
@@ -31,7 +32,7 @@ const GROUPS: readonly Group[] = [
   {
     title: 'Decorations',
     hint: 'Tap Place, then pick a spot in the room.',
-    awayHint: `Place them from the ${DECOR_ROOM_NAMES}.`,
+    awayHint: 'Place them from the Social Space.',
     has: (id) => section(id) === 'DECORATIONS',
   },
 ];
@@ -48,10 +49,10 @@ const GROUPS: readonly Group[] = [
   template: `
     <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-0.5">
       @for (g of groups(); track g.title) {
-        <section class="mb-3 last:mb-0 short:mb-2" [attr.aria-label]="g.title">
+        <section class="mb-3 last:mb-0 short:mb-2" [attr.aria-label]="t(g.title)">
           <h3 class="flex flex-wrap items-baseline gap-x-2 font-extrabold">
-            {{ g.title }}
-            <span class="text-xs font-normal text-bark/70">{{ g.items.length ? ((g.awayNow && g.awayHint) || g.hint) : (g.empty ?? 'None yet. The Supply Store in the Social Space has some.') }}</span>
+            {{ t(g.title) }}
+            <span class="text-xs font-normal text-bark/70">{{ t(g.items.length ? ((g.awayNow && g.awayHint) || g.hint) : (g.empty ?? 'None yet. The Supply Store in the Social Space has some.')) }}</span>
           </h3>
           @if (g.items.length) {
             <ul class="mt-1.5 grid grid-cols-2 gap-2 @lg:grid-cols-3 short:gap-1.5 short:@lg:grid-cols-2">
@@ -65,20 +66,20 @@ const GROUPS: readonly Group[] = [
                     }
                   </span>
                   <span class="min-w-0 flex-1 leading-tight">
-                    <span class="block truncate font-bold" [title]="row.item.name">{{ row.label }}</span>
-                    @if (row.up) { <span class="block truncate text-xs text-bark/70">{{ row.up }} up in the station</span> }
+                    <span class="block truncate font-bold" [title]="t(row.item.name)">{{ t(row.label) }}</span>
+                    @if (row.up) { <span class="block truncate text-xs text-bark/70">{{ t('{n} up in the station', { n: row.up }) }}</span> }
                   </span>
                   @if (row.count) {
-                    <span class="shrink-0 text-lg font-extrabold" [attr.aria-label]="row.count + ' owned'">×{{ row.count }}</span>
+                    <span class="shrink-0 text-lg font-extrabold" [attr.aria-label]="t('{n} owned', { n: row.count })">×{{ row.count }}</span>
                   }
                   @if (row.placeable) {
                     <button
                       type="button"
                       class="btn-press shrink-0 bg-sun px-2 py-0.5 text-sm font-bold disabled:bg-parchment disabled:opacity-50"
                       [disabled]="!row.count || !row.placeHere"
-                      [attr.aria-label]="'Place ' + row.item.name"
+                      [attr.aria-label]="t('Place {name}', { name: t(row.item.name) })"
                       (click)="place(row.id)"
-                    >Place</button>
+                    >{{ t('Place') }}</button>
                   }
                 </li>
               }
@@ -89,7 +90,7 @@ const GROUPS: readonly Group[] = [
     </div>
 
     @if (garden.recentPurchases()) {
-      <p class="truncate text-xs text-bark/70">Recently bought: {{ garden.recentPurchases() }}</p>
+      <p class="truncate text-xs text-bark/70">{{ t('Recently bought: {list}', { list: garden.recentPurchases() }) }}</p>
     }
   `,
   styles: `
@@ -117,6 +118,7 @@ export class InventoryPanelComponent {
   protected readonly assets = inject(AssetService);
   protected readonly decor = inject(DecorStore);
   private readonly habitat = inject(HabitatStore);
+  protected readonly t = t;
 
   /** Owned items (in the inventory, or placed in the station), grouped by where they get used. */
   protected readonly groups = computed(() => {

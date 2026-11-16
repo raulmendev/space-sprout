@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { HabitatStore } from '../../habitat/habitat.store';
+import { t } from '../../i18n/i18n';
 
 const KIND_LABEL: Record<string, [string, string]> = {
   SOIL: ['Soil plot', 'Ready for planting.'],
@@ -25,16 +26,17 @@ const KIND_LABEL: Record<string, [string, string]> = {
   selector: 'app-tile-info',
   template: `
     @if (info(); as i) {
-      <section class="panel px-3 py-2" aria-live="polite" aria-label="Look closer">
-        <p class="text-sm font-bold leading-tight">{{ i.title ?? label(i.kind)[0] }}
-          <span class="ml-1 text-[11px] font-bold uppercase tracking-wide text-bark/60">{{ i.roomName }}</span>
+      <section class="panel px-3 py-2" aria-live="polite" [attr.aria-label]="t('Look closer')">
+        <p class="text-sm font-bold leading-tight">{{ t(i.title ?? label(i.kind)[0]) }}
+          <span class="ml-1 text-[11px] font-bold uppercase tracking-wide text-bark/60">{{ t(i.roomName) }}</span>
         </p>
-        @if (!i.title && label(i.kind)[1]) { <p class="text-xs text-bark">{{ label(i.kind)[1] }}</p> }
+        @if (!i.title && label(i.kind)[1]) { <p class="text-xs text-bark">{{ t(label(i.kind)[1]) }}</p> }
       </section>
     }
   `,
 })
 export class TileInfoComponent {
   protected readonly info = inject(HabitatStore).selectedInfo;
+  protected readonly t = t;
   protected label = (kind: string | null) => KIND_LABEL[kind ?? ''] ?? ['Somewhere', ''];
 }

@@ -9,6 +9,7 @@ import { simulatedValue } from '../health/simulated-wearable';
 import { formatValue } from '../health/format';
 import { NpcActorStore } from './npc-actor.store';
 import { NpcStore } from './npc.store';
+import { t } from '../i18n/i18n';
 
 /** How often to check whether someone should come over (ms). */
 const CHECK_EVERY = 500;
@@ -50,7 +51,7 @@ export class CrewReminders {
     this.lastAsked.set(id, performance.now());
     const metric = nextAsk(MY_CREW_BY_ID[id], this.health.answeredToday());
     if (metric) this.ask(MY_CREW_BY_ID[id], metric);
-    else this.npc.sayAs(id, pick(MY_CREW_BY_ID[id].metrics.length ? ALL_DONE[id] : NOTHING_TO_ASK[id]));
+    else this.npc.sayAs(id, say(MY_CREW_BY_ID[id].metrics.length ? ALL_DONE[id] : NOTHING_TO_ASK[id]));
   }
 
   /** Quick answer from the bubble: saved like a terminal reading (same rules, same seeds). */
@@ -72,13 +73,14 @@ export class CrewReminders {
     for (const m of member.metrics) values[m] = simulatedValue(m);
     const earned = await this.health.submitManual(values, 'SIMULATED');
     const level = (m: HealthMetric) => formatValue({ metric: m, value: values[m] ?? 0 });
-    const note = (m: HealthMetric) => SCAN_NOTE[m]?.[bandFor(m, values[m] ?? 0, ROLE)?.id ?? ''] ?? METRICS[m].label;
-    const text = pick(SCAN_RESULT)
-      .replace('{rad}', level('RADIATION'))
-      .replace('{radNote}', note('RADIATION'))
-      .replace('{co2}', level('CO2'))
-      .replace('{co2Note}', note('CO2'));
-    this.npc.sayAs(speaker, `${text}${seeds(earned)} ${pick(ALL_DONE[speaker])}`);
+    const note = (m: HealthMetric) => t(SCAN_NOTE[m]?.[bandFor(m, values[m] ?? 0, ROLE)?.id ?? ''] ?? METRICS[m].label);
+    const text = t(pick(SCAN_RESULT), {
+      rad: level('RADIATION'),
+      radNote: note('RADIATION'),
+      co2: level('CO2'),
+      co2Note: note('CO2'),
+    });
+    this.npc.sayAs(speaker, `${text}${seeds(earned)} ${say(ALL_DONE[speaker])}`);
   }
 
   /**
@@ -86,25 +88,25 @@ export class CrewReminders {
    * finish at the Medical Station. Whoever finds you next asks again, in any order.
    */
   later(speaker: CrewId): void {
-    this.npc.sayAs(speaker, pick(LATER[speaker]));
+    this.npc.sayAs(speaker, say(LATER[speaker]));
   }
 
   /** Their reply to an answer, then their next question (or goodbye). */
   private reply(speaker: CrewId, metric: HealthMetric, band: string | undefined, earned: number): void {
     const lines = band ? replyLines(metric, band, ROLE) : undefined;
-    const said = (lines ? pick(lines) : 'Noted, thank you!') + seeds(earned);
+    const said = (lines ? say(lines) : t('Noted, thank you!')) + seeds(earned);
     const member = MY_CREW_BY_ID[speaker];
     const next = nextAsk(member, this.health.answeredToday());
-    if (next) this.npc.sayAs(speaker, `${said} ${pick(ASK[next])}`, next, !!member.scans);
-    else this.npc.sayAs(speaker, `${said} ${pick(ALL_DONE[speaker])}`);
+    if (next) this.npc.sayAs(speaker, `${said} ${say(ASK[next])}`, next, !!member.scans);
+    else this.npc.sayAs(speaker, `${said} ${say(ALL_DONE[speaker])}`);
   }
 
   /** A question; the first of the day comes with their hello. */
   private ask(member: CrewMember, metric: HealthMetric): void {
     const answered = this.health.answeredToday();
     const first = !member.metrics.some((m) => answered[m]);
-    const question = member.scans ? '' : pick(ASK[metric]);
-    const text = first ? `${pick(INTRO[member.id])} ${question}`.trim() : question || pick(ASK[metric]);
+    const question = member.scans ? '' : say(ASK[metric]);
+    const text = first ? `${say(INTRO[member.id])} ${question}`.trim() : question || say(ASK[metric]);
     this.npc.sayAs(member.id, text, metric, !!member.scans);
   }
 
@@ -154,6 +156,11 @@ export class CrewReminders {
       if (metric && !this.habitat.busy() && !this.npc.current()) this.ask(member, metric);
     });
   };
+}
+
+/** One of a line's variants, in the player's language (lines are said once, so translated as they're picked). */
+function say(lines: readonly string[]): string {
+  return t(pick(lines));
 }
 
 /** " 🌱 +3" after a line that earned seeds. */

@@ -30,6 +30,7 @@ import {
   propAtTile,
 } from '@garden/shared';
 import { timeAgo } from '../health/format';
+import { t } from '../i18n/i18n';
 import { whoDid } from '../shared/format';
 import { type GardenFailure, type GardenReply, GardenService, LOCAL_PLAYER } from './garden.service';
 import { type GardenNews, LiveChannel } from './live-channel';
@@ -37,6 +38,11 @@ import { describeNews } from './live-news';
 import type { TileCoord } from './game/tile-manager';
 
 const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+/** A store item's name in the player's language (its id when unknown). */
+const itemName = (id: string) => {
+  const name = getStoreItem(id)?.name;
+  return name ? t(name) : id;
+};
 
 export type CloseupInfo = NonNullable<ReturnType<GardenStore['closeup']>>;
 /** How a garden action went: what it made, or why not (see failureText). */
@@ -71,7 +77,7 @@ export class GardenStore {
   /** The purchases as one line: "You: Fertilizer (2 min ago) · Family: Photo frame (1 h ago)". */
   readonly recentPurchases = computed(() =>
     this.purchases()
-      .map((p) => `${capitalise(whoDid(p.by, p.byName, LOCAL_PLAYER.id))}: ${getStoreItem(p.itemId)?.name ?? p.itemId} (${timeAgo(p.at)})`)
+      .map((p) => `${capitalise(whoDid(p.by, p.byName, LOCAL_PLAYER.id))}: ${itemName(p.itemId)} (${timeAgo(p.at)})`)
       .join(' · '),
   );
   /** Clock used for timestamp-based growth: the station's. */

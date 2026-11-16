@@ -1,5 +1,6 @@
 import { Component, ElementRef, inject, signal, viewChild } from '@angular/core';
 import { PlayerStore } from './player.store';
+import { t } from '../i18n/i18n';
 
 /** Ignore tiny drags around the centre so a tap doesn't nudge the player. */
 const DEAD_ZONE = 0.25;
@@ -19,7 +20,7 @@ const DEAD_ZONE = 0.25;
       [class.opacity-35]="!active()"
       [class.opacity-80]="active()"
       role="group"
-      aria-label="Move: press and drag. Keyboard: WASD or arrow keys"
+      [attr.aria-label]="t('Move: press and drag. Keyboard: WASD or arrow keys')"
       (pointerdown)="start($event)"
       (pointermove)="move($event)"
       (pointerup)="end($event)"
@@ -42,6 +43,7 @@ const DEAD_ZONE = 0.25;
   `,
 })
 export class TouchPadComponent {
+  protected readonly t = t;
   private readonly player = inject(PlayerStore);
   private readonly pad = viewChild.required<ElementRef<HTMLDivElement>>('pad');
   protected readonly active = signal(false);
