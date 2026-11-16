@@ -7,7 +7,7 @@ Two people work on this repo with Claude, each in their own checkout, plus Claud
 
 ## 1. Where things stand (read this first)
 
-**Repo:** `github.com/raulmendev/space-sprout` (private).
+**Repo:** `github.com/raulmendev/space-sprout` (public, MIT).
 - `web-app/`: the Angular web client.
 - `api/`: the NestJS API.
 - `shared/`: the game rules, at the repo root (moved there in #17).

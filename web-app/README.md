@@ -1,6 +1,6 @@
-# Jardín Comunal
+# Space Sprout: web app
 
-A cozy pixel-art space habitat shared by an astronaut and their family on Earth. It has three zones: a **garden**, a **medical station** and a **social space**. Health check-ins earn seeds, seeds grow plants, and messages are never locked behind anything.
+A cozy space station shared by an astronaut and their family on Earth, played in the browser at **https://garden.raulmen.dev** and as an Android app. It has three zones: a **garden**, a **medical station** and a **social space**. Health check-ins earn seeds, seeds grow plants, and messages are never locked behind anything.
 
 ## Quick start
 
@@ -25,8 +25,9 @@ apps/web/                      Angular 22 + Phaser 3.90 + Tailwind 4
   src/app/habitat/             habitat + player stores, canvas host, panels
   src/app/garden/              garden store, persistence gateway, picker, close-up
   src/app/garden/game/         Phaser scene, renderer adapter, asset registry, placeholders
-  src/app/npc/                 Sprout's dialogue
-  public/assets/game/          final art drops in here (see below)
+  src/app/npc/                 crew, pets and Rabanito's dialogue
+  public/assets/game/          the art (see below)
+  android/                     the Capacitor Android project
 ```
 
 Phaser renders and reports interactions (`HabitatInteraction`); it holds no authoritative state. Angular owns state and panels. Game rules live in `@garden/shared` so the API can enforce the same ones.
@@ -46,24 +47,23 @@ Phaser renders and reports interactions (`HabitatInteraction`); it holds no auth
 The thing you tap is the thing you act on. No modes, and no instructions to read.
 
 - **Move with the on-screen pad or WASD / arrow keys.** The pad sits bottom-right at low opacity: press and drag in any direction (built for phones; works with a mouse). Movement is free, not tile-by-tile, at the same speed in every direction (diagonals are normalised). Characters slide along walls, and corner assist eases you into doorways and gaps you're slightly off from.
-- **Use what's in reach with the action button (A), E or Space.** The nearest usable thing within ~1.5 tiles (station, plant, free plot, Sprout) gets a soft green outline, and the label above the button says what it'll do ("Open Medical Terminal", "Plant here", "Talk to Sprout").
+- **Use what's in reach with the action button (A), E or Space.** The nearest usable thing within ~1.5 tiles (station, plant, free plot, crew member, pet) gets a soft green outline, and the label above the button says what it'll do ("Open Medical Terminal", "Plant here", "Talk to Rabanito").
 - **Or tap an object directly:** the player walks up to it on a smoothed route, then it opens (station panel, plant picker or plant close-up). Tapping plain floor only shows what it is.
 - **Walk onto a door** to go to the next room. Leaving a room closes its panels, picker and close-up.
-- **Sprout** strolls around near its spot in the Garden, and stops when you come to talk.
+- **Crew and pets** stroll around their rooms, and stop when you come to talk.
 - Positions are continuous `{ room, x, y }` points in Angular state, stepped by one shared animation-frame ticker; Phaser only draws them (characters go through a separate per-frame "actors" channel, so the room isn't rebuilt every frame). A second, remote player later is just another position, shown when it's in your room.
 - Empty plot: a picker with prices. Disabled options say why ("Not enough seeds", "Needs 2×2 free soil").
 
 ## Health check-ins (astronaut)
 
-- **Medical Terminal:** sync the (simulated) wearable or enter readings manually: heart rate, sleep, exercise minutes and mood (1–5). Any subset is fine. Simulated data is always labelled as such; the wearable sits behind a `MeasurementProvider` interface so a real device can replace it.
-- **Rewards:** each check-in earns seeds, 3 per metric, once per metric per day, 12 a day at most. Rules live in `../shared/src/contracts/health.ts` (`decideReward`), keyed by measurement id so nothing is rewarded twice; the API will run the same function server-side. Going over the cap is never a penalty: the reading is still saved.
-- **Health Insights:** latest value, unit, time, source and an SVG trend of the last 7 readings per metric, with a neutral explanation. No thresholds, no diagnosis.
-- **Station states:** the terminal shows syncing/complete; the insights display shows "new data" until you look.
-- For now readings are stored in this browser only (seeded with a week of labelled simulated history for the demo). Private to the astronaut; family access comes with the backend.
+- **Check-ins:** the crew ask about 10 readings (mood, sleep, temperature, heart rate, activity, stress, calories, water, radiation and CO₂). Answer them in conversation, at the Medical Terminal by hand, or by syncing a wearable: Health Connect in the Android app, a labelled simulated device in the browser. The wearable sits behind a `MeasurementProvider` interface.
+- **Rewards:** each answer falls in a band that pays x1–x4 seeds, up to 30 a day, with goal and streak bonuses on top. Rules live in `../shared/src/contracts/` (`checkin.ts`, `goals.ts`) and the API pays them in the same transaction that saves the reading. Going over the cap is never a penalty: the reading is still saved.
+- **Health Insights:** latest value, unit, time, source and a trend of the last 7 readings per metric, with a neutral explanation. No thresholds, no diagnosis.
+- **Privacy:** each member's record is private on the server; the station only hears about the seeds.
 
-## Delivering final art (design team)
+## Delivering art (design team)
 
-All art is **placeholder** at the agreed native sizes. To replace an asset:
+The art is drawn by our design team. Keys missing from the manifest fall back to placeholders, so new pieces can land one at a time. To add or replace an asset:
 
 1. Save the PNG as `apps/web/public/assets/game/<folder>/<key>.png`.
 2. Add `<key>` to `apps/web/public/assets/game/manifest.json` → `"delivered"`.
@@ -81,17 +81,30 @@ No code changes are needed. Keys, folders, sizes and anchors are defined in `app
 | Emote corner, Earth link | `prop-emote-point`, `prop-comm-terminal` | 64×64 (2×2) | bottom-centre |
 | Characters | `player-astronaut`, `npc-sprout` | 32×48 | bottom-centre |
 
+## Android app
+
+The Android app is this same web app wrapped with Ionic Capacitor (`apps/web/android/`), plus a native Health Connect plugin for wearable readings. To build it:
+
+```bash
+cd apps/web
+npm run build:android    # web build pointed at the production API, then cap sync
+npx cap open android     # build or run the APK from Android Studio
+```
+
+The latest APK is in [`../deploys/`](../deploys/).
+
 ## Status
 
-- [x] Single habitat scene with three zones, placeholder props, footprints and a central asset registry/manifest
-- [x] Phaser → Angular interaction events; panel shells for Medical Terminal, Health Insights, Message Board, Emotes
-- [x] Garden: plant/grow 3 species (2×2 tree), close-up view, saved to localStorage
-- [x] One player with free movement: on-screen pad + action button + keyboard, or tap objects to walk up and use them
-- [x] Habitat split into three single-screen rooms joined by doors
-- [ ] Layout checkpoint sign-off with the design team
-- [x] Astronaut health loop: simulated wearable + manual entry, seed rewards, insights trends
-- [ ] NestJS API + Postgres (server-side rewards and health privacy)
-- [ ] Notes, emotes, family role, Socket.IO sync, second player
+- [x] Three rooms (Garden, Medical Station, Social Space) with the design team's art and animated windows
+- [x] Free movement on phones and desktop: touch pad + action button, keyboard, or tap to walk
+- [x] Garden: 14 species, close-ups, potted plants, plant labels, Supply Store, inventory and decorations
+- [x] Health loop: crew check-ins, 10 readings, seed bands, goals and streaks, Health Insights
+- [x] NestJS API on Neon: stations, members and sessions; a shared garden per station; private health records
+- [x] Live updates and presence: everyone in a room sees each other walk, with name tags and emotes
+- [x] Message board and emotes
+- [x] Android app with Health Connect
+- [x] English and Spanish, with a language switch in the menu
+- [ ] The family role on the server (what family members see and can do)
 
 ## Demo notes
 
