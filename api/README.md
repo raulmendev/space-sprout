@@ -2,7 +2,7 @@
 
 NestJS 12 + TypeORM on Postgres ([Neon](https://neon.tech)). It runs the same game rules as the web app, from `@garden/shared` ([`../shared`](../shared)).
 
-So far: config, the database connection, migrations, a health check, the catalog, **stations (households), members and sessions** behind the web app's start menu, **each station's shared garden** (seeds, inventory, plants, decorations, notes), changed only by commands, and a **live channel** that sends every change to the rest of the station as it happens. Health check-ins still live in the browser.
+So far: config, the database connection, migrations, a health check, the catalog, **stations (households), members and sessions** behind the web app's start menu, **each station's shared garden** (seeds, inventory, plants, decorations, notes), changed only by commands, **each member's private health record** (check-ins pay their seeds in the same transaction), and a **live channel** that sends every change and everyone's position to the rest of the station as it happens.
 
 ## Run it
 
