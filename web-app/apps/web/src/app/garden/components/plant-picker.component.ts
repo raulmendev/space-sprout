@@ -1,5 +1,6 @@
 import { Component, DestroyRef, ElementRef, afterRenderEffect, computed, inject, input, output, untracked, viewChild } from '@angular/core';
 import { PlacementError, ROOM_COLS, footprintOf, owned, seedItemId } from '@garden/shared';
+import { t } from '../../i18n/i18n';
 import { colPct, rowPct } from '../../habitat/tile-percent';
 import { GardenStore } from '../garden.store';
 import { AssetService } from '../../shared/assets.service';
@@ -8,10 +9,10 @@ import type { TileCoord } from '../game/tile-manager';
 
 /** Why an option is disabled, phrased from the item's own footprint. */
 function reason(error: PlacementError, itemType: string): string {
-  if (error === 'NO_SEEDS') return 'Get at the store';
-  if (error === 'UNKNOWN_ITEM') return 'Unavailable';
+  if (error === 'NO_SEEDS') return t('Get at the store');
+  if (error === 'UNKNOWN_ITEM') return t('Unavailable');
   const f = footprintOf(itemType);
-  return f.w * f.h > 1 ? `Needs ${f.w}×${f.h} free soil` : 'No room here';
+  return f.w * f.h > 1 ? t('Needs {w}×{h} free soil', { w: f.w, h: f.h }) : t('No room here');
 }
 
 /** Small popover anchored to an empty plot: plant one of the seed packets the household owns. */
@@ -23,7 +24,7 @@ function reason(error: PlacementError, itemType: string): string {
       #panel
       class="panel picker invisible absolute z-[25] grid grid-cols-4 gap-1 p-1.5 sm:grid-cols-6 short:grid-cols-7"
       role="menu"
-      aria-label="Plant something here"
+      [attr.aria-label]="t('Plant something here')"
     >
       @for (opt of options(); track opt.item.id) {
         <button
@@ -31,8 +32,8 @@ function reason(error: PlacementError, itemType: string): string {
           role="menuitem"
           class="flex w-20 flex-col items-center rounded-md px-1 py-1 short:w-16 short:px-0.5 short:py-0.5 enabled:hover:bg-sun/60 focus-visible:outline-2 focus-visible:outline-sun disabled:opacity-45"
           [disabled]="!!opt.reason"
-          [attr.aria-label]="opt.item.name + ', ' + opt.packets + ' owned' + (opt.reason ? ', ' + opt.reason : '')"
-          [title]="opt.reason ?? opt.item.name"
+          [attr.aria-label]="t('{name}, {n} owned', { name: t(opt.item.name), n: opt.packets }) + (opt.reason ? ', ' + opt.reason : '')"
+          [title]="opt.reason ?? t(opt.item.name)"
           (click)="picked.emit(opt.item.id)"
         >
           <img [src]="assets.url(preview(opt.item.id))" alt="" class="pixelated size-16 short:size-10" />
@@ -53,6 +54,7 @@ export class PlantPickerComponent {
   readonly tile = input.required<TileCoord>();
   readonly picked = output<string>();
   readonly closed = output<void>();
+  protected readonly t = t;
   protected preview = (id: string) => previewTextureKey(id, 'MATURE');
 
   /** Each plant, how many packets are owned, and why it can't go here (if it can't). */

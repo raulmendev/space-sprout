@@ -27,7 +27,9 @@ import { TitleScreenComponent } from './session/title-screen.component';
 import { NEEDS_PROFILE } from './session/current-user';
 import { OFFLINE_MESSAGE } from './session/member-session';
 import { failureText } from './garden/failure-text';
+import { t } from './i18n/i18n';
 
+/** English, as keys: failureText() says them in the player's language. */
 const CARE_ERRORS: Partial<Record<CareError | 'NOT_FOUND', string>> = {
   NO_FERTILIZER: 'Out of fertilizer. The Supply Store has more.',
   COOLDOWN: 'It needs a little rest first.',
@@ -101,8 +103,8 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
           <app-habitat-canvas (interaction)="onInteraction($event)" (progress)="loadProgress.set($event)" (ready)="loaded.set(true)" />
           <app-door-labels />
           @if (habitat.showLayout()) { <app-layout-overlay /> }
-          @if (garden.pickerTile(); as t) {
-            <app-plant-picker [tile]="t" (picked)="plantAt(t, $event)" (closed)="garden.pickerTile.set(null)" />
+          @if (garden.pickerTile(); as tile) {
+            <app-plant-picker [tile]="tile" (picked)="plantAt(tile, $event)" (closed)="garden.pickerTile.set(null)" />
           }
           @if (garden.closeup(); as c) {
             <app-plant-closeup [info]="c" (closed)="garden.closeupId.set(null)" (care)="onCare(c.object.id, $event)" (pot)="onPot(c.object.id)" (label)="onLabel(c.object.id, $event)" />
@@ -158,8 +160,8 @@ const MOVE_KEYS: Record<string, 'up' | 'down' | 'left' | 'right'> = {
       <!-- Phones are played sideways; in portrait, ask to rotate instead of squeezing the room. -->
       <div class="rotate-hint absolute inset-0 z-50 flex-col items-center justify-center gap-3 bg-night p-6 text-center text-cream" role="alert">
         <span class="text-5xl" aria-hidden="true">📱↻</span>
-        <p class="font-pixel text-2xl">Turn your phone sideways</p>
-        <p class="max-w-xs text-sm text-cream/70">Space Sprout is made for landscape.</p>
+        <p class="font-pixel text-2xl">{{ t('Turn your phone sideways') }}</p>
+        <p class="max-w-xs text-sm text-cream/70">{{ t('Space Sprout is made for landscape.') }}</p>
       </div>
     </div>
   `,
@@ -194,6 +196,7 @@ export class App {
   protected readonly crewReminders = inject(CrewReminders);
   protected readonly decor = inject(DecorStore);
   private readonly health = inject(HealthStore);
+  protected readonly t = t;
   protected readonly notice = signal<string | null>(null);
   /** The start menu: on the first visit (must choose), or reopened from the HUD menu (can cancel). */
   /** The loading screen shows until the room is on screen. */
@@ -237,7 +240,7 @@ export class App {
     this.health.init();
     this.garden.init().then(
       () => setTimeout(() => this.npc.say('GREETING'), 600),
-      () => this.flash(OFFLINE_MESSAGE), // the garden fills in once the station answers (coming back to the tab retries)
+      () => this.flash(t(OFFLINE_MESSAGE)), // the garden fills in once the station answers (coming back to the tab retries)
     );
   }
 
@@ -336,7 +339,7 @@ export class App {
       this.flash(failureText(POT_ERRORS, result.error));
       return;
     }
-    this.flash(`${describeItem(result.itemId).name} is in the 🎒 inventory.`);
+    this.flash(t('{name} is in the 🎒 inventory.', { name: t(describeItem(result.itemId).name) }));
   }
 
   /** A plant named, renamed or its label taken off, from its close-up (`text` comes tidied: see labelText). */
@@ -346,7 +349,7 @@ export class App {
       this.flash(failureText(LABEL_ERRORS, result.error));
       return;
     }
-    this.flash(text ? `🏷️ “${text}”` : 'The label is off.');
+    this.flash(text ? `🏷️ “${text}”` : t('The label is off.'));
   }
 
   /** Place / move / water / put away finished: say how it went. */
@@ -386,7 +389,7 @@ export class App {
       this.flash(failureText(CARE_ERRORS, result.error));
       return;
     }
-    if (action === 'HARVEST') this.flash(result.earned ? `Harvested! 🌱 +${result.earned}` : 'Harvested! The plot is free again.');
+    if (action === 'HARVEST') this.flash(result.earned ? t('Harvested! 🌱 +{n}', { n: result.earned }) : t('Harvested! The plot is free again.'));
     else if (result.earned) this.flash(`🌱 +${result.earned}`);
   }
 

@@ -2,6 +2,7 @@ import { Component, computed, inject } from '@angular/core';
 import { ROOMS, ROOM_COLS } from '@garden/shared';
 import { HabitatStore } from './habitat.store';
 import { colPct, rowPct } from './tile-percent';
+import { t } from '../i18n/i18n';
 
 /** Small signs by each door saying where it leads, so nobody has to be told. */
 @Component({
@@ -31,7 +32,7 @@ export class DoorLabelsComponent {
     }
     return [...byTarget.values()].map((s) => ({
       ...s,
-      name: ROOMS[s.to as keyof typeof ROOMS].name,
+      name: t(ROOMS[s.to as keyof typeof ROOMS].name),
       top: rowPct((Math.min(...s.ys) + Math.max(...s.ys) + 1) / 2),
       left: colPct(1.15),
     }));

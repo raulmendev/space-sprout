@@ -1,7 +1,9 @@
-# Handoff: Jardín Comunal (as of 2026-11-15, night)
+# Handoff: Space Sprout, formerly Jardín Comunal (as of 2026-11-15, late night)
 
 Two people work on this repo with Claude, each in their own checkout, plus Claude agents in worktrees, and all of them merge PRs into `main`.
-**Always `git fetch` before starting.** `main` moves fast: PRs #27–#40 all landed on 2026-11-15.
+**Always `git fetch` before starting.** `main` moves fast: PRs #27–#44 and a dozen direct commits all landed on 2026-11-15.
+
+**The game is called Space Sprout** since #43 (the logo's name). "Jardín Comunal" survives only in old file names, the design team's zips and storage keys (`jardin-comunal:…`, kept so saves survive).
 
 ## 1. Where things stand (read this first)
 
@@ -11,11 +13,12 @@ Two people work on this repo with Claude, each in their own checkout, plus Claud
 - `shared/`: the game rules, at the repo root (moved there in #17).
 
 **Live:**
-- Web: **https://garden.raulmen.dev** (Cloudflare Worker, #37; `npm run deploy:cloudflare` in `web-app/apps/web`).
-- API: Railway (#30, #31). Its `CORS_ORIGINS` must include `https://garden.raulmen.dev`.
+- Web: **https://garden.raulmen.dev** (Cloudflare Worker, #37; `npm run deploy:cloudflare` in `web-app/apps/web`). Deployed by hand; as of this handoff it serves the title screen (#43 or later).
+- API: Railway (#30, #31), `https://api-production-77840255.up.railway.app`. **Deploys itself on every push to `main`** (about a minute; GitHub shows it as the `astro-garden / production` deployment). As of this handoff it runs `72dcc20`. Its `CORS_ORIGINS` must include `https://garden.raulmen.dev`.
+- **Order matters when a change touches both:** the API (automatic) before the web app (by hand). An older API refuses what it doesn't know, e.g. buying a plant label showed "Currently unavailable." (`UNKNOWN_ITEM`).
 - Android: a Capacitor app with Health Connect sync (chucordova).
 
-**`main` = `1e6439d`** (PR #40). Merged PRs so far:
+**`main` = `72dcc20`** (PR #44). Merged PRs so far:
 - **#1–#5:** plant care, close-up, full-screen layout, terminal look, station crew.
 - **#6–#9:** Supply Store, inventory, message board with Health Insights goals and streaks, decorations.
 - **#10:** Garden room art.
@@ -47,9 +50,13 @@ Two people work on this repo with Claude, each in their own checkout, plus Claud
 - **#39:** real art and shop icons for the 5 store decorations, plus 5 new ones (§3, §4).
 - **#40:** a loading screen instead of a black screen while the game loads.
 - **#41:** new space-station art on the loading screen.
-- **#42:** plant labels: name a plant after a memory (§3). **Deploy the API before the web app**: an older API refuses to sell labels ("Currently unavailable.").
+- **#42:** plant labels: name a plant after a memory (§3).
+- **#43:** the title screen with the Space Sprout logo; the game renamed Space Sprout; more stars and shooting stars in the sky (§3).
+- **#44** (a Claude agent in `garden-qa-2`): the loading screen's station comes alive (light sweep, beacons, thruster); start-menu skeletons while portraits and station lookups load; every loader animation stops under reduced motion.
 
 **Raúl's session on 2026-11-15 (afternoon to night), in order:** #33 emotes (a HUD wheel iterated with the user against a design concept), #36 room animations in code, #39 decorations. Each feature followed the same pattern: build → check in the Playwright phone window (and frame by frame at 1280×800 for animations) → `/simplify` (4 review agents) → "commit, push and merge".
+
+**Raúl's late-night session, in order:** #42 plant labels (from a design brief plus a sign PNG; the close-up layout was redone once after it overflowed), #43 title screen (the user picked "title screen on every visit" and "rename to Space Sprout", then asked for more stars, a shooting star now and then, then "one every few seconds").
 
 Also on `main` without a PR (chucordova):
 - the new astronaut and the family user;
@@ -58,38 +65,41 @@ Also on `main` without a PR (chucordova):
 - station pets: Bolita the dog, Miso the cat and Rabanito the radish;
 - the start menu itself;
 - touch controls: pad on the left, A button on the right;
-- an Android app (Capacitor) with Health Connect sync at the medical terminal.
+- an Android app (Capacitor) with Health Connect sync at the medical terminal;
+- since #40: the start menu fits every phone; stacked medical-terminal cards; Health Connect steps → exercise minutes; the A button acts on release; `dev:web:railway`; the game stays still when the phone keyboard opens; new turquoise and purple astronaut art (cactus hidden from the start menu); changing suit without a reload; the logo as the browser tab icon (`favicon.ico`) and the Android launcher icon.
 
-**In flight:** nothing on Raúl's checkout. **#43** (title screen): a title screen on every visit with the **Space Sprout** logo (`ChatGPT Image Nov 15, 2026, 04_03_39 PM.png` → `public/assets/brand/space-sprout-logo.webp`, plus 192/512 app icons in the manifest). Play goes into the game, or to the start menu on a first visit; returning players also get "Change player". The game is renamed **Space Sprout** everywhere players read it (page title, loading screen, HUD menu, rotate hint, manifest, Android app name); storage keys keep `jardin-comunal:` so saves survive. The shared sky (`.boot` in `styles.css`, also behind the loading screen) gained two more star layers (pixel sparkles like the logo's on one 1000×640 tile) and two shooting stars on 5.5 s / 8 s timers, about one every 3 s, behind the content and off with reduced motion. Also on `main` without a PR since #40: chucordova's start-menu fit, stacked terminal cards and Health Connect steps → exercise minutes.
+**In flight:** nothing. Raúl's checkout is on `main`, clean.
 
 **Checkouts and who uses them:**
 
 | Where | Who | Notes |
 |---|---|---|
 | `~/Documents/ardencemx/astro-garden` (macOS) | Raúl | Chat in **English**. Dev server on **4200**. Commits as Raul Mendez. |
-| `.claude/worktrees/garden-qa` (same Mac) | another Claude agent | Last on `feat/presence` (#38, merged). Servers on 4201/4202. Never edit, stash or stop anything there; reading is fine. |
-| `.claude/worktrees/garden-qa-2` | another Claude agent | Last on `feat/loading-screen` (#40, merged). Same rules. |
+| `.claude/worktrees/garden-qa` (same Mac) | another Claude agent | On `feat/presence` (merged), at `97aa9d6`. Web servers on 4201, 4203, 4204; **its API runs on 3000 and 3001** from that worktree's build, so it lags `main`. Never edit, stash or stop anything there; reading is fine. |
+| `.claude/worktrees/garden-qa-2` | another Claude agent | On `feat/loading-station-fx` (#44, merged). Web server on 4202. Same rules. |
 | `C:\Users\jesus\Desktop\Astro Garden\astro-garden` (Windows) | chucordova | Chat in **Spanish**. Commits with `git -c user.name=chucordova -c user.email=jesusremedios.cordova@gmail.com commit …`. `npm.cmd`, not `npm`. `apps/web/angular.json` `"analytics": false` stays uncommitted there. |
 
 **Stash on Raúl's checkout:** `stash@{0}` ("handoff edits (garden art session)") holds an old version of this file. It's superseded and can be dropped.
 
 **Running it:**
 - **Web:** `cd web-app && npm install && npm run dev:web` → http://localhost:4200.
-  - The page opens on the start menu: name, suit, astronaut or family, and an optional station key.
-  - `?user=astronaut|family` (optionally with `&suit=`) skips the menu without the API, in dev only.
+  - The page opens on the **title screen** (#43). Play goes into the game; on a first visit it goes on to the start menu (name, suit, astronaut or family, optional station key).
+  - `?user=astronaut|family` (optionally with `&suit=`) skips the start menu without the API, in dev only. The title screen still shows: press Enter.
+  - **`npm run dev:web:railway`** serves the local web against the **Railway** API (a proxy, `proxy.railway.json`). Use it to test signed-in features against the real server.
 - **API:** `cd api && npm install && npm run start:dev` → port 3000.
   - It needs `api/.env` with `DATABASE_URL` (Neon); see `api/.env.example`.
   - Migrations: `npm run migration:run`. The demo station key is `GARDEN`.
-  - The web app finds the API on port 3000 of whatever host served the page.
+  - The web app finds the API on port 3000 of whatever host served the page (`member-session.ts`; a build-time `API_URL` overrides it for Cloudflare and Android).
+  - **On Raúl's Mac, port 3000 is the `garden-qa` agent's API**, not this checkout's. So `npm run dev:web` signs in against older server code: new commands or store items are refused there ("Currently unavailable."). Use `dev:web:railway`, or run this checkout's API on another port.
   - If the API can't be reached, the last session on the device is used.
 - If the user "doesn't see" new work, `ng serve` may be serving a stale bundle after a compile error. Restart it, then hard-reload.
-  - **As of this handoff, Raúl's server on 4200 is stale** (it predates #33). Restart it (`npm run dev:web`). Claude tested on a throwaway `npx ng serve --port 4213` (stopped) rather than restarting the user's server.
+  - **As of this handoff, Raúl's server on 4200 has run since 2026-11-14** and talks to the `garden-qa` API on 3000 (above). Restart it, ideally as `npm run dev:web:railway`. Claude tests on a throwaway `npx ng serve --port 4213` (stopped now) rather than restarting the user's server.
   - Check what's served with `curl -s localhost:4200/<chunk>.js | grep -c <new symbol>`, or in the page by fetching the loaded scripts.
 
 **Checks used every time:**
 - Build (also type-checks templates): `cd web-app/apps/web && npx ng build --configuration development`
 - Unused code: `npx tsc -p tsconfig.app.json --noEmit --noUnusedLocals --noUnusedParameters`. One known, harmless hit: the unused `action` in `plant-closeup.component.ts`.
-- API: `cd api && npm run typecheck`. Its `node_modules` aren't installed on Raúl's checkout yet.
+- API: `cd api && npm run typecheck` (`node_modules` installed on Raúl's checkout since #42; there's no `api/.env` there, so it can't run the server yet).
 - No merge markers: `grep -rn "^<<<<<<<" web-app/apps web-app/tools shared api/src`.
 - Every manifest key has a file:
   ```bash
@@ -105,12 +115,13 @@ shared/src/                     game rules, pure TS, used by web and API (@garde
   contracts/rules|movement|motion.ts   placement, walkability (props block their footprint), free movement, wall margins
   contracts/health|checkin|insights|goals.ts   readings, answer bands → seeds, usual ranges, goals/streaks
   contracts/crew.ts             who asks about what; pets
-  contracts/store|notes|decor|potting.ts      Supply Store, post-its, decorations, potted plants
+  contracts/store|notes|decor|potting|labels.ts   Supply Store, post-its, decorations, potted plants, plant labels
   SUITS, USER_ROLES, Member, station-key rules
 api/src/                        NestJS + TypeORM on Neon: household / member / session; global session guard
 web-app/
   apps/web/src/app/
-    app.ts                      shell; every tap → use() → act()
+    app.ts                      shell; title screen → game; every tap → use() → act()
+    session/                    title-screen, start-menu, current-user, member-session (where the API is)
     habitat/                    HabitatStore (render state, actors), PlayerStore, HUD, panels
     garden/game/                Phaser: habitat.scene.ts, tile-manager.ts (fitToGame), habitat-renderer.ts,
                                 asset-registry.ts, notice-board.ts (board geometry)
@@ -127,8 +138,18 @@ web-app/
   - A key with a `fallback` (prop states) reuses the fallback's delivered art instead.
 - **Phones are landscape-only.** Test at **844×390** and **667×375**; popups have one fixed height and their body scrolls.
 - **No judgement in plants or health.** Seeds come mainly from health habits. The habitat is shared with the family (cooperative).
+- **Every visible string goes through `t()`** (`app/i18n/i18n.ts`), English text as the key. See "Languages" below.
 
-## 3. Rendering and art (Raúl's sessions, PRs #10, #14, #26, #36, #39)
+**Languages (branch `feat/spanish`):** English and Spanish, switched live from the ⋯ menu (EN / ES).
+- `LANG` signal, saved in `space-sprout:lang`; with nothing saved it follows the device. `index.html` has a tiny inline script that does the same for the first-paint loading text.
+- `t('Playing as {name}', { name })` returns the Spanish entry from `i18n/es/*.ts` (`core`, `garden`, `health`, `crew`, merged in `es/index.ts`). It reads `LANG`, so call it in templates or `computed`s, never in a field set once.
+- `shared/` stays English (the server uses it); the screen translates its strings (`t(item.name)`). Item and plant names, with their articles ("the lettuce" → "la lechuga") and seed/potted forms, are generated from noun tables in `es/garden.ts`.
+- One English word with two meanings takes a context after `|`: `'Water|verb'` shows "Water" / "Regar".
+- Style the user asked for: concise, faithful to the meaning rather than literal; neutral Mexican Spanish with tú. Keep decoration phrases gender-neutral (decorations are both genders).
+- In dev, a missing entry logs `[i18n] no Spanish for: …` once. Check that two dictionaries don't give one key different values (they merge silently; the last one wins).
+- Not translated: crew, pet and player names; server validation messages other than the known ones; a crew line already on screen stays in its language until the next line.
+
+## 3. Rendering and art (Raúl's sessions, PRs #10, #14, #26, #36, #39, #42, #43)
 
 **Grid:** a tile is **32 px** in game and a room is 24×16 tiles = **768×512**. Art is delivered and stored at **2×**: 64 px per tile, rooms 1536×1024.
 
@@ -168,6 +189,12 @@ web-app/
 - Room: a little sign (`plant-label-mini`, 26×13) at every named plant's front-left. The big sign with the name opens for every named plant within reach, and the one under the pointer. It's a fixed size on screen like the name tags; plants in the top row show it under them, clear of the HUD.
 - Close-up: the sign stands in the plant's soil, over its foot (absolutely placed, so the fixed-height popup never grows). Unnamed plants show it faded with "🏷️ Name it" (or "🛒 Get a label" when none are owned). Tap it to write; ✓ / ✕ beside it, Enter saves, Esc cancels without closing; an empty name shows 🗑️ and takes the label off. The name is sized to fill the panel (`--chars` + container units).
 - Pre-existing, not from labels: at 667×375 the close-up body runs 16 px over (the "Pot it" row).
+- Testing labels signed in needs an API with #42 (Railway has it; the `garden-qa` API on 3000 doesn't).
+
+**Title screen and sky** (PR #43):
+- `session/title-screen.component.ts`, shown on every visit (`App.title`), above the loading screen (z 45). Logo `public/assets/brand/space-sprout-logo.webp` (640 px, from `ChatGPT Image Nov 15, 2026, 04_03_39 PM.png`, trimmed; its alpha is 250–254 almost everywhere and `trim` rounds that to opaque). ▶ Play is focused (Enter plays); returning players see "Playing as …" and Change player. Keys don't reach the game while it's up.
+- Manifest icons `assets/brand/icon-192.png` / `icon-512.png` (+ apple-touch-icon). chucordova separately made `favicon.ico` and the Android launcher icons from the logo.
+- **The sky** is `.boot` in `styles.css`, shared by `index.html`'s first paint, the loading screen and the title screen: the original 14 stars, `::before` a field of small dots (211×173 tile), `::after` pixel sparkles like the logo's on one 1000×640 SVG tile (so the repeat doesn't show). Shooting stars are `.boot::before/::after`: 5.5 s and 8 s timers, one from the top right falling left, one from the top middle falling right, each visible for the first 14% of its timer; content sits in front (`z-index: 1` on `.boot-body` / `.title-body`). Reduced motion hides them (#44 also stops the rest).
 
 **Garden (PR #10):**
 - Room art from `Jardin_Comunal_Layout_Tiles_128px_CORREGIDOS.zip`.
@@ -290,6 +317,8 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
   - Uses `/simplify`: report what was fixed and what was skipped.
   - Iterates on looks in short steps ("better but not quite there", "now blue", "the circle pink"). Make the change, screenshot it, and say what changed; when a request is vague ("more ui wise"), make a concrete polish pass rather than a long question.
   - Asks for `/simplify` after each feature, then "commit, push and merge"; keeps `HANDOFF.md` current in each PR.
+  - Often adds to a request while it's being built ("add stars" → "a shooting star now and then" → "one every few seconds"). Fold each into the work in progress, show a screenshot, and keep going; "commit, push and merge once you are done" means after the last of them.
+  - New features start from a design brief or a PNG in `~/Downloads` ("it's on the downloads under chatgpt-something"): find the newest match with `ls -lt ~/Downloads`.
 - **chucordova**
   - Pushes straight to `main` after checking for conflicts.
   - Wants to watch tests in Chrome (Claude in Chrome extension).
@@ -307,6 +336,8 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
 - **Sprite checks:** compose the PNG over the room's floor next to the astronaut (`characters/player-astronaut-black-down-3.png`, 72 px wide at 2×) and look at it before placing. Then screenshot the room with the astronaut standing next to the new piece.
 - **Reachability:** after moving props, flood-fill the room's walkable tiles from the door (layout minus prop footprints) and check none are cut off. The Medical Bay has 218, all reachable.
 - **Animation checks:** take 4–5 screenshots ~450 ms apart at 1280×800 and crop each animated piece into one strip (Pillow in a throwaway venv). Two frames often miss a glow's peak.
+  - For rare CSS animations (shooting stars), seek instead of waiting: `document.getAnimations()` includes pseudo-elements; filter by `animationName` and `effect.pseudoElement`, `pause()`, set `currentTime`, screenshot, then `play()`.
+- **Labels:** `garden.buy('plant-label')`, then `garden.labelPlant(plantId, text)`; stand next to a named plant (`player.position.set({ room: 'GARDEN', x, y })`) to open its sign. A plain "nearest thing in reach" won't do: the empty plot beside a plant often wins.
 - **Decorations:** give seeds by editing the save (`balance` in `jardin-comunal:garden:v9`) and reloading, then `garden.buy(id)` and `garden.placeDecor(id, 'SOCIAL', {x, y})`; it returns `{ ok, error }` (e.g. `TILE_OCCUPIED`, `WRONG_SURFACE`). Wall decorations go on row 1.
 - Zoneless Angular: wait about 300 ms after a click before reading the DOM.
 - `localStorage.clear()` + reload gives the seeded demo (dev stand-in only; signed-in players use the server). The garden save key is `jardin-comunal:garden:v9`.
@@ -325,17 +356,20 @@ Pillow isn't installed system-wide on the Mac: use a throwaway venv (`python3 -m
   - The 5 new items (terrarium 14, holo globe 22, keepsake shelf 16, memory board 12, galaxy lamp 18) got names and prices from Claude; confirm with the user. Their store cards are the sprite fitted, since no minis were drawn.
   - Decorations are allowed in the Social Space only (`DECOR_ROOMS`).
 - **Social Space back wall:** the empty middle, under the Earth window, could take the unused hanging baskets or wall shelf from `Jardin_Comunal_Planters_and_Pots_Sprites.zip`.
-- **Devices:** not tested on real phones. No app icons.
+- **Devices:** not tested on real phones (app icons exist since #43).
+- **Plant labels:** potting or harvesting a plant drops its label, since a potted plant is only an inventory count. Keeping it would mean storing potted plants one by one. Not asked yet.
+- **Plant close-up at 667×375:** the body runs 16 px over (the "Pot it" row); it was like that before labels.
 
 ## 9. Suggested next steps
 
-1. Restart the dev server on 4200, and drop `stash@{0}` on Raúl's checkout (an old copy of this file).
-2. Confirm the 5 new decorations' names and prices, and whether wall decorations should hang lower (§8).
-3. Animation frames: if the design team draws any, ask for PNG frames of only the moving part plus its position on the picture (like the windows), packed one sheet per room. Code effects stay for lights and screens (they cost almost nothing).
-4. Medical Bay polish:
+1. Restart Raúl's dev server on 4200 (as `npm run dev:web:railway` to sign in against Railway), and drop `stash@{0}` on his checkout (an old copy of this file).
+2. Ask whether a potted plant should keep its label (§8), and fix the 16 px close-up overflow at 667×375.
+3. Confirm the 5 new decorations' names and prices, and whether wall decorations should hang lower (§8).
+4. Animation frames: if the design team draws any, ask for PNG frames of only the moving part plus its position on the picture (like the windows), packed one sheet per room. Code effects stay for lights and screens (they cost almost nothing).
+5. Medical Bay polish:
    - the ~20% furniture size test, with before/after side by side;
    - place or drop the side-view bench;
    - ask the design team for per-state terminal and insights pictures.
-5. Confirm the open check-in questions and the "mid-stride" report with chucordova.
-6. The family role on the server (what family members see and can do, now that health is private).
-7. Demo prep: seed data, a 2–3 minute script, app icons. The web app and API are already deployed.
+6. Confirm the open check-in questions and the "mid-stride" report with chucordova.
+7. The family role on the server (what family members see and can do, now that health is private).
+8. Demo prep: seed data and a 2–3 minute script. Web, API and app icons are done.

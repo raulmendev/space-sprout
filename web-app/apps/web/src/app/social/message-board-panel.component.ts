@@ -6,7 +6,7 @@ import { NotesStore } from './notes.store';
 import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
 import { timeAgo } from '../health/format';
-import { plural } from '../shared/format';
+import { t } from '../i18n/i18n';
 
 /** How long "Tap again to take it down" stays armed (same as harvesting a plant). */
 const CONFIRM_MS = 4000;
@@ -30,11 +30,11 @@ const CONFIRM_MS = 4000;
 
     <p class="info">
       <span class="info-icon" aria-hidden="true">i</span>
-      Notes between orbit and home, up to {{ max }} characters each. Draft: they stay in this browser until syncing arrives.
+      {{ t('Notes between orbit and home, up to {max} characters each. Draft: they stay in this browser until syncing arrives.', { max }) }}
     </p>
 
     @if (notes.newestFirst().length) {
-      <ul class="notes" aria-label="Notes, newest first">
+      <ul class="notes" [attr.aria-label]="t('Notes, newest first')">
         @for (note of notes.newestFirst(); track note.id; let i = $index) {
           <li [style.rotate.deg]="tilt[i % tilt.length]">
             <button type="button" class="note" [id]="'note-' + note.id" [style.background]="color(note)" (click)="reading.set(note)">
@@ -44,23 +44,23 @@ const CONFIRM_MS = 4000;
         }
       </ul>
     } @else {
-      <p class="empty">No notes yet. Write the first one!</p>
+      <p class="empty">{{ t('No notes yet. Write the first one!') }}</p>
     }
 
     @if (reading(); as note) {
       <!-- One note, full size, over the cork. -->
       <div class="reader">
-        <article class="note open" [style.background]="color(note)" aria-label="Note">
+        <article class="note open" [style.background]="color(note)" [attr.aria-label]="t('Note')">
           <ng-container [ngTemplateOutlet]="noteBody" [ngTemplateOutletContext]="{ $implicit: note }" />
         </article>
         <div class="flex flex-wrap items-center justify-center gap-2">
-          <button #readerClose type="button" class="cancel soft-btn btn-press" (click)="closeReader()">Back to the board</button>
+          <button #readerClose type="button" class="cancel soft-btn btn-press" (click)="closeReader()">{{ t('Back to the board') }}</button>
           @if (notes.canTakeDown(note)) {
             <button type="button" class="take-down btn-press" [class.confirm]="confirmTakeDown()" (click)="takeDown(note)">
-              {{ confirmTakeDown() ? 'Tap again to take it down' : '🗑️ Take down' }}
+              {{ confirmTakeDown() ? t('Tap again to take it down') : t('🗑️ Take down') }}
             </button>
           } @else {
-            <span class="text-xs font-bold text-cream">Only the {{ author(note).toLowerCase() }} can take this note down.</span>
+            <span class="text-xs font-bold text-cream">{{ t('Only the {name} can take this note down.', { name: author(note).toLowerCase(), who: author(note) }) }}</span>
           }
         </div>
       </div>
@@ -78,25 +78,25 @@ const CONFIRM_MS = 4000;
 
     <form class="tray" (submit)="$event.preventDefault(); pin()">
       @if (writing()) {
-        <label for="note-text" class="sr-only">Your note</label>
+        <label for="note-text" class="sr-only">{{ t('Your note') }}</label>
         <textarea
           #noteText
           id="note-text"
           rows="2"
           [attr.maxlength]="max"
-          placeholder="Write something for home…"
+          [placeholder]="t('Write something for home…')"
           [value]="draft()"
           (input)="draft.set($any($event.target).value)"
         ></textarea>
         <div class="flex gap-2">
-          <button type="button" class="cancel soft-btn btn-press" (click)="cancel()">Cancel</button>
-          <button type="submit" class="chunky-btn btn-press" [disabled]="!draft().trim() || busy()">📌 Pin note</button>
+          <button type="button" class="cancel soft-btn btn-press" (click)="cancel()">{{ t('Cancel') }}</button>
+          <button type="submit" class="chunky-btn btn-press" [disabled]="!draft().trim() || busy()">{{ t('📌 Pin note') }}</button>
         </div>
       } @else if (postIts()) {
-        <button type="button" class="chunky-btn btn-press write" (click)="writing.set(true)">✏️ Write a note</button>
+        <button type="button" class="chunky-btn btn-press write" (click)="writing.set(true)">{{ t('✏️ Write a note') }}</button>
       } @else {
         <!-- Out of post-its: the button takes you to where they are (walks over, opens the store's Messages tab). -->
-        <button type="button" class="chunky-btn btn-press write" (click)="habitat.visit('STORE_SELECTED', 'MESSAGES')">🛒 Get post-its at the Supply Store</button>
+        <button type="button" class="chunky-btn btn-press write" (click)="habitat.visit('STORE_SELECTED', 'MESSAGES')">{{ t('🛒 Get post-its at the Supply Store') }}</button>
       }
       <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-bark/75">
         <span class="font-bold text-bark-dark">📝 {{ postItsLabel() }}</span>
@@ -303,11 +303,12 @@ export class MessageBoardPanelComponent {
   protected readonly garden = inject(GardenStore);
   protected readonly habitat = inject(HabitatStore);
   private readonly injector = inject(Injector);
+  protected readonly t = t;
   protected readonly max = NOTE_RULES.maxLength;
   protected readonly ago = timeAgo;
   /** Post-its in the household inventory. */
   protected readonly postIts = computed(() => owned(this.garden.inventory(), POST_IT));
-  protected readonly postItsLabel = computed(() => plural(this.postIts(), 'post-it'));
+  protected readonly postItsLabel = computed(() => (this.postIts() === 1 ? t('1 post-it') : t('{n} post-its', { n: this.postIts() })));
   protected readonly tilt = [-1.5, 1, 1.5, -1, -0.5, 1.5, 1, -1.5];
 
   protected readonly writing = signal(false);
@@ -319,9 +320,10 @@ export class MessageBoardPanelComponent {
   protected readonly confirmTakeDown = signal(false);
   private confirmTimer?: ReturnType<typeof setTimeout>;
 
-  private readonly message = signal('');
+  /** The latest result, worded when shown (so it follows a language change). */
+  private readonly message = signal<() => string>(() => '');
   /** Out of post-its: say where to get more. Otherwise the latest result. */
-  protected readonly status = computed(() => (this.postIts() ? this.message() : 'Out of post-its. The Supply Store, in this room, has more.'));
+  protected readonly status = computed(() => (this.postIts() ? this.message()() : t('Out of post-its. The Supply Store, in this room, has more.')));
 
   private readonly noteText = viewChild<ElementRef<HTMLTextAreaElement>>('noteText');
   private readonly readerClose = viewChild<ElementRef<HTMLButtonElement>>('readerClose');
@@ -356,10 +358,11 @@ export class MessageBoardPanelComponent {
     const failed = await this.notes.post(this.draft());
     this.busy.set(false);
     if (failed) {
-      this.message.set(failureText({ OUT_OF_POST_ITS: 'You need a post-it to pin this note.', EMPTY_NOTE: 'Write something first.' }, failed));
+      this.message.set(() => failureText({ OUT_OF_POST_ITS: t('You need a post-it to pin this note.'), EMPTY_NOTE: t('Write something first.') }, failed));
       return;
     }
-    this.message.set(`Pinned! ${this.postItsLabel()} left.`);
+    const left = this.postIts();
+    this.message.set(() => (left === 1 ? t('Pinned! 1 post-it left.') : t('Pinned! {n} post-its left.', { n: left })));
     this.cancel();
   }
 
@@ -387,7 +390,7 @@ export class MessageBoardPanelComponent {
       return;
     }
     const failed = await this.notes.takeDown(note);
-    this.message.set(failed ? failureText({ NOT_YOURS: 'Only whoever pinned it can take it down.' }, failed) : 'Note taken down.');
+    this.message.set(() => (failed ? failureText({ NOT_YOURS: t('Only whoever pinned it can take it down.') }, failed) : t('Note taken down.')));
     this.closeReader();
   }
 

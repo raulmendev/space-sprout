@@ -1,5 +1,6 @@
 import { Component, ElementRef, afterNextRender, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { CARE_PAST } from '../care-labels';
+import { t } from '../../i18n/i18n';
 import { seeds, whoDid } from '../../shared/format';
 import { LABEL_RULES, labelText, plantStages, type CareAction, type CareCheck, type CareEvent, type PlantStage } from '@garden/shared';
 import type { CloseupInfo } from '../garden.store';
@@ -12,7 +13,7 @@ const SOIL_OVERFLOW = 12;
 
 /** Radial layout: one action in each corner around the plant (DOM order = reading order). */
 const ACTIONS: { id: CareAction; label: string; icon: string; spot: 'tl' | 'tr' | 'bl' | 'br' }[] = [
-  { id: 'WATER', label: 'Water', icon: '💧', spot: 'tl' },
+  { id: 'WATER', label: 'Water|verb', icon: '💧', spot: 'tl' },
   { id: 'PRUNE', label: 'Prune', icon: '✂️', spot: 'tr' },
   { id: 'FERTILIZE', label: 'Fertilize', icon: '✨', spot: 'bl' },
   { id: 'HARVEST', label: 'Harvest', icon: '🧺', spot: 'br' },
@@ -42,11 +43,11 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
         <header class="flex shrink-0 items-start justify-between gap-2">
           <div>
             <!-- Initial focus lands on the title (like the station panels), not on a button. -->
-            <h2 id="closeup-title" tabindex="-1" autofocus class="font-pixel text-2xl leading-tight outline-none short:text-xl">{{ info().item.name }}</h2>
+            <h2 id="closeup-title" tabindex="-1" autofocus class="font-pixel text-2xl leading-tight outline-none short:text-xl">{{ t(info().item.name) }}</h2>
             <p class="flex flex-wrap items-center gap-x-2 text-sm font-bold text-leaf-dark">
               <span><span class="mr-1" aria-hidden="true">{{ stageEmoji() }}</span>{{ headline() }}</span>
               @if (info().thriving) {
-                <span class="rounded bg-sun/50 px-1.5 text-[11px] font-bold uppercase tracking-wide text-bark-dark">✨ Thriving</span>
+                <span class="rounded bg-sun/50 px-1.5 text-[11px] font-bold uppercase tracking-wide text-bark-dark">{{ t('✨ Thriving') }}</span>
               }
             </p>
           </div>
@@ -55,18 +56,18 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
               type="button"
               class="round-btn"
               [class.on]="showDetails()"
-              aria-label="Plant details"
+              [attr.aria-label]="t('Plant details')"
               aria-controls="closeup-details"
               [attr.aria-expanded]="showDetails()"
               (click)="showDetails.set(!showDetails())"
             >ⓘ</button>
-            <button type="button" class="round-btn" aria-label="Close" (click)="dialog.close()">✕</button>
+            <button type="button" class="round-btn" [attr.aria-label]="t('Close')" (click)="dialog.close()">✕</button>
           </div>
         </header>
 
         <!-- The popup has a fixed height: the header stays put and everything below scrolls. -->
         <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain short:gap-2">
-        <section class="stage" [class.thriving]="info().thriving" aria-label="Plant and care">
+        <section class="stage" [class.thriving]="info().thriving" [attr.aria-label]="t('Plant and care')">
           <div class="halo" aria-hidden="true"></div>
           <div class="plant-spot" [style.height.px]="sceneH">
             @if (!ownSoil()) {
@@ -75,7 +76,7 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
             <img
               #plantImg
               [src]="plant()"
-              [alt]="info().item.name"
+              [alt]="t(info().item.name)"
               class="plant"
               [class.pixelated]="!delivered()"
               [class.still]="ownSoil()"
@@ -108,8 +109,8 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
                     [style.--chars]="draftChars()"
                     [value]="draft()"
                     [attr.maxlength]="maxLength"
-                    placeholder="Birth of Johanna"
-                    aria-label="Name on the label"
+                    [placeholder]="t('Birth of Johanna')"
+                    [attr.aria-label]="t('Name on the label')"
                     enterkeyhint="done"
                     autocomplete="off"
                     (input)="draft.set(nameInput.value)"
@@ -124,14 +125,14 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
               </div>
               @if (editing()) {
                 <span class="sign-tools">
-                  <button type="button" class="round-btn ok" [attr.aria-label]="clearing() ? 'Take the label off' : 'Save the name'" (click)="save()">{{ clearing() ? '🗑️' : '✓' }}</button>
-                  <button type="button" class="round-btn" aria-label="Cancel" (click)="cancel()">✕</button>
+                  <button type="button" class="round-btn ok" [attr.aria-label]="clearing() ? t('Take the label off') : t('Save the name')" (click)="save()">{{ clearing() ? '🗑️' : '✓' }}</button>
+                  <button type="button" class="round-btn" [attr.aria-label]="t('Cancel')" (click)="cancel()">✕</button>
                 </span>
               }
             </div>
           </div>
 
-          <div class="actions" role="group" aria-label="Care">
+          <div class="actions" role="group" [attr.aria-label]="t('Care')">
             @for (a of actions; track a.id) {
               @let c = info().actions[a.id];
               @let confirm = confirming() && a.id === 'HARVEST';
@@ -142,24 +143,24 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
                 [class.confirm]="confirm"
                 [class.nudge]="a.id === 'WATER' && info().thirsty"
                 [disabled]="!c.ok"
-                [attr.aria-label]="(confirm ? 'Confirm harvest' : a.label) + ', ' + hint(a.id, c)"
+                [attr.aria-label]="(confirm ? t('Confirm harvest') : t(a.label)) + ', ' + hint(a.id, c)"
                 (click)="act(a.id)"
               >
                 <span class="disc"><span aria-hidden="true">{{ a.icon }}</span></span>
-                <span class="label">{{ confirm ? 'Sure?' : a.label }}</span>
-                <span class="hint" [class.good]="c.ok && !confirm">{{ confirm ? 'Tap again' : hint(a.id, c) }}</span>
+                <span class="label">{{ confirm ? t('Sure?') : t(a.label) }}</span>
+                <span class="hint" [class.good]="c.ok && !confirm">{{ confirm ? t('Tap again') : hint(a.id, c) }}</span>
               </button>
             }
           </div>
         </section>
 
         @if (confirming()) {
-          <p class="rounded-md bg-parchment/70 p-2 text-center text-xs">🧺 Harvesting frees the plot for something new.</p>
+          <p class="rounded-md bg-parchment/70 p-2 text-center text-xs">{{ t('🧺 Harvesting frees the plot for something new.') }}</p>
         }
 
         <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
           <p class="text-center text-sm" [class]="info().thirsty ? 'font-bold text-sky-700' : 'text-bark'" role="status">
-            💧 {{ info().thirsty ? 'Thirsty. A drink would help.' : 'Last watered ' + ago(info().object.care?.lastWateredAt) }}
+            💧 {{ info().thirsty ? t('Thirsty. A drink would help.') : t('Last watered {when}', { when: ago(info().object.care?.lastWateredAt) }) }}
           </p>
           <!-- Grown plants can move indoors: potting takes it out of the plot and into the inventory. -->
           @if (info().stage === 'MATURE') {
@@ -167,7 +168,7 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
             <button type="button" class="pot" [disabled]="!info().pots" aria-describedby="pot-hint" (click)="pot.emit()">
               <span class="disc"><span aria-hidden="true">🪴</span></span>
               <span class="flex flex-col items-start text-left">
-                <span class="label">Pot it</span>
+                <span class="label">{{ t('Pot it') }}</span>
                 <span id="pot-hint" class="text-xs font-semibold text-bark">{{ potHint() }}</span>
               </span>
             </button>
@@ -175,32 +176,32 @@ const STAGE_EMOJI: Record<PlantStage, string> = { SEED: '🌰', SPROUT: '🌱', 
         </div>
 
         @if (showDetails()) {
-          <section id="closeup-details" class="flex flex-col gap-2 rounded-lg border-2 border-bark/15 p-3 text-sm" aria-label="Details">
-            <p class="text-bark">{{ info().item.description }}</p>
+          <section id="closeup-details" class="flex flex-col gap-2 rounded-lg border-2 border-bark/15 p-3 text-sm" [attr.aria-label]="t('Details')">
+            <p class="text-bark">{{ t(info().item.description) }}</p>
             <div>
               <p class="font-bold">
-                {{ stageName() }} · stage {{ stageIndex() + 1 }} of {{ stageCount() }}
-                @if (info().msToMature > 0) { <span class="font-normal text-bark/70">· fully grown in {{ countdown() }}</span> }
+                {{ t('{stage} · stage {i} of {n}', { stage: stageName(), i: stageIndex() + 1, n: stageCount() }) }}
+                @if (info().msToMature > 0) { <span class="font-normal text-bark/70">{{ t('· fully grown in {time}', { time: countdown() }) }}</span> }
               </p>
               @if (info().msToMature > 0) {
-                <div class="mt-1 h-2.5 overflow-hidden rounded-full border-2 border-bark-dark bg-parchment" role="progressbar" aria-label="Growth" [attr.aria-valuenow]="progressPct()" aria-valuemin="0" aria-valuemax="100">
+                <div class="mt-1 h-2.5 overflow-hidden rounded-full border-2 border-bark-dark bg-parchment" role="progressbar" [attr.aria-label]="t('Growth')" [attr.aria-valuenow]="progressPct()" aria-valuemin="0" aria-valuemax="100">
                   <div class="h-full bg-leaf transition-[width] duration-1000 ease-linear" [style.width.%]="progressPct()"></div>
                 </div>
               }
             </div>
             @if (info().capReached) {
-              <p class="rounded-md bg-parchment/70 p-2 text-xs">🌱 You've collected today's garden seeds. Care still helps it grow.</p>
+              <p class="rounded-md bg-parchment/70 p-2 text-xs">{{ t("🌱 You've collected today's garden seeds. Care still helps it grow.") }}</p>
             }
             <div>
-              <h3 class="font-bold">Care history</h3>
+              <h3 class="font-bold">{{ t('Care history') }}</h3>
               <ul class="mt-1 flex flex-col gap-1">
                 <li class="flex justify-between gap-2">
-                  <span>Planted by {{ who(info().object.placedBy, info().object.placedByName) }}</span>
+                  <span>{{ t('Planted by {who}', { who: who(info().object.placedBy, info().object.placedByName) }) }}</span>
                   <span class="shrink-0 text-xs text-bark/70">{{ planted() }}</span>
                 </li>
                 @for (e of recent(); track e.at + e.action) {
                   <li class="flex justify-between gap-2">
-                    <span>{{ past(e) }} by {{ who(e.by, e.byName) }}</span>
+                    <span>{{ past(e) }}</span>
                     <span class="shrink-0 text-xs text-bark/70">{{ ago(e.at) }}</span>
                   </li>
                 }
@@ -420,14 +421,14 @@ export class PlantCloseupComponent {
   /** What the sign says: the plant's name, or an offer to name it (and where labels come from). */
   protected readonly signText = computed(() => {
     const { object, labels } = this.info();
-    return object.label ?? (labels ? '🏷️ Name it' : '🛒 Get a label');
+    return object.label ?? (labels ? t('🏷️ Name it') : t('🛒 Get a label'));
   });
   /** Its length, for sizing it to fill the panel. */
   protected readonly signChars = computed(() => [...this.signText()].length);
   protected readonly signLabel = computed(() => {
     const { object, labels } = this.info();
-    if (object.label) return `Label: ${object.label}. Rename`;
-    return labels ? `Name this plant (uses a plant label, ${labels} left)` : 'Name this plant: plant labels are sold at the Supply Store';
+    if (object.label) return t('Label: {name}. Rename', { name: object.label });
+    return labels ? t('Name this plant (uses a plant label, {n} left)', { n: labels }) : t('Name this plant: plant labels are sold at the Supply Store');
   });
   /** The draft's length for sizing it, never below a short name's so the first letters aren't huge. */
   protected readonly draftChars = computed(() => Math.max(10, [...this.draft()].length + 1));
@@ -453,9 +454,10 @@ export class PlantCloseupComponent {
   }
 
   protected readonly potHint = computed(() =>
-    this.info().pots ? `Uses a clay pot (${this.info().pots} left)` : '🛒 Clay pots are sold at the Supply Store',
+    this.info().pots ? t('Uses a clay pot ({n} left)', { n: this.info().pots }) : t('🛒 Clay pots are sold at the Supply Store'),
   );
 
+  protected readonly t = t;
   protected readonly actions = ACTIONS;
   protected readonly particles = Array.from({ length: 8 }, (_, i) => ({ x: 30 + ((i * 37) % 40), y: 15 + ((i * 23) % 35), d: i * 60 }));
   protected readonly fx = signal<{ action: CareAction } | null>(null);
@@ -499,11 +501,13 @@ export class PlantCloseupComponent {
   protected readonly stageCount = computed(() => this.stageIds().length);
   protected readonly stageIndex = computed(() => this.stageIds().indexOf(this.info().stage));
   protected readonly stageEmoji = computed(() => STAGE_EMOJI[this.info().stage]);
-  protected readonly stageName = computed(() => this.info().item.stageLabels?.[this.info().stage] ?? STAGE_LABELS[this.info().stage]);
+  /** The stage's English name (compared against STAGE_LABELS); shown through `t()`. */
+  private readonly stageEn = computed(() => this.info().item.stageLabels?.[this.info().stage] ?? STAGE_LABELS[this.info().stage]);
+  protected readonly stageName = computed(() => t(this.stageEn()));
   /** "Blooming · Fully grown", "Seed · grown in 1m 20s"; plain "Fully grown" when the stage is just "Grown". */
   protected readonly headline = computed(() => {
-    if (this.info().msToMature > 0) return `${this.stageName()} · grown in ${this.countdown()}`;
-    return this.stageName() === STAGE_LABELS.MATURE ? 'Fully grown' : `${this.stageName()} · Fully grown`;
+    if (this.info().msToMature > 0) return t('{stage} · grown in {time}', { stage: this.stageName(), time: this.countdown() });
+    return this.stageEn() === STAGE_LABELS.MATURE ? t('Fully grown') : t('{stage} · Fully grown', { stage: this.stageName() });
   });
   protected readonly progressPct = computed(() => Math.round(this.info().progress * 100));
 
@@ -549,17 +553,18 @@ export class PlantCloseupComponent {
 
   /** Small line under each action: payout, cost, wait, or why it's unavailable. */
   protected hint(action: CareAction, c: CareCheck): string {
-    if (c.error === 'COOLDOWN') return 'In ' + this.duration(c.readyInMs ?? 0);
-    if (c.error) return BLOCKED[c.error] ?? 'Unavailable';
-    if (c.uses) return `${this.info().fertilizer} left`;
+    if (c.error === 'COOLDOWN') return t('In {time}', { time: this.duration(c.readyInMs ?? 0) });
+    if (c.error) return t(BLOCKED[c.error] ?? 'Unavailable');
+    if (c.uses) return t('{n} left', { n: this.info().fertilizer });
     if (c.reward) return `+${seeds(c.reward)}`;
-    return 'Ready';
+    return t('Ready');
   }
 
   protected readonly recent = computed(() => this.info().log.slice(0, 3));
 
+  /** "Watered by you" (Spanish: "Riego: tú"). */
   protected past(e: CareEvent): string {
-    return CARE_PAST[e.action];
+    return t(`${CARE_PAST[e.action]} by {who}`, { who: this.who(e.by, e.byName) });
   }
 
   protected who(id: string | undefined, name: string | undefined): string {
@@ -568,10 +573,10 @@ export class PlantCloseupComponent {
 
   /** Relative time against the shared growth clock. */
   protected ago(iso: string | undefined): string {
-    if (!iso) return 'never';
+    if (!iso) return t('never');
     const now = Date.parse(this.info().object.createdAt) + this.info().ageMs;
     const s = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
-    return s < 60 ? 'just now' : this.duration(s * 1000, Math.floor) + ' ago';
+    return s < 60 ? t('just now') : t('{time} ago', { time: this.duration(s * 1000, Math.floor) });
   }
 
   /** Waits round up ("in 4h" until it's really ready); "ago" rounds down so it matches "planted". */
@@ -589,11 +594,11 @@ export class PlantCloseupComponent {
 
   protected readonly planted = computed(() => {
     const s = Math.floor(this.info().ageMs / 1000);
-    if (s < 60) return 'just now';
-    if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-    if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+    if (s < 60) return t('just now');
+    if (s < 3600) return t('{n}m ago', { n: Math.floor(s / 60) });
+    if (s < 86400) return t('{n}h ago', { n: Math.floor(s / 3600) });
     const days = Math.floor(s / 86400);
-    return days === 1 ? 'yesterday' : `${days} days ago`;
+    return days === 1 ? t('yesterday') : t('{n} days ago', { n: days });
   });
 }
 

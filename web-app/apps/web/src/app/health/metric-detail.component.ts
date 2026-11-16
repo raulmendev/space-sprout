@@ -2,7 +2,8 @@ import { Component, ElementRef, computed, effect, inject, input, output, signal,
 import { GOALS, HABIT_REWARD, HealthMetric, METRICS, aboutFor, clampGoal, dayOf, goalTarget, isGoalMetric } from '@garden/shared';
 import { HealthStore } from './health.store';
 import { TrendChartComponent } from './trend-chart.component';
-import { METRIC_ICON, SOURCE_LABEL, comparisonText, dayLabel, formatAmount, formatRange, formatValue } from './format';
+import { METRIC_ICON, SOURCE_LABEL, comparisonText, dayLabel, formatAmount, formatRange, formatValue, locale } from './format';
+import { t } from '../i18n/i18n';
 import { ROLE } from '../session/current-user';
 
 const WINDOWS = [7, 30] as const;
@@ -17,49 +18,49 @@ const WINDOWS = [7, 30] as const;
   host: { class: 'flex min-h-0 flex-col gap-2', '(keydown.escape)': 'onEscape($event)' },
   template: `
     <header class="flex flex-wrap items-center gap-2">
-      <button #backBtn type="button" class="back soft-btn btn-press" (click)="back.emit()">← All metrics</button>
-      <h3 class="flex items-center gap-1.5 text-lg font-extrabold"><span aria-hidden="true">{{ icon[metric()] }}</span>{{ def().label }}</h3>
-      <div role="tablist" aria-label="Period" class="ml-auto grid grid-cols-2 gap-1.5">
+      <button #backBtn type="button" class="back soft-btn btn-press" (click)="back.emit()">← {{ t('All metrics') }}</button>
+      <h3 class="flex items-center gap-1.5 text-lg font-extrabold"><span aria-hidden="true">{{ icon[metric()] }}</span>{{ t(def().label) }}</h3>
+      <div role="tablist" [attr.aria-label]="t('Period')" class="ml-auto grid grid-cols-2 gap-1.5">
         @for (n of windows; track n) {
-          <button type="button" role="tab" class="console-tab btn-press period" [attr.aria-selected]="days() === n" (click)="days.set(n)">{{ n }} days</button>
+          <button type="button" role="tab" class="console-tab btn-press period" [attr.aria-selected]="days() === n" (click)="days.set(n)">{{ t('{n} days', { n }) }}</button>
         }
       </div>
     </header>
 
     <div class="split grid min-h-0 gap-2 @2xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <section class="card riveted-card flex flex-col gap-1" aria-label="Chart">
+      <section class="card riveted-card flex flex-col gap-1" [attr.aria-label]="t('Chart')">
         <app-trend-chart [metric]="metric()" [days]="s().days" [usual]="s().usual" [goal]="goal()" size="large" />
         <p class="text-xs text-bark/80">
-          <span class="key band-key" aria-hidden="true"></span>Your usual{{ usualRange() ? ': ' + usualRange() : '' }}
-          @if (goal() !== null) { <span class="ml-2"><span class="key goal-key" aria-hidden="true"></span>Your goal</span> }
+          <span class="key band-key" aria-hidden="true"></span>{{ t('Your usual') }}{{ usualRange() ? ': ' + usualRange() : '' }}
+          @if (goal() !== null) { <span class="ml-2"><span class="key goal-key" aria-hidden="true"></span>{{ t('Your goal') }}</span> }
         </p>
       </section>
 
       <div class="flex min-h-0 flex-col gap-2">
         <dl class="stats">
-          <div><dt>Latest</dt><dd>{{ s().latest ? amount(s().latest!.value) : '—' }}</dd></div>
+          <div><dt>{{ t('Latest') }}</dt><dd>{{ s().latest ? amount(s().latest!.value) : '—' }}</dd></div>
           @if (s().total !== null) {
-            <div><dt>{{ days() }}-day total</dt><dd>{{ amount(s().total!) }}</dd></div>
+            <div><dt>{{ t('{n}-day total', { n: days() }) }}</dt><dd>{{ amount(s().total!) }}</dd></div>
           } @else {
-            <div><dt>Average</dt><dd>{{ s().average !== null ? amount(s().average!) : '—' }}</dd></div>
+            <div><dt>{{ t('Average') }}</dt><dd>{{ s().average !== null ? amount(s().average!) : '—' }}</dd></div>
           }
-          <div><dt>Highest</dt><dd>{{ s().highest ? amount(s().highest!.value) : '—' }}<small>{{ s().highest ? dayLabel(s().highest!.day) : '' }}</small></dd></div>
-          <div><dt>Lowest</dt><dd>{{ s().lowest ? amount(s().lowest!.value) : '—' }}<small>{{ s().lowest ? dayLabel(s().lowest!.day) : '' }}</small></dd></div>
+          <div><dt>{{ t('Highest') }}</dt><dd>{{ s().highest ? amount(s().highest!.value) : '—' }}<small>{{ s().highest ? dayLabel(s().highest!.day) : '' }}</small></dd></div>
+          <div><dt>{{ t('Lowest') }}</dt><dd>{{ s().lowest ? amount(s().lowest!.value) : '—' }}<small>{{ s().lowest ? dayLabel(s().lowest!.day) : '' }}</small></dd></div>
         </dl>
         <p class="text-sm font-semibold">{{ comparison() }}</p>
 
         @if (goalMetric(); as gm) {
-          <section class="card riveted-card goal" aria-label="Daily goal">
-            <span class="font-bold">🎯 Daily goal</span>
+          <section class="card riveted-card goal" [attr.aria-label]="t('Daily goal')">
+            <span class="font-bold">🎯 {{ t('Daily goal') }}</span>
             <span class="flex items-center gap-1.5">
-              <button type="button" class="step soft-btn btn-press" [disabled]="goal()! <= limits(gm).min" [attr.aria-label]="'Lower the ' + def().label + ' goal'" (click)="changeGoal(-1)">−</button>
+              <button type="button" class="step soft-btn btn-press" [disabled]="goal()! <= limits(gm).min" [attr.aria-label]="t('Lower the {metric} goal', { metric: t(def().label) })" (click)="changeGoal(-1)">−</button>
               <span class="min-w-14 text-center font-extrabold tabular-nums" aria-live="polite">{{ amount(goal()!) }}</span>
-              <button type="button" class="step soft-btn btn-press" [disabled]="goal()! >= limits(gm).max" [attr.aria-label]="'Raise the ' + def().label + ' goal'" (click)="changeGoal(1)">+</button>
+              <button type="button" class="step soft-btn btn-press" [disabled]="goal()! >= limits(gm).max" [attr.aria-label]="t('Raise the {metric} goal', { metric: t(def().label) })" (click)="changeGoal(1)">+</button>
             </span>
             <span class="w-full text-xs text-bark/80">
-              @if (todayValue() === null) { Not logged today. Reaching it pays +{{ perGoal }} seeds. }
-              @else if (todayValue()! >= goal()!) { ✓ Reached today ({{ amount(todayValue()!) }}). }
-              @else { {{ amount(todayValue()!) }} so far today. Reaching it pays +{{ perGoal }} seeds. }
+              @if (todayValue() === null) { {{ t('Not logged today. Reaching it pays +{n} seeds.', { n: perGoal }) }} }
+              @else if (todayValue()! >= goal()!) { ✓ {{ t('Reached today ({amount}).', { amount: amount(todayValue()!) }) }} }
+              @else { {{ t('{amount} so far today. Reaching it pays +{n} seeds.', { amount: amount(todayValue()!), n: perGoal }) }} }
             </span>
           </section>
         }
@@ -67,20 +68,20 @@ const WINDOWS = [7, 30] as const;
     </div>
 
     <section class="card riveted-card readings" aria-labelledby="readings-title">
-      <h4 id="readings-title" class="text-xs font-bold uppercase tracking-wide text-bark/70">Readings · newest first</h4>
+      <h4 id="readings-title" class="text-xs font-bold uppercase tracking-wide text-bark/70">{{ t('Readings · newest first') }}</h4>
       <ul class="min-h-0 overflow-y-auto overscroll-contain">
         @for (r of readings(); track r.id) {
           <li class="flex items-baseline justify-between gap-2 py-0.5 text-sm">
             <span class="text-bark/80">{{ dayLabel(day(r.measuredAt)) }} · {{ time(r.measuredAt) }}</span>
             <span class="ml-auto font-bold">{{ value(r) }}</span>
-            <span class="w-28 text-right text-xs text-bark/70">{{ source[r.source] }}</span>
+            <span class="w-28 text-right text-xs text-bark/70">{{ t(source[r.source]) }}</span>
           </li>
         } @empty {
-          <li class="text-sm text-bark/70">No readings in this period.</li>
+          <li class="text-sm text-bark/70">{{ t('No readings in this period.') }}</li>
         }
       </ul>
     </section>
-    <p class="text-xs text-bark/80 short:hidden">{{ about() }}</p>
+    <p class="text-xs text-bark/80 short:hidden">{{ t(about()) }}</p>
   `,
   styles: `
     .card { padding: 10px 12px; }
@@ -123,6 +124,7 @@ export class MetricDetailComponent {
   readonly back = output<void>();
 
   protected readonly health = inject(HealthStore);
+  protected readonly t = t;
   protected readonly windows = WINDOWS;
   protected readonly days = signal<(typeof WINDOWS)[number]>(7);
   protected readonly icon = METRIC_ICON;
@@ -169,7 +171,7 @@ export class MetricDetailComponent {
   protected day = dayOf;
 
   protected time(iso: string): string {
-    return new Date(iso).toLocaleTimeString('en', { hour: 'numeric', minute: '2-digit' });
+    return new Date(iso).toLocaleTimeString(locale(), { hour: 'numeric', minute: '2-digit' });
   }
 
   /** Esc goes back to all metrics before it closes the panel. */

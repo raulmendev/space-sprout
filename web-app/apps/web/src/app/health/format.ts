@@ -1,24 +1,28 @@
 import type { HealthMeasurement, HealthMetric, MeasurementSource, MetricSummary, UsualRange } from '@garden/shared';
 import { METRICS, choicesFor } from '@garden/shared';
+import { LANG, t } from '../i18n/i18n';
+
+/** The locale for dates and times, following the player's language. */
+export const locale = (): string => (LANG() === 'es' ? 'es-MX' : 'en');
 
 /** "2 h ago", "yesterday", "3 days ago". */
 export function timeAgo(iso: string, now = Date.now()): string {
   const s = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86_400) return `${Math.floor(s / 3600)} h ago`;
+  if (s < 60) return t('just now');
+  if (s < 3600) return t('{n} min ago', { n: Math.floor(s / 60) });
+  if (s < 86_400) return t('{n} h ago', { n: Math.floor(s / 3600) });
   const d = Math.floor(s / 86_400);
-  return d === 1 ? 'yesterday' : `${d} days ago`;
+  return d === 1 ? t('yesterday') : t('{n} days ago', { n: d });
 }
 
-/** Source label with an icon, so it never relies on colour alone. */
+/** Source label with an icon, so it never relies on colour alone. English: show through `t()`. */
 export const SOURCE_LABEL: Record<MeasurementSource, string> = {
   SIMULATED: '⚙ Simulated',
   MANUAL: '✎ Entered by you',
   DEVICE: '⌚ Device',
 };
 
-/** Compact form for tight spots (full label goes in a tooltip). */
+/** Compact form for tight spots (full label goes in a tooltip). English: show through `t()`. */
 export const SOURCE_SHORT: Record<MeasurementSource, string> = {
   SIMULATED: '⚙ sim',
   MANUAL: '✎ you',
@@ -39,7 +43,7 @@ export const METRIC_ICON: Record<HealthMetric, string> = {
   CO2: '🫧',
 };
 
-/** Mood faces for the 1–5 scale, shared by the picker and every place a mood is shown. */
+/** Mood faces for the 1–5 scale, shared by the picker and every place a mood is shown. Labels are English: show through `t()`. */
 export const MOODS = [
   { value: 1, face: '😞', label: 'Low' },
   { value: 2, face: '🙁', label: 'Meh' },
@@ -55,11 +59,11 @@ export const MOODS = [
 export function formatValue(m: Pick<HealthMeasurement, 'metric' | 'value'>): string {
   if (m.metric === 'MOOD') {
     const mood = MOODS.find((x) => x.value === Math.round(m.value));
-    return mood ? `${mood.face} ${mood.label}` : String(m.value);
+    return mood ? `${mood.face} ${t(mood.label)}` : String(m.value);
   }
   // Other scales (stress) show their own word, never "4/5".
   const choice = choicesFor(m.metric).find((c) => c.value === Math.round(m.value));
-  if (choice) return `${choice.icon ?? ''} ${choice.label}`.trim();
+  if (choice) return `${choice.icon ?? ''} ${t(choice.label)}`.trim();
   const def = METRICS[m.metric];
   const v = def.step < 1 ? m.value.toFixed(m.value % 1 ? 2 : 0).replace(/0$/, '') : String(m.value);
   return `${v} ${def.unit}`;
@@ -80,13 +84,13 @@ export function formatRange(metric: HealthMetric, r: UsualRange): string | null 
 
 /** How the latest day sits against the astronaut's own usual. Neutral words, no verdicts. */
 export function comparisonText(metric: HealthMetric, s: Pick<MetricSummary, 'comparison' | 'usual'>): string {
-  if (!s.comparison || !s.usual) return 'Your usual range appears after a few more days.';
+  if (!s.comparison || !s.usual) return t('Your usual range appears after a few more days.');
   const range = formatRange(metric, s.usual);
-  const words = { WITHIN: 'Within your usual', ABOVE: 'Higher than your usual', BELOW: 'Lower than your usual' }[s.comparison];
+  const words = t({ WITHIN: 'Within your usual', ABOVE: 'Higher than your usual', BELOW: 'Lower than your usual' }[s.comparison]);
   return range ? `${words} (${range})` : words;
 }
 
 /** "Tue, Nov 12". */
 export function dayLabel(day: string): string {
-  return new Date(day + 'T12:00:00Z').toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return new Date(day + 'T12:00:00Z').toLocaleDateString(locale(), { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }

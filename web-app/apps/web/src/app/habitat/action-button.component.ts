@@ -1,5 +1,6 @@
 import { Component, inject, output } from '@angular/core';
 import { HabitatStore } from './habitat.store';
+import { t } from '../i18n/i18n';
 
 /**
  * Low-opacity "use" button opposite the pad. It lights up when something usable
@@ -22,14 +23,14 @@ import { HabitatStore } from './habitat.store';
       class="max-w-[8.5rem] rounded-md px-2 py-0.5 text-center text-xs font-bold leading-tight [@media(max-height:420px)]:max-w-[7rem] [@media(max-height:420px)]:text-[10px]"
       [class]="target() ? 'bg-night/80 text-cream' : 'bg-night/50 text-cream/70'"
       aria-hidden="true"
-    >{{ target()?.label ?? 'Walk up to something' }}</span>
+    >{{ target()?.label ?? t('Walk up to something') }}</span>
     <button
       type="button"
       class="grid size-16 touch-none place-items-center [@media(max-height:420px)]:size-14 rounded-full border-2 font-pixel text-2xl text-cream transition-opacity focus-visible:outline-2 focus-visible:outline-sun"
       [class]="target() ? 'border-cream/80 bg-leaf-dark/60 opacity-95' : 'border-cream/40 bg-night/40 opacity-35'"
       [attr.aria-disabled]="!target()"
-      [attr.aria-label]="target()?.label ?? 'Nothing to use nearby'"
-      [title]="(target()?.label ?? 'Nothing to use nearby') + ' (E or Space)'"
+      [attr.aria-label]="target()?.label ?? t('Nothing to use nearby')"
+      [title]="t('{action} (E or Space)', { action: target()?.label ?? t('Nothing to use nearby') })"
       (pointerdown)="press($event)"
       (pointerup)="release($event)"
       (pointercancel)="pressed = null"
@@ -38,6 +39,7 @@ import { HabitatStore } from './habitat.store';
   `,
 })
 export class ActionButtonComponent {
+  protected readonly t = t;
   protected readonly target = inject(HabitatStore).reachable;
   readonly act = output<void>();
 

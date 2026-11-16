@@ -1,8 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import type { GardenFailure } from '../garden/garden.service';
 import {
-  DECOR_ROOMS,
-  ROOMS,
   ROOM_ROWS,
   TileCoord,
   canPlaceIn,
@@ -16,6 +14,7 @@ import {
 } from '@garden/shared';
 import { GardenStore } from '../garden/garden.store';
 import { PlayerStore } from '../habitat/player.store';
+import { t } from '../i18n/i18n';
 
 /** Placing a decoration from the inventory, or moving one that's already up. */
 export type DecorMode = { kind: 'PLACE'; itemId: string } | { kind: 'MOVE'; itemId: string; decorId: string };
@@ -24,9 +23,6 @@ export type DecorOutcome = { ok: true; message: string } | { ok: false; error: G
 
 /** The bar sits at the top when what you're decorating reaches the bottom rows of the room. */
 const BAR_FLIP_ROW = ROOM_ROWS - 5;
-
-/** Where decorations can go, for hints ("the Social Space"). */
-export const DECOR_ROOM_NAMES = DECOR_ROOMS.map((r) => ROOMS[r].name).join(' or the ');
 
 /**
  * Decorating the station: which decoration is being placed or moved and where it would go, and
@@ -144,7 +140,7 @@ export class DecorStore {
         : await this.garden.moveDecor(mode.decorId, at);
     if (!result.ok) return result;
     this.clear();
-    return { ok: true, message: mode.kind === 'PLACE' ? `${name} is up!` : `${name} moved.` };
+    return { ok: true, message: t(mode.kind === 'PLACE' ? '{name} is up!' : '{name} moved.', { name: t(name ?? '') }) };
   }
 
   async putAway(): Promise<DecorOutcome | null> {
@@ -154,7 +150,7 @@ export class DecorStore {
     const result = await this.garden.putAwayDecor(d.id);
     if (!result.ok) return result;
     this.clear();
-    return { ok: true, message: `${name} is back in the inventory.` };
+    return { ok: true, message: t('{name} is back in the inventory.', { name: t(name ?? '') }) };
   }
 
   async water(): Promise<DecorOutcome | null> {
@@ -162,7 +158,7 @@ export class DecorStore {
     if (!d) return null;
     const result = await this.garden.waterDecor(d.id);
     if (!result.ok) return result;
-    return { ok: true, message: `Watered the ${this.item()?.name.toLowerCase()}. 💧` };
+    return { ok: true, message: t('Watered {what}. 💧', { what: t(`the ${this.item()?.name.toLowerCase()}`) }) };
   }
 
   /** Open a placed decoration's menu. */

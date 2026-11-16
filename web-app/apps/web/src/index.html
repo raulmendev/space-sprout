@@ -33,5 +33,19 @@
       </div>
     </div>
   </app-root>
+  <!-- Spanish before Angular starts: mirrors initialLang() in i18n.ts (saved choice, else the device). -->
+  <script>
+    (function () {
+      var lang = null;
+      try { lang = JSON.parse(localStorage.getItem('space-sprout:lang')); } catch (e) {}
+      if (lang !== 'en' && lang !== 'es') lang = (navigator.language || '').toLowerCase().indexOf('es') === 0 ? 'es' : 'en';
+      document.documentElement.lang = lang;
+      if (lang !== 'es') return;
+      var boot = document.querySelector('app-root .boot');
+      if (boot) boot.setAttribute('aria-label', 'Cargando la estación');
+      var text = document.querySelector('app-root .boot-text');
+      if (text) text.textContent = 'Acoplando a la estación…';
+    })();
+  </script>
 </body>
 </html>

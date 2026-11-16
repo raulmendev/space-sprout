@@ -1,5 +1,6 @@
 import { Component, ElementRef, afterNextRender, inject, output, signal } from '@angular/core';
 import { EMOTES, EmoteId } from '@garden/shared';
+import { t } from '../i18n/i18n';
 
 /**
  * Geometry, as % of the wheel's box, after the design concept: the ring fills 88% of it and the
@@ -24,13 +25,13 @@ const SLOTS = EMOTES.map((e, i) => {
     '(keydown.escape)': 'closed.emit()',
   },
   template: `
-    <div role="dialog" aria-label="Send an emote" class="wheel relative" (click)="$event.stopPropagation()" (keydown)="onKey($event)">
+    <div role="dialog" [attr.aria-label]="t('Send an emote')" class="wheel relative" (click)="$event.stopPropagation()" (keydown)="onKey($event)">
       <div class="ring absolute inset-[6%] rounded-full" aria-hidden="true"></div>
       <div class="hub absolute left-1/2 top-1/2 grid size-[36%] -translate-x-1/2 -translate-y-1/2 place-content-center justify-items-center rounded-full" aria-hidden="true">
         <!-- A one-item loop keyed on the emote: a new one re-renders, so its pop-in plays again. -->
         @for (s of [slots[active()]]; track s.id) {
           <span class="hub-glyph leading-none">{{ s.glyph }}</span>
-          <span class="hub-label font-extrabold leading-none text-white">{{ s.label }}</span>
+          <span class="hub-label font-extrabold leading-none text-white">{{ t(s.label) }}</span>
         }
       </div>
       @for (s of slots; track s.id; let i = $index) {
@@ -41,7 +42,7 @@ const SLOTS = EMOTES.map((e, i) => {
           [style.left.%]="s.left"
           [style.top.%]="s.top"
           [style.--i]="i"
-          [attr.aria-label]="s.label"
+          [attr.aria-label]="t(s.label)"
           (pointerenter)="active.set(i)"
           (focus)="active.set(i)"
           (click)="picked.emit(s.id)"
@@ -90,6 +91,7 @@ const SLOTS = EMOTES.map((e, i) => {
   `,
 })
 export class EmoteWheelComponent {
+  protected readonly t = t;
   readonly picked = output<EmoteId>();
   readonly closed = output<void>();
   protected readonly slots = SLOTS;

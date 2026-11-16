@@ -1,5 +1,6 @@
 import { Component, afterNextRender, ElementRef, output, viewChild } from '@angular/core';
 import { SAVED_PROFILE } from './current-user';
+import { t } from '../i18n/i18n';
 
 /**
  * The title screen: the Space Sprout logo over the loading screen's sky, shown on every visit.
@@ -17,13 +18,13 @@ import { SAVED_PROFILE } from './current-user';
         <img class="title-logo" src="assets/brand/space-sprout-logo.webp" alt="Space Sprout" width="640" height="654" />
       </h1>
       <div class="title-actions">
-        <p class="title-tagline">A garden in orbit, grown together with family back home.</p>
+        <p class="title-tagline">{{ t('A garden in orbit, grown together with family back home.') }}</p>
         <button #playBtn type="button" class="chunky-btn btn-press title-play" (click)="play.emit()">
-          <span aria-hidden="true">▶</span> Play
+          <span aria-hidden="true">▶</span> {{ t('Play') }}
         </button>
         @if (who) {
-          <p class="title-who">Playing as <strong>{{ who }}</strong></p>
-          <button type="button" class="soft-btn btn-press title-change" (click)="changePlayer.emit()">Change player</button>
+          <p class="title-who">{{ t('Playing as') }} <strong>{{ who }}</strong></p>
+          <button type="button" class="soft-btn btn-press title-change" (click)="changePlayer.emit()">{{ t('Change player') }}</button>
         }
       </div>
     </main>
@@ -73,6 +74,7 @@ import { SAVED_PROFILE } from './current-user';
   `,
 })
 export class TitleScreenComponent {
+  protected readonly t = t;
   readonly play = output<void>();
   readonly changePlayer = output<void>();
   /** The returning player's name; null on a first visit. */

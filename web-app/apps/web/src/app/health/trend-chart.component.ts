@@ -1,6 +1,7 @@
 import { Component, computed, input } from '@angular/core';
 import { DayValue, HealthMetric, METRICS, UsualRange } from '@garden/shared';
-import { formatValue } from './format';
+import { formatValue, locale } from './format';
+import { t } from '../i18n/i18n';
 
 const SIZES = {
   small: { w: 280, h: 64, pad: { l: 30, r: 8, t: 8, b: 8 } },
@@ -22,7 +23,7 @@ const SIZES = {
         <line [attr.x1]="s().pad.l" [attr.x2]="s().w - s().pad.r" [attr.y1]="s().h - s().pad.b" [attr.y2]="s().h - s().pad.b" class="base" />
         @if (goalY(); as y) {
           <line [attr.x1]="s().pad.l" [attr.x2]="s().w - s().pad.r" [attr.y1]="y" [attr.y2]="y" class="goal" />
-          @if (size() === 'large') { <text [attr.x]="s().w - s().pad.r" [attr.y]="y - 4" class="axis goal-label" text-anchor="end">goal</text> }
+          @if (size() === 'large') { <text [attr.x]="s().w - s().pad.r" [attr.y]="y - 4" class="axis goal-label" text-anchor="end">{{ t('goal') }}</text> }
         }
         <polyline [attr.points]="line()" class="line" />
         @for (p of points(); track p.day; let last = $last) {
@@ -34,7 +35,7 @@ const SIZES = {
         }
       </svg>
     } @else {
-      <p class="text-xs text-bark/60">A trend appears after two days of readings.</p>
+      <p class="text-xs text-bark/60">{{ t('A trend appears after two days of readings.') }}</p>
     }
   `,
   styles: `
@@ -55,6 +56,7 @@ export class TrendChartComponent {
   readonly goal = input<number | null>(null);
   readonly size = input<'small' | 'large'>('small');
 
+  protected readonly t = t;
   protected readonly s = computed(() => SIZES[this.size()]);
 
   /** Fits the values, the usual band and the goal; mood always shows its whole 1–5 scale. */
@@ -96,7 +98,7 @@ export class TrendChartComponent {
     const ds = this.days();
     if (!ds.length) return '';
     const fmt = (value: number) => formatValue({ metric: this.metric(), value });
-    return `${METRICS[this.metric()].label}, ${ds.length} days, from ${fmt(ds[0].value)} to ${fmt(ds.at(-1)!.value)}`;
+    return t('{metric}, {n} days, from {from} to {to}', { metric: t(METRICS[this.metric()].label), n: ds.length, from: fmt(ds[0].value), to: fmt(ds.at(-1)!.value) });
   });
 
   protected label(value: number): string {
@@ -104,6 +106,6 @@ export class TrendChartComponent {
   }
 
   protected shortDate(day: string): string {
-    return new Date(day + 'T12:00:00Z').toLocaleDateString('en', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    return new Date(day + 'T12:00:00Z').toLocaleDateString(locale(), { month: 'short', day: 'numeric', timeZone: 'UTC' });
   }
 }

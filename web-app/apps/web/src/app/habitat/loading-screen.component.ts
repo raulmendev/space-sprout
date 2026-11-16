@@ -1,9 +1,10 @@
 import { Component, computed, input } from '@angular/core';
+import { t } from '../i18n/i18n';
 
 /**
  * Shown from page load until the room is on screen (the start menu sits above it).
  * index.html shows the same markup before Angular starts, so the hand-over doesn't jump:
- * change both together. The look is global (styles.css, "Loading screen") since
+ * change both together (its Spanish texts are swapped in by a small script there). The look is global (styles.css, "Loading screen") since
  * index.html needs it before Angular loads.
  * The station (assets/loading/station.webp) stands in for the animated logo, if that arrives.
  */
@@ -12,7 +13,7 @@ import { Component, computed, input } from '@angular/core';
   host: {
     class: 'boot',
     role: 'status',
-    '[attr.aria-label]': '"Loading the station, " + percent() + "%"',
+    '[attr.aria-label]': "t('Loading the station, {percent}%', { percent: percent() })",
   },
   template: `
     <div class="boot-stars" aria-hidden="true"></div>
@@ -26,12 +27,13 @@ import { Component, computed, input } from '@angular/core';
       <div class="boot-bar" [class.waiting]="!percent()" aria-hidden="true">
         <div class="boot-fill" [style.width.%]="percent() || null"></div>
       </div>
-      <p class="boot-text">Docking at the station…@if (percent()) { {{ percent() }}% }</p>
+      <p class="boot-text">{{ t('Docking at the station…') }}@if (percent()) { {{ percent() }}% }</p>
     </div>
   `,
 })
 export class LoadingScreenComponent {
   /** Share loaded so far, 0–1. */
+  protected readonly t = t;
   readonly progress = input(0);
   protected readonly percent = computed(() => Math.round(this.progress() * 100));
 }
