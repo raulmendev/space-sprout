@@ -2,7 +2,7 @@
 
 A cozy space station shared by an astronaut and their family on Earth. Health check-ins earn seeds, and everyone grows a garden together with them. Built by team **AnkhTerrae** for the 2026 NASA Space Apps Challenge.
 
-**▶ Play it now: https://garden.raulmen.dev** (type any name and press Start; no account needed)
+**▶ Play it now: https://garden.raulmen.dev** (type any name and press Start; no account needed). In English and Spanish.
 
 **📱 Android app:** [download `space-sprout.apk`](https://github.com/raulmendev/space-sprout/raw/main/deploys/space-sprout.apk). Android may ask you to allow installing apps from this source. Play phones in landscape.
 

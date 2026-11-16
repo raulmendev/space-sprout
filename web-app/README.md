@@ -103,8 +103,8 @@ The latest APK is in [`../deploys/`](../deploys/).
 - [x] Live updates and presence: everyone in a room sees each other walk, with name tags and emotes
 - [x] Message board and emotes
 - [x] Android app with Health Connect
+- [x] English and Spanish, with a language switch in the menu
 - [ ] The family role on the server (what family members see and can do)
-- [ ] Spanish translation (in progress on `feat/spanish`)
 
 ## Demo notes
 
