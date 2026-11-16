@@ -5,6 +5,7 @@ import { HealthStore } from './health.store';
 import { TrendChartComponent } from './trend-chart.component';
 import { MetricDetailComponent } from './metric-detail.component';
 import { METRIC_ICON, SOURCE_LABEL, comparisonText, formatAmount, formatValue, timeAgo } from './format';
+import { t } from '../i18n/i18n';
 
 /**
  * Health Insights, a station console: the check-in streak and today's goals, then a card per
@@ -34,19 +35,19 @@ const LOOP = [
     @if (detail(); as metric) {
       <app-metric-detail [metric]="metric" (back)="closeDetail()" />
     } @else {
-      <section class="habits" aria-label="Streak and goals">
+      <section class="habits" [attr.aria-label]="t('Streak and goals')">
         <p class="flex items-center gap-2">
           <span class="text-2xl leading-none short:text-xl" aria-hidden="true">🔥</span>
           <span>
-            <b>{{ streak().length ? streak().length + '-day streak' : 'No streak yet' }}</b>
+            <b>{{ streak().length ? t('{n}-day streak', { n: streak().length }) : t('No streak yet') }}</b>
             <small class="block">
-              @if (!streak().checkedInToday) { Check in today to {{ streak().length ? 'keep it going' : 'start one' }}. }
-              @else if (streak().next; as next) { +{{ next.amount }} seeds at {{ next.days }} days. }
-              @else { Every day counts. }
+              @if (!streak().checkedInToday) { {{ streak().length ? t('Check in today to keep it going.') : t('Check in today to start one.') }} }
+              @else if (streak().next; as next) { {{ t('+{amount} seeds at {days} days.', { amount: next.amount, days: next.days }) }} }
+              @else { {{ t('Every day counts.') }} }
             </small>
           </span>
         </p>
-        <ul class="goals" aria-label="Today's goals">
+        <ul class="goals" [attr.aria-label]="t('Today\\'s goals')">
           @for (g of health.goalProgress(); track g.metric) {
             <li [class.met]="g.met" [attr.aria-label]="goalLabel(g)">
               <span aria-hidden="true">{{ icon[g.metric] }}</span>
@@ -57,7 +58,7 @@ const LOOP = [
         </ul>
       </section>
 
-      <div class="cards" #cards role="group" aria-label="Metrics" (scroll)="onScroll()">
+      <div class="cards" #cards role="group" [attr.aria-label]="t('Metrics')" (scroll)="onScroll()">
         @for (item of loop; track $index) {
           @let metric = item.metric;
           @let s = health.cards()[metric];
@@ -69,30 +70,30 @@ const LOOP = [
             [attr.tabindex]="item.copy ? -1 : null"
             [attr.aria-hidden]="item.copy || null"
             (click)="openDetail(metric)"
-            [attr.aria-label]="def(metric).label + ': details'"
+            [attr.aria-label]="t('{metric}: details', { metric: t(def(metric).label) })"
           >
             <span class="flex items-baseline justify-between gap-2">
-              <span class="label"><span aria-hidden="true">{{ icon[metric] }}</span>{{ def(metric).label }}</span>
+              <span class="label"><span aria-hidden="true">{{ icon[metric] }}</span>{{ t(def(metric).label) }}</span>
               @if (s.latest) { <span class="value">{{ amount(metric, s.latest.value) }}</span> }
             </span>
             @if (latestReading(metric); as r) {
-              <span class="meta">{{ source[r.source] }} · {{ ago(r.measuredAt) }}</span>
+              <span class="meta">{{ t(source[r.source]) }} · {{ ago(r.measuredAt) }}</span>
               <app-trend-chart class="chart" [metric]="metric" [days]="s.days" [usual]="s.usual" [goal]="goalOf(metric)" />
-              <span class="insight">{{ s.total !== null ? '7-day total ' + amount(metric, s.total) : comparison(metric) }}</span>
+              <span class="insight">{{ s.total !== null ? t('7-day total {amount}', { amount: amount(metric, s.total) }) : comparison(metric) }}</span>
             } @else {
-              <span class="meta">No readings yet.</span>
+              <span class="meta">{{ t('No readings yet.') }}</span>
             }
           </button>
         }
       </div>
-      <nav class="pager" aria-label="Metric pages">
-        <button type="button" class="arrow soft-btn btn-press" aria-label="Previous metrics" (click)="step(-1)">‹</button>
+      <nav class="pager" [attr.aria-label]="t('Metric pages')">
+        <button type="button" class="arrow soft-btn btn-press" [attr.aria-label]="t('Previous metrics')" (click)="step(-1)">‹</button>
         @for (i of slides; track i) {
           <button type="button" class="dot" [class.on]="slide() === i" [attr.aria-current]="slide() === i" [attr.aria-label]="slideLabel(i)" (click)="goTo(i)"></button>
         }
-        <button type="button" class="arrow soft-btn btn-press" aria-label="Next metrics" (click)="step(1)">›</button>
+        <button type="button" class="arrow soft-btn btn-press" [attr.aria-label]="t('Next metrics')" (click)="step(1)">›</button>
       </nav>
-      <p class="text-[11px] text-bark/75">🔒 Private to you: your own readings, compared only with your own usual. Not a diagnosis; if something worries you, talk to your flight surgeon.</p>
+      <p class="text-[11px] text-bark/75">🔒 {{ t('Private to you: your own readings, compared only with your own usual. Not a diagnosis; if something worries you, talk to your flight surgeon.') }}</p>
     }
   `,
   styles: `
@@ -178,6 +179,7 @@ const LOOP = [
 })
 export class HealthInsightsPanelComponent {
   protected readonly health = inject(HealthStore);
+  protected readonly t = t;
   private readonly injector = inject(Injector);
   protected readonly loop = LOOP;
   protected readonly icon = METRIC_ICON;
@@ -220,10 +222,11 @@ export class HealthInsightsPanelComponent {
   }
 
   protected goalLabel(g: { metric: HealthMetric; value: number | null; target: number; met: boolean }): string {
-    const name = METRICS[g.metric].label;
+    const name = t(METRICS[g.metric].label);
     const target = formatAmount(g.metric, g.target);
-    if (g.value === null) return `${name} goal ${target}: not logged today`;
-    return `${name}: ${formatValue({ metric: g.metric, value: g.value })} of ${target}${g.met ? ', reached' : ''}`;
+    if (g.value === null) return t('{metric} goal {target}: not logged today', { metric: name, target });
+    const value = formatValue({ metric: g.metric, value: g.value });
+    return g.met ? t('{metric}: {value} of {target}, reached', { metric: name, value, target }) : t('{metric}: {value} of {target}', { metric: name, value, target });
   }
 
   /**
@@ -278,7 +281,8 @@ export class HealthInsightsPanelComponent {
 
   /** "Heart rate and Sleep". */
   protected slideLabel(i: number): string {
-    return MY_METRICS.slice(i * PER_SLIDE, (i + 1) * PER_SLIDE).map((m) => METRICS[m].label).join(' and ');
+    const [a, b] = MY_METRICS.slice(i * PER_SLIDE, (i + 1) * PER_SLIDE).map((m) => t(METRICS[m].label));
+    return b ? t('{a} and {b}', { a, b }) : a;
   }
 
   protected openDetail(metric: HealthMetric): void {

@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { type CrewId, type CrewMember, DEMO_MEMBERS, type HealthMetric, type Member, ROLE_COLORS, type Suit, type User, crewFor, metricsFor } from '@garden/shared';
+import { t } from '../i18n/i18n';
 import { type PlayerChoice, currentMember, householdMembers, savePlayer, signInAs, stationKey } from './member-session';
 
 /** The two demo members (seeded on the server too, station key GARDEN), credited in the demo garden and notes. */
@@ -64,7 +65,7 @@ const PEOPLE = new Map<string, Member>([...DEMO_MEMBERS, ...householdMembers()].
 
 /** Who did something, for names and colours: their member, or a plain family stand-in if they're unknown. */
 export function authorOf(id: string): Pick<Member, 'displayName' | 'role' | 'color'> {
-  return PEOPLE.get(id) ?? { displayName: 'Someone', role: 'FAMILY', color: ROLE_COLORS.FAMILY };
+  return PEOPLE.get(id) ?? { displayName: t('Someone'), role: 'FAMILY', color: ROLE_COLORS.FAMILY };
 }
 
 /** Whether a note, plant or purchase came from an astronaut (as opposed to family). */

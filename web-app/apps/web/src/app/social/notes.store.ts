@@ -4,6 +4,7 @@ import { type GardenFailure, LOCAL_PLAYER } from '../garden/garden.service';
 import { ASTRONAUT_USER, FAMILY_USER, authorOf, isAstronaut, perMemberKey } from '../session/current-user';
 import { GardenStore } from '../garden/garden.store';
 import { loadJson, saveJson } from '../shared/storage';
+import { t } from '../i18n/i18n';
 
 // What you've read is per player.
 const READ_KEY = perMemberKey('notes-read');
@@ -30,7 +31,11 @@ export class NotesStore {
   private readonly removedDemo = signal<ReadonlySet<string>>(new Set(loadJson<string[]>(REMOVED_DEMO_KEY, [])));
   private readonly readIds = signal<ReadonlySet<string>>(new Set(loadJson<string[]>(READ_KEY, [])));
 
-  readonly notes = computed(() => [...DEMO_NOTES.filter((n) => !this.removedDemo().has(n.id)), ...this.garden.notes()]);
+  /** Demo notes read in the player's language; real notes stay as their author wrote them. */
+  readonly notes = computed(() => [
+    ...DEMO_NOTES.filter((n) => !this.removedDemo().has(n.id)).map((n) => ({ ...n, content: t(n.content) })),
+    ...this.garden.notes(),
+  ]);
   readonly newestFirst = computed(() => [...this.notes()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   /** Notes from the other side that you haven't opened the board to see. */
   readonly unread = computed(() => this.notes().filter((n) => !this.isMine(n) && !this.readIds().has(n.id)).length);
@@ -46,7 +51,7 @@ export class NotesStore {
 
   /** "You" for your own notes, otherwise who wrote it. */
   author(note: SocialNote): string {
-    if (this.isMine(note)) return 'You';
+    if (this.isMine(note)) return t('You');
     return authorOf(note.authorId).displayName;
   }
 

@@ -1,11 +1,12 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { CrewId, HealthMetric, METRICS, choicesFor, dayOf, validateMeasurement } from '@garden/shared';
+import { CrewId, HabitBonus, HealthMetric, METRICS, choicesFor, dayOf, validateMeasurement } from '@garden/shared';
 import { MY_CREW, MY_METRICS, ROLE } from '../session/current-user';
 import { HealthStore } from './health.store';
 import { METRIC_ICON, MOODS, SOURCE_LABEL, SOURCE_SHORT, formatValue, timeAgo } from './format';
+import { t } from '../i18n/i18n';
 
-/** Manual-entry tabs, one per crew member: icon and a label short enough for a phone. */
+/** Manual-entry tabs, one per crew member: icon and a label short enough for a phone (English; shown through `t()`). */
 const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
   MEDIC: { icon: '🩺', label: 'Medic' },
   TRAINER: { icon: '💪', label: 'Trainer' },
@@ -21,12 +22,12 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
   selector: 'app-medical-terminal-panel',
   imports: [NgTemplateOutlet],
   template: `
-    <div role="tablist" aria-label="How to add readings" class="grid grid-cols-2 gap-2">
+    <div role="tablist" [attr.aria-label]="t('How to add readings')" class="grid grid-cols-2 gap-2">
       <button type="button" role="tab" class="console-tab btn-press" [attr.aria-selected]="tab() === 'sync'" (click)="tab.set('sync')">
-        <span aria-hidden="true">⌚</span>Wearable sync
+        <span aria-hidden="true">⌚</span>{{ t('Wearable sync') }}
       </button>
       <button type="button" role="tab" class="console-tab btn-press" [attr.aria-selected]="tab() === 'manual'" (click)="tab.set('manual')">
-        <span aria-hidden="true">✏️</span>Enter manually
+        <span aria-hidden="true">✏️</span>{{ t('Enter manually') }}
       </button>
     </div>
 
@@ -53,16 +54,16 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
               <span class="spark bottom-3 right-1.5 text-[9px]">✦</span>
             </div>
             <div class="flex min-w-0 flex-1 flex-col gap-1">
-              <p class="font-bold leading-tight short:truncate short:text-[13px]">{{ health.wearable.label }}</p>
+              <p class="font-bold leading-tight short:truncate short:text-[13px]">{{ t(health.wearable.label) }}</p>
               @if (health.wearable.isSimulated) {
-                <p><span class="rounded-md bg-dusk/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-dusk">Demo data</span></p>
+                <p><span class="rounded-md bg-dusk/15 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-dusk">{{ t('Demo data') }}</span></p>
               }
               <p class="flex items-center gap-1.5 text-sm font-bold text-leaf-dark">
                 <span class="size-2.5 rounded-full border border-leaf-dark bg-leaf" [class.animate-pulse]="health.syncing()"></span>
-                {{ health.syncing() ? 'Syncing…' : health.wearable.isSimulated ? 'Connected' : 'On this phone' }}
+                {{ health.syncing() ? t('Syncing…') : health.wearable.isSimulated ? t('Connected') : t('On this phone') }}
               </p>
               <p class="border-t border-bark/15 pt-1 text-xs text-bark/70">
-                @if (health.lastSyncAt(); as at) { Last synced {{ ago(at) }} } @else { Not synced yet }
+                @if (health.lastSyncAt(); as at) { {{ t('Last synced {ago}', { ago: ago(at) }) }} } @else { {{ t('Not synced yet') }} }
               </p>
             </div>
           </div>
@@ -71,10 +72,10 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
               <path d="M20 12a8 8 0 0 1-14.3 4.9M4 12a8 8 0 0 1 14.3-4.9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" />
               <path d="M19.5 3v4.5H15M4.5 21v-4.5H9" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            {{ health.syncing() ? 'Syncing…' : 'Sync now' }}
+            {{ health.syncing() ? t('Syncing…') : t('Sync now') }}
           </button>
           @if (health.syncError(); as e) {
-            <p class="text-xs font-bold leading-tight text-alert" role="alert">{{ e }}</p>
+            <p class="text-xs font-bold leading-tight text-alert" role="alert">{{ t(e) }}</p>
           } @else {
             <ng-container [ngTemplateOutlet]="reward" />
           }
@@ -83,42 +84,42 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
 
         <section class="card riveted-card flex min-h-0 flex-col gap-2 short:gap-1" aria-labelledby="today-title">
           <h3 id="today-title" class="flex items-center gap-2 font-bold short:text-sm">
-            <span aria-hidden="true">📅</span>Today's check-in
+            <span aria-hidden="true">📅</span>{{ t("Today's check-in") }}
             <span class="stripes ml-auto h-3 w-10" aria-hidden="true"></span>
           </h3>
           <!-- Ten readings: the list scrolls inside its card, so the terminal itself never does. -->
-          <ul class="checklist flex min-h-0 flex-col gap-1 text-sm short:gap-0.5" tabindex="0" aria-label="Readings today">
+          <ul class="checklist flex min-h-0 flex-col gap-1 text-sm short:gap-0.5" tabindex="0" [attr.aria-label]="t('Readings today')">
             @for (metric of order; track metric) {
               @let reading = health.today()[metric];
               <!-- On short screens a missing mood is just the faces below (no room for both). -->
               <li class="row" [attr.data-mood-pending]="metric === 'MOOD' && !reading ? '' : null">
                 <span class="row-icon" aria-hidden="true">{{ icon[metric] }}</span>
-                <span class="flex-1 font-semibold">{{ label(metric) }}</span>
+                <span class="flex-1 font-semibold">{{ t(label(metric)) }}</span>
                 @if (reading) {
                   <span class="whitespace-nowrap font-bold text-leaf-dark">✓ {{ value(reading) }}</span>
-                  <span class="w-10 text-[10px] text-bark/60" [title]="source[reading.source]">{{ sourceShort[reading.source] }}</span>
+                  <span class="w-10 text-[10px] text-bark/60" [title]="t(source[reading.source])">{{ t(sourceShort[reading.source]) }}</span>
                 } @else if (health.answeredToday()[metric]) {
                   <!-- Told a crew member "I don't know": answered, but nothing measured. -->
-                  <span class="whitespace-nowrap font-bold text-bark/70">? Don't know</span>
+                  <span class="whitespace-nowrap font-bold text-bark/70">? {{ t("Don't know") }}</span>
                   @if (syncedToday() || !health.wearableMetrics.includes(metric)) {
-                    <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it</button>
+                    <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">{{ t('Enter it') }}</button>
                   }
                 } @else {
                   @if (metric !== 'MOOD' && (syncedToday() || !health.wearableMetrics.includes(metric))) {
-                    <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">Enter it</button>
+                    <button type="button" class="text-xs font-bold underline" (click)="tab.set('manual')">{{ t('Enter it') }}</button>
                   }
-                  <span class="rounded-md bg-sun/60 px-1.5 text-xs font-extrabold">Missing</span>
+                  <span class="rounded-md bg-sun/60 px-1.5 text-xs font-extrabold">{{ t('Missing') }}</span>
                 }
               </li>
             }
           </ul>
           @if (!health.today()['MOOD']) {
             <div class="rounded-lg bg-parchment/40 p-1.5 short:py-1">
-              <p class="px-1 text-xs text-bark/80 short:hidden">The wearable can't read mood. How are you feeling?</p>
+              <p class="px-1 text-xs text-bark/80 short:hidden">{{ t("The wearable can't read mood. How are you feeling?") }}</p>
               <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: true }" />
             </div>
           } @else if (allDone()) {
-            <p class="text-sm font-bold text-leaf-dark">All done for today 🌱</p>
+            <p class="text-sm font-bold text-leaf-dark">{{ t('All done for today') }} 🌱</p>
           }
         </section>
       </div>
@@ -126,7 +127,7 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
       <form novalidate class="grid gap-3 short:gap-2 @lg:min-h-0 @lg:flex-1 @lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" (submit)="$event.preventDefault(); save()">
         <!-- One tab per crew member, holding the readings they look after: never more than four at once. -->
         <div class="card riveted-card flex min-h-0 flex-col gap-2 short:gap-1">
-          <div role="tablist" aria-label="Readings by crew member" class="grid grid-cols-4 gap-1">
+          <div role="tablist" [attr.aria-label]="t('Readings by crew member')" class="grid grid-cols-4 gap-1">
             @for (g of groups; track g.id) {
               <button
                 type="button"
@@ -138,8 +139,8 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
                 aria-controls="entry-panel"
                 (click)="group.set(g.id)"
               >
-                <span aria-hidden="true">{{ g.icon }}</span><span>{{ g.label }}</span>
-                @if (hasDraft(g.metrics)) { <span class="draft-dot" title="Has values to save"></span> }
+                <span aria-hidden="true">{{ g.icon }}</span><span>{{ t(g.label) }}</span>
+                @if (hasDraft(g.metrics)) { <span class="draft-dot" [title]="t('Has values to save')"></span> }
               </button>
             }
           </div>
@@ -147,13 +148,13 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
             @for (metric of currentGroup().metrics; track metric) {
               @if (metric === 'MOOD') {
                 <fieldset>
-                  <legend class="flex items-center gap-2 text-sm font-bold"><span aria-hidden="true">{{ icon['MOOD'] }}</span>Mood</legend>
+                  <legend class="flex items-center gap-2 text-sm font-bold"><span aria-hidden="true">{{ icon['MOOD'] }}</span>{{ t('Mood') }}</legend>
                   <ng-container [ngTemplateOutlet]="moodPicker" [ngTemplateOutletContext]="{ $implicit: false }" />
                 </fieldset>
               } @else if (choices(metric).length) {
                 <!-- Other scales (stress): a word per step, tapped to toggle like the mood faces. -->
                 <fieldset>
-                  <legend class="flex items-center gap-2 text-sm font-bold"><span aria-hidden="true">{{ icon[metric] }}</span>{{ label(metric) }}</legend>
+                  <legend class="flex items-center gap-2 text-sm font-bold"><span aria-hidden="true">{{ icon[metric] }}</span>{{ t(label(metric)) }}</legend>
                   <div class="mt-1 grid grid-cols-5 gap-1">
                     @for (o of choices(metric); track o.id) {
                       <button
@@ -161,7 +162,7 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
                         class="mood btn-press"
                         [attr.aria-pressed]="draft()[metric] === '' + o.value"
                         (click)="toggleChoice(metric, o.value!)"
-                      ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ o.icon }}</span><span class="word">{{ o.label }}</span></button>
+                      ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ o.icon }}</span><span class="word">{{ t(o.label) }}</span></button>
                     }
                   </div>
                 </fieldset>
@@ -169,7 +170,7 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
                 @let m = def(metric);
                 <label class="row">
                   <span class="row-icon" aria-hidden="true">{{ icon[m.id] }}</span>
-                  <span class="flex-1 whitespace-nowrap text-sm font-semibold">{{ m.label }}</span>
+                  <span class="flex-1 whitespace-nowrap text-sm font-semibold">{{ t(m.label) }}</span>
                   <input
                     type="number"
                     inputmode="decimal"
@@ -188,8 +189,8 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
           </div>
         </div>
         <div class="card riveted-card flex flex-col gap-2">
-          <p class="text-xs text-bark/70 short:hidden">Fill in any tab; you don't need all of them. One save stores everything you entered.</p>
-          <button type="submit" class="chunky-btn btn-press" [disabled]="!canSave()">Save check-in</button>
+          <p class="text-xs text-bark/70 short:hidden">{{ t("Fill in any tab; you don't need all of them. One save stores everything you entered.") }}</p>
+          <button type="submit" class="chunky-btn btn-press" [disabled]="!canSave()">{{ t('Save check-in') }}</button>
           <ng-container [ngTemplateOutlet]="reward" />
           <ng-container [ngTemplateOutlet]="privacy" />
         </div>
@@ -198,22 +199,22 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
 
     <!-- Mood faces. Quick: one tap saves the mood. Otherwise: toggles the mood in the manual draft. -->
     <ng-template #moodPicker let-quick>
-      <div class="mt-1 grid grid-cols-5 gap-1" [class.quick]="quick" [attr.role]="quick ? 'group' : null" [attr.aria-label]="quick ? 'Quick mood check-in' : null">
+      <div class="mt-1 grid grid-cols-5 gap-1" [class.quick]="quick" [attr.role]="quick ? 'group' : null" [attr.aria-label]="quick ? t('Quick mood check-in') : null">
         @for (mood of moods; track mood.value) {
           <button
             type="button"
             class="mood btn-press"
-            [attr.aria-label]="quick ? 'Mood: ' + mood.label : null"
+            [attr.aria-label]="quick ? t('Mood: {mood}', { mood: t(mood.label) }) : null"
             [attr.aria-pressed]="quick ? null : draft()['MOOD'] === '' + mood.value"
             (click)="quick ? quickMood(mood.value) : toggleMood(mood.value)"
-          ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ mood.face }}</span><span class="word">{{ mood.label }}</span></button>
+          ><span class="text-2xl leading-none short:text-lg" aria-hidden="true">{{ mood.face }}</span><span class="word">{{ t(mood.label) }}</span></button>
         }
       </div>
     </ng-template>
 
     <!-- Inside a card's spare space, so it costs no height on short screens. -->
     <ng-template #privacy>
-      <p class="mt-auto text-[11px] leading-tight text-bark/70">🔒 Only you can see your health data.</p>
+      <p class="mt-auto text-[11px] leading-tight text-bark/70">🔒 {{ t('Only you can see your health data.') }}</p>
     </ng-template>
 
     <!-- The checklist already shows the values; the result is just the seeds. -->
@@ -221,17 +222,17 @@ const CREW_TAB: Record<CrewId, { icon: string; label: string }> = {
       @if (health.lastResult(); as r) {
         <p class="reward" role="status">
           <span class="text-xl short:text-base" aria-hidden="true">🌱</span>
-          @if (r.earned > 0) { <span>+{{ r.earned }} seeds<span class="short:hidden"> for checking in</span>@if (!r.bonuses.length) {<span class="hidden short:inline"> earned</span>}</span> }
-          @else if (r.alreadyRewarded) { <span class="short:hidden">Saved. Today's seeds for these are already yours</span><span class="hidden short:inline">{{ r.bonuses.length ? 'Saved' : 'Saved. Already earned today' }}</span> }
-          @else { Saved. }
+          @if (r.earned > 0) { <span><span class="short:hidden">{{ t('+{n} seeds for checking in', { n: r.earned }) }}</span><span class="hidden short:inline">{{ r.bonuses.length ? t('+{n} seeds', { n: r.earned }) : t('+{n} seeds earned', { n: r.earned }) }}</span></span> }
+          @else if (r.alreadyRewarded) { <span class="short:hidden">{{ t("Saved. Today's seeds for these are already yours") }}</span><span class="hidden short:inline">{{ r.bonuses.length ? t('Saved') : t('Saved. Already earned today') }}</span> }
+          @else { {{ t('Saved.') }} }
           @for (b of r.bonuses; track b.ref) {
-            <span class="bonus short:hidden" [title]="b.label + ': +' + b.amount + ' seeds'">{{ b.reason === 'GOAL' ? '🎯' : '🔥' }} {{ b.label }} +{{ b.amount }}</span>
+            <span class="bonus short:hidden" [title]="t('{bonus}: +{n} seeds', { bonus: bonusLabel(b), n: b.amount })">{{ b.reason === 'GOAL' ? '🎯' : '🔥' }} {{ bonusLabel(b) }} +{{ b.amount }}</span>
           }
           <!-- Phones: the bonuses as one total, so the banner stays on one line. -->
-          @if (r.bonuses.length) { <span class="bonus hidden short:inline" [title]="bonusList(r.bonuses)">+{{ bonusTotal(r.bonuses) }} bonus</span> }
+          @if (r.bonuses.length) { <span class="bonus hidden short:inline" [title]="bonusList(r.bonuses)">{{ t('+{n} bonus', { n: bonusTotal(r.bonuses) }) }}</span> }
         </p>
       } @else {
-        <p class="reward muted"><span class="text-xl short:text-base" aria-hidden="true">🌱</span>Check in to earn seeds</p>
+        <p class="reward muted"><span class="text-xl short:text-base" aria-hidden="true">🌱</span>{{ t('Check in to earn seeds') }}</p>
       }
     </ng-template>
   `,
@@ -347,7 +348,15 @@ export class MedicalTerminalPanelComponent {
   protected readonly health = inject(HealthStore);
   protected bonusTotal = (bonuses: readonly { amount: number }[]) => bonuses.reduce((sum, b) => sum + b.amount, 0);
   /** "Sleep goal +2, 3-day streak +3". */
-  protected bonusList = (bonuses: readonly { label: string; amount: number }[]) => bonuses.map((b) => `${b.label} +${b.amount}`).join(', ');
+  protected bonusList = (bonuses: readonly HabitBonus[]) => bonuses.map((b) => `${this.bonusLabel(b)} +${b.amount}`).join(', ');
+  /** "Water goal", "3-day streak": rebuilt from the bonus's ref (`goal:METRIC:day`, `streak:start:days`), since shared builds the label in English. */
+  protected bonusLabel(b: HabitBonus): string {
+    const [kind, key, n] = b.ref.split(':');
+    if (kind === 'goal' && key in METRICS) return t('{metric} goal', { metric: t(METRICS[key as HealthMetric].label) });
+    if (kind === 'streak' && n) return t('{n}-day streak', { n });
+    return t(b.label);
+  }
+  protected readonly t = t;
   protected readonly tab = signal<'sync' | 'manual'>('sync');
   protected readonly moods = MOODS;
   protected readonly icon = METRIC_ICON;
@@ -376,7 +385,10 @@ export class MedicalTerminalPanelComponent {
     for (const [metric, raw] of Object.entries(this.draft()) as [HealthMetric, string][]) {
       if (raw === '' || raw === undefined) continue;
       const e = validateMeasurement(metric, Number(raw));
-      if (e) out[metric] = e;
+      if (!e) continue;
+      // Shared words the range in English; say it in the player's language.
+      const d = METRICS[metric];
+      out[metric] = e.startsWith('Between ') ? t('Between {min} and {max} {unit}', { min: d.min, max: d.max, unit: d.unit }) : t(e);
     }
     return out;
   });

@@ -5,8 +5,18 @@ import { DISPLAY_NAME_MAX, type Member, STATION_KEY_LENGTH, SUITS, type Suit, no
 import { CURRENT_USER, MY_SUIT, ROLE, SAVED_PROFILE, saveProfile, switchTo } from './current-user';
 import { LiveChannel } from '../garden/live-channel';
 import { type PlayerChoice, stationMembers } from './member-session';
+import { t } from '../i18n/i18n';
 
-const SUIT_LABELS: Record<Suit, string> = { turquoise: 'Turquoise', green: 'Green', black: 'Black', wine: 'Wine', purple: 'Purple', cactus: 'Cactus', leaf: 'Leaf' };
+/** Whole names (not "{colour} suit"): Spanish puts the colour after the noun. Shown through t(). */
+const SUIT_LABELS: Record<Suit, string> = {
+  turquoise: 'Turquoise suit',
+  green: 'Green suit',
+  black: 'Black suit',
+  wine: 'Wine suit',
+  purple: 'Purple suit',
+  cactus: 'Cactus suit',
+  leaf: 'Leaf suit',
+};
 /**
  * Suits no longer offered (the turquoise art now draws the cactus character). Members who
  * already wear one keep it, and still see it here while it's theirs.
@@ -31,20 +41,20 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
     >
       <!-- Only the fields scroll when the screen is too short for them: Start always stays in view. -->
       <form class="panel relative flex min-h-0 max-h-full flex-col gap-4 p-5 short:gap-2 short:p-3 tiny:gap-1.5 tiny:p-2" novalidate (submit)="$event.preventDefault(); start()">
-        <h1 id="start-title" class="sr-only">Space Sprout: who's coming aboard?</h1>
+        <h1 id="start-title" class="sr-only">{{ t("Space Sprout: who's coming aboard?") }}</h1>
         @if (canCancel()) {
-          <button type="button" class="soft-btn btn-press absolute right-1.5 top-1.5 z-10 grid size-7 place-items-center rounded-lg text-xs" aria-label="Close" (click)="dialog.close()">✕</button>
+          <button type="button" class="soft-btn btn-press absolute right-1.5 top-1.5 z-10 grid size-7 place-items-center rounded-lg text-xs" [attr.aria-label]="t('Close')" (click)="dialog.close()">✕</button>
         }
 
         <div class="fields grid min-h-0 flex-1 gap-4 overflow-y-auto min-[520px]:grid-cols-[auto_1fr] min-[520px]:gap-5 short:gap-3">
           <!-- Astronaut: one suit at a time, its neighbours peeking in at the sides. -->
           <section class="flex h-full flex-col items-center gap-2 short:gap-1" aria-roledescription="carousel" aria-labelledby="suit-title" (keydown.arrowleft)="step(-1)" (keydown.arrowright)="step(1)">
             <h2 id="suit-title" class="flex items-center gap-2 self-start font-pixel text-xl leading-tight short:text-lg tiny:text-base">
-              <span class="grid size-8 place-items-center rounded-lg bg-steel-dark text-lg" aria-hidden="true">🧑‍🚀</span>Choose your astronaut
+              <span class="grid size-8 place-items-center rounded-lg bg-steel-dark text-lg" aria-hidden="true">🧑‍🚀</span>{{ t('Choose your astronaut') }}
             </h2>
-            <p class="sr-only" aria-live="polite">{{ label(suit()) }} suit</p>
+            <p class="sr-only" aria-live="polite">{{ label(suit()) }}</p>
             <div class="flex min-h-0 w-full flex-1 items-center gap-1">
-              <button type="button" class="nav-btn btn-press z-20 shrink-0" aria-label="Previous suit" (click)="step(-1)">‹</button>
+              <button type="button" class="nav-btn btn-press z-20 shrink-0" [attr.aria-label]="t('Previous suit')" (click)="step(-1)">‹</button>
               <!-- The strip: every slot slides together; drag it sideways to browse. -->
               <div
                 #stage
@@ -81,19 +91,19 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
                     @if (src) {
                       <img [src]="src" alt="" draggable="false" class="pixelated h-[68%] max-h-36 w-auto" [class.hidden]="!shown" (load)="portraitShown(src)" (error)="portraitShown(src)" />
                     }
-                    <span class="slot-name">{{ label(slot.suit) }} suit</span>
+                    <span class="slot-name">{{ label(slot.suit) }}</span>
                   </div>
                 }
               </div>
-              <button type="button" class="nav-btn btn-press z-20 shrink-0" aria-label="Next suit" (click)="step(1)">›</button>
+              <button type="button" class="nav-btn btn-press z-20 shrink-0" [attr.aria-label]="t('Next suit')" (click)="step(1)">›</button>
             </div>
-            <div class="flex gap-2" role="group" aria-label="Suits">
+            <div class="flex gap-2" role="group" [attr.aria-label]="t('Suits')">
               @for (s of suits; track s) {
                 <button
                   type="button"
                   class="size-3.5 rounded-full border-2 border-bark"
                   [class]="s === suit() ? 'bg-leaf-dark !border-leaf-dark' : 'bg-transparent hover:bg-bark/20'"
-                  [attr.aria-label]="label(s) + ' suit'"
+                  [attr.aria-label]="label(s)"
                   [attr.aria-pressed]="s === suit()"
                   (click)="goTo(s)"
                 ></button>
@@ -103,14 +113,14 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
 
           <div class="flex min-w-0 flex-col gap-3 border-bark/25 min-[520px]:border-l-2 min-[520px]:pl-5 tiny:min-[520px]:pl-3 short:gap-2 tiny:gap-1">
             <label class="flex flex-col gap-1">
-              <span class="field-title"><span aria-hidden="true">👤</span>Your name</span>
+              <span class="field-title"><span aria-hidden="true">👤</span>{{ t('Your name') }}</span>
               <input
                 #nameInput
                 autofocus
                 name="name"
                 class="field"
                 autocomplete="nickname"
-                placeholder="Type your name"
+                [placeholder]="t('Type your name')"
                 aria-describedby="name-error"
                 [attr.aria-invalid]="showNameError() || null"
                 [attr.maxlength]="nameMax"
@@ -118,18 +128,18 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
                 (input)="name.set($any($event.target).value)"
               />
               @if (showNameError()) {
-                <span id="name-error" class="text-xs font-bold text-alert" role="alert">Enter a name to start.</span>
+                <span id="name-error" class="text-xs font-bold text-alert" role="alert">{{ t('Enter a name to start.') }}</span>
               }
             </label>
 
             <fieldset class="flex flex-col gap-1">
-              <legend class="field-title mb-1"><span aria-hidden="true">👥</span>Who are you?</legend>
+              <legend class="field-title mb-1"><span aria-hidden="true">👥</span>{{ t('Who are you?') }}</legend>
               <div class="grid grid-cols-2 gap-2">
                 @for (r of roles; track r.value) {
                   @let on = role() === r.value;
                   <label class="role flex cursor-pointer items-center justify-center gap-1.5 px-2 py-2 text-sm font-extrabold short:py-1.5 tiny:py-1" [class.on]="on">
                     <input type="radio" name="role" class="sr-only" [value]="r.value" [checked]="on" (change)="role.set(r.value)" />
-                    <span class="text-lg leading-none" aria-hidden="true">{{ r.icon }}</span>{{ r.label }}
+                    <span class="text-lg leading-none" aria-hidden="true">{{ r.icon }}</span>{{ t(r.label) }}
                     @if (on) { <span class="tick" aria-hidden="true">✓</span> }
                   </label>
                 }
@@ -137,13 +147,13 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
             </fieldset>
 
             <label class="flex flex-col gap-1">
-              <span class="field-title"><span aria-hidden="true">🔑</span>Station key <span class="font-normal text-bark">(optional)</span></span>
+              <span class="field-title"><span aria-hidden="true">🔑</span>{{ t('Station key') }} <span class="font-normal text-bark">{{ t('(optional)') }}</span></span>
               <input
                 name="stationKey"
                 class="field font-mono uppercase placeholder:font-sans placeholder:normal-case"
                 autocomplete="off"
                 spellcheck="false"
-                placeholder="Blank starts a new station"
+                [placeholder]="t('Blank starts a new station')"
                 aria-describedby="station-key-hint"
                 [value]="stationKey()"
                 (input)="stationKey.set($any($event.target).value)"
@@ -151,16 +161,16 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
               @if (!aboard() && !keyError()) {
                 <span id="station-key-hint" class="flex items-center gap-1.5 text-xs text-bark">
                   <span class="grid size-4 shrink-0 place-items-center rounded-full bg-steel text-[0.65rem] font-black text-cream" aria-hidden="true">i</span>
-                  Got a key from family? Type it to join their station.
+                  {{ t('Got a key from family? Type it to join their station.') }}
                 </span>
               } @else if (keyError()) {
-                <span id="station-key-hint" class="text-xs font-bold text-alert" role="alert">{{ keyError() }}</span>
+                <span id="station-key-hint" class="text-xs font-bold text-alert" role="alert">{{ t(keyError()) }}</span>
               }
             </label>
             <!-- Someone already in this station, on a new device: tap yourself instead of joining again. -->
             @if (aboard(); as a) {
               <div class="flex flex-col gap-1 short:gap-0.5" role="group" aria-labelledby="aboard-title">
-                <span id="aboard-title" class="text-xs font-bold text-bark">Already aboard? Tap yourself:</span>
+                <span id="aboard-title" class="text-xs font-bold text-bark">{{ t('Already aboard? Tap yourself:') }}</span>
                 <ul class="flex gap-1.5 overflow-x-auto pb-1 short:pb-0.5">
                   @for (m of a.members; track m.id) {
                     <li class="shrink-0">
@@ -168,11 +178,11 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
                         type="button"
                         class="soft-btn btn-press flex items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-sm font-extrabold"
                         [disabled]="busy()"
-                        [attr.aria-label]="(m.id === me ? 'Keep playing as ' : 'Play as ') + m.displayName"
+                        [attr.aria-label]="m.id === me ? t('Keep playing as {name}', { name: m.displayName }) : t('Play as {name}', { name: m.displayName })"
                         (click)="pick(a.key, m)"
                       >
                         <span class="grid size-6 place-items-center rounded-full text-sm" [style.background]="m.color" aria-hidden="true">{{ m.role === 'ASTRONAUT' ? '🧑‍🚀' : '🏡' }}</span>
-                        {{ m.displayName }}@if (m.id === me) {<span class="font-normal text-bark">&nbsp;(you)</span>}
+                        {{ m.displayName }}@if (m.id === me) {<span class="font-normal text-bark">&nbsp;{{ t('(you)') }}</span>}
                       </button>
                     </li>
                   }
@@ -180,7 +190,7 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
               </div>
             } @else if (lookingUp()) {
               <div class="flex flex-col gap-1 short:gap-0.5" role="status">
-                <span class="text-xs font-bold text-bark">Looking up the station…</span>
+                <span class="text-xs font-bold text-bark">{{ t('Looking up the station…') }}</span>
                 <div class="flex gap-1.5 pb-1 short:pb-0.5" aria-hidden="true">
                   @for (w of [5.5, 7, 4.5]; track $index) {
                     <span class="chip-skeleton" [style.width.rem]="w"></span>
@@ -192,10 +202,10 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
         </div>
 
         @if (error()) {
-          <p class="text-center text-sm font-bold text-alert" role="alert">{{ error() }}</p>
+          <p class="text-center text-sm font-bold text-alert" role="alert">{{ t(error()) }}</p>
         }
         <button type="submit" class="chunky-btn btn-press start-btn shrink-0" [disabled]="busy()" [attr.aria-busy]="busy()">
-          @if (busy()) { Boarding… } @else { 🚀 Start <span aria-hidden="true">›</span> }
+          @if (busy()) { {{ t('Boarding…') }} } @else { 🚀 {{ t('Start') }} <span aria-hidden="true">›</span> }
         </button>
       </form>
     </dialog>
@@ -360,6 +370,7 @@ const HIDDEN_SUITS: readonly Suit[] = ['cactus'];
 })
 export class StartMenuComponent {
   /** False on the first visit: the player has to choose before playing. */
+  protected readonly t = t;
   readonly canCancel = input(false);
   readonly closed = output<void>();
   protected readonly assets = inject(AssetService);
@@ -543,7 +554,7 @@ export class StartMenuComponent {
   }
 
   protected label(s: Suit): string {
-    return SUIT_LABELS[s];
+    return t(SUIT_LABELS[s]);
   }
 
   /** Esc only closes when there is a game to go back to. */

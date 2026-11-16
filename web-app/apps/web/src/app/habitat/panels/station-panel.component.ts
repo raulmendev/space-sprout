@@ -6,11 +6,12 @@ import { HealthInsightsPanelComponent } from '../../health/health-insights-panel
 import { MessageBoardPanelComponent } from '../../social/message-board-panel.component';
 import { StorePanelComponent } from '../../store/store-panel.component';
 import { InventoryPanelComponent } from '../../store/inventory-panel.component';
+import { t } from '../../i18n/i18n';
 
 /** Panels drawn in the steel console frame; their content supplies its own cream screen. */
 const CONSOLE_PANELS: ReadonlySet<HabitatPanel> = new Set(['MEDICAL_TERMINAL_SELECTED', 'HEALTH_INSIGHTS_SELECTED', 'MESSAGE_BOARD_SELECTED', 'STORE_SELECTED', 'INVENTORY']);
 
-/** A more specific subtitle than the room name, where one helps. */
+/** A more specific subtitle than the room name, where one helps. English here; shown through t(). */
 const SUBTITLES: Partial<Record<HabitatPanel, string>> = { STORE_SELECTED: 'Habitat Supplies' };
 
 /** Popups that aren't opened from a prop bring their own title. */
@@ -90,7 +91,7 @@ const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>>
         <button
           type="button"
           [class]="console() ? 'console-close btn-press' : 'grid size-8 place-items-center rounded-full hover:bg-parchment focus-visible:outline-2 focus-visible:outline-sun'"
-          aria-label="Close panel"
+          [attr.aria-label]="t('Close panel')"
           (click)="closed.emit()"
         >✕</button>
       </header>
@@ -156,6 +157,7 @@ const OWN_TITLES: Partial<Record<HabitatPanel, { title: string; zone: string }>>
   `,
 })
 export class StationPanelComponent {
+  protected readonly t = t;
   readonly panel = input.required<HabitatPanel>();
   readonly closed = output<void>();
   private readonly heading = viewChild.required<ElementRef<HTMLElement>>('heading');
@@ -165,9 +167,9 @@ export class StationPanelComponent {
   /** Title and zone: the panel's own, or from the habitat data for the prop that opens it. */
   protected readonly meta = computed(() => {
     const own = OWN_TITLES[this.panel()];
-    if (own) return own;
+    if (own) return { title: t(own.title), zone: t(own.zone) };
     const prop = ALL_PROPS.find((p) => p.interaction === this.panel())!;
-    return { title: prop.name, zone: SUBTITLES[this.panel()] ?? ROOMS[prop.room].name };
+    return { title: t(prop.name), zone: t(SUBTITLES[this.panel()] ?? ROOMS[prop.room].name) };
   });
 
   constructor() {

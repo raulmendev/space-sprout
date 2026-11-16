@@ -6,6 +6,7 @@ import { MoodPickerComponent } from '../health/mood-picker.component';
 import { NPC_IDENTITY } from './npc-identity';
 import type { CrewAnswer } from './crew-reminders';
 import { ROLE } from '../session/current-user';
+import { t } from '../i18n/i18n';
 
 @Component({
   selector: 'app-dialogue-bubble',
@@ -13,34 +14,34 @@ import { ROLE } from '../session/current-user';
   template: `
     @if (npc.current(); as line) {
       @let who = identity[line.speaker];
-      <div class="panel bubble flex gap-3 p-3 pr-4" role="dialog" aria-live="polite" [attr.aria-label]="who.name + ' says'">
+      <div class="panel bubble flex gap-3 p-3 pr-4" role="dialog" aria-live="polite" [attr.aria-label]="t('{name} says', { name: who.name })">
         <img [src]="assets.url(who.texture)" alt="" class="pixelated size-16 shrink-0 rounded-md bg-parchment object-cover object-bottom" />
         <div class="min-w-0 flex-1">
           <div class="font-pixel text-sm text-leaf-dark">
-            {{ who.name }}@if (who.role) {<span class="ml-1.5 font-sans text-xs font-bold text-bark/60">{{ who.role }}</span>}
+            {{ who.name }}@if (who.role) {<span class="ml-1.5 font-sans text-xs font-bold text-bark/60">{{ t(who.role) }}</span>}
           </div>
           <p class="mt-0.5 text-[15px] leading-snug">{{ line.text }}</p>
 
           @if (line.ask && isCrew(line.speaker)) {
             @if (line.scan) {
               <div class="mt-2 flex flex-wrap gap-2">
-                <button type="button" class="rounded-md border-2 border-bark-dark bg-sun px-3 py-1 text-sm font-bold" (click)="scan.emit(line.speaker)">📡 Scan</button>
-                <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="putOff(line)">Later</button>
+                <button type="button" class="rounded-md border-2 border-bark-dark bg-sun px-3 py-1 text-sm font-bold" (click)="scan.emit(line.speaker)">{{ t('📡 Scan') }}</button>
+                <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="putOff(line)">{{ t('Later') }}</button>
               </div>
             } @else if (choices(line.ask); as opts) {
-              <div class="mt-2 flex flex-wrap gap-1.5" role="group" [attr.aria-label]="metrics[line.ask].label">
+              <div class="mt-2 flex flex-wrap gap-1.5" role="group" [attr.aria-label]="t(metrics[line.ask].label)">
                 @for (o of opts; track o.id) {
                   <button
                     type="button"
                     class="rounded-md border-2 border-bark/40 bg-parchment px-2 py-0.5 text-sm font-bold hover:bg-sun focus-visible:outline-2 focus-visible:outline-sun"
                     (click)="answer.emit({ speaker: line.speaker, metric: line.ask, value: o.value! })"
-                  ><span aria-hidden="true">{{ o.icon }}</span> {{ o.label }}</button>
+                  ><span aria-hidden="true">{{ o.icon }}</span> {{ t(o.label) }}</button>
                 }
               </div>
-              <button type="button" class="mt-1.5 text-xs font-bold underline" (click)="putOff(line)">Later</button>
+              <button type="button" class="mt-1.5 text-xs font-bold underline" (click)="putOff(line)">{{ t('Later') }}</button>
             } @else if (line.ask === 'MOOD') {
               <app-mood-picker class="mt-2" (pick)="answer.emit({ speaker: line.speaker, metric: 'MOOD', value: $event })" />
-              <button type="button" class="mt-1.5 text-xs font-bold underline" (click)="putOff(line)">Later</button>
+              <button type="button" class="mt-1.5 text-xs font-bold underline" (click)="putOff(line)">{{ t('Later') }}</button>
             } @else {
               @let def = metrics[line.ask];
               <form
@@ -56,7 +57,7 @@ import { ROLE } from '../session/current-user';
                     [min]="def.min" [max]="def.max" [step]="def.step"
                     [value]="draft()"
                     (input)="draft.set($any($event.target).value)"
-                    [attr.aria-label]="def.label + ' (' + def.unit + ')'"
+                    [attr.aria-label]="t(def.label) + ' (' + def.unit + ')'"
                     [attr.aria-invalid]="!!error()"
                   />
                   <span class="text-xs text-bark/70">{{ def.unit }}</span>
@@ -65,11 +66,11 @@ import { ROLE } from '../session/current-user';
                   type="submit"
                   class="rounded-md border-2 border-bark-dark bg-sun px-3 py-1 text-sm font-bold disabled:opacity-50"
                   [disabled]="draft() === '' || !!error()"
-                >Log it</button>
+                >{{ t('Log it') }}</button>
                 @if (canSayUnknown(line.ask)) {
-                  <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="unknown.emit({ speaker: line.speaker, metric: line.ask })">Don't know</button>
+                  <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="unknown.emit({ speaker: line.speaker, metric: line.ask })">{{ t("Don't know") }}</button>
                 }
-                <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="putOff(line)">Later</button>
+                <button type="button" class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun" (click)="putOff(line)">{{ t('Later') }}</button>
               </form>
               @if (error(); as e) { <p class="mt-1 text-xs font-bold text-[#a33]" role="alert">{{ e }}</p> }
             }
@@ -81,13 +82,13 @@ import { ROLE } from '../session/current-user';
                   class="rounded-md border-2 border-bark-dark bg-parchment px-3 py-1 text-sm font-bold hover:bg-sun focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun"
                   (click)="action.emit(a.action)"
                 >
-                  {{ a.label }}
+                  {{ t(a.label) }}
                 </button>
               }
             </div>
           }
         </div>
-        <button type="button" class="self-start text-bark/70 hover:text-bark-dark" aria-label="Close" (click)="putOff(line)">✕</button>
+        <button type="button" class="self-start text-bark/70 hover:text-bark-dark" [attr.aria-label]="t('Close')" (click)="putOff(line)">✕</button>
       </div>
     }
   `,
@@ -106,6 +107,7 @@ export class DialogueBubbleComponent {
   /** A crew member's question was put off ("Later" or ✕). */
   readonly later = output<CrewId>();
 
+  protected readonly t = t;
   protected readonly identity = NPC_IDENTITY;
   protected readonly metrics = METRICS;
   protected readonly isCrew = isCrew;
@@ -124,6 +126,11 @@ export class DialogueBubbleComponent {
   protected readonly error = computed(() => {
     const ask = this.npc.current()?.ask;
     const raw = this.draft();
-    return ask && raw !== '' ? validateMeasurement(ask, Number(raw)) : null;
+    if (!ask || raw === '') return null;
+    const value = Number(raw);
+    if (!validateMeasurement(ask, value)) return null;
+    // Same rule as validateMeasurement, worded in the player's language.
+    const def = METRICS[ask];
+    return Number.isFinite(value) ? t('Between {min} and {max} {unit}', { min: def.min, max: def.max, unit: def.unit }) : t('Enter a number');
   });
 }

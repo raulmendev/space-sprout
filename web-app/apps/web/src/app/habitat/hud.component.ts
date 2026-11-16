@@ -6,6 +6,7 @@ import { PlayerStore } from './player.store';
 import { EmoteWheelComponent } from './emote-wheel.component';
 import { CURRENT_USER, IS_FAMILY } from '../session/current-user';
 import { stationKey } from '../session/member-session';
+import { LANG, LANGS, Lang, setLang, t } from '../i18n/i18n';
 
 /**
  * Slim overlay along the top of the screen: rooms, seeds, fullscreen and a small
@@ -21,7 +22,7 @@ import { stationKey } from '../session/member-session';
     '(document:pointerdown)': 'closeMenuIfOutside($event)',
   },
   template: `
-    <nav aria-label="Rooms" class="rounded-full bg-night/60 p-1 backdrop-blur-sm">
+    <nav [attr.aria-label]="t('Rooms')" class="rounded-full bg-night/60 p-1 backdrop-blur-sm">
       <ol class="flex items-center gap-0.5 text-xs font-bold sm:text-sm">
         @for (r of roomOrder; track r; let last = $last) {
           @let here = habitat.activeRoom() === r;
@@ -29,7 +30,7 @@ import { stationKey } from '../session/member-session';
             class="rounded-full px-2.5 py-1"
             [class]="here ? 'bg-cream text-bark-dark' : 'hidden text-cream/60 sm:block'"
             [attr.aria-current]="here ? 'location' : null"
-          >{{ rooms[r].name }}</li>
+          >{{ t(rooms[r].name) }}</li>
           @if (!last) { <li aria-hidden="true" class="hidden text-cream/40 sm:block">↔</li> }
         }
       </ol>
@@ -39,22 +40,22 @@ import { stationKey } from '../session/member-session';
       <div class="relative">
         <span
           class="flex h-12 items-center gap-1 rounded-full bg-night/60 px-2.5 text-sm font-bold text-cream backdrop-blur-sm"
-          [attr.aria-label]="'Playing as ' + me.displayName"
-          [title]="'Playing as ' + me.displayName"
+          [attr.aria-label]="t('Playing as {name}', { name: me.displayName })"
+          [title]="t('Playing as {name}', { name: me.displayName })"
         ><span class="text-lg" aria-hidden="true">{{ meIcon }}</span><span class="hidden md:inline">{{ me.displayName }}</span></span>
         <!-- Hangs below the name, out of the row's layout, so it never pushes the buttons off a small screen. -->
         @if (garden.reconnecting()) {
           <span class="absolute left-1/2 top-full mt-1.5 flex h-7 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-night/75 px-3 text-xs font-bold text-cream backdrop-blur-sm" role="status">
-            <span class="size-2 animate-pulse rounded-full bg-sun" aria-hidden="true"></span>Reconnecting…
+            <span class="size-2 animate-pulse rounded-full bg-sun" aria-hidden="true"></span>{{ t('Reconnecting…') }}
           </span>
         }
       </div>
-      <span class="panel flex h-12 items-center whitespace-nowrap px-3 text-xl font-extrabold text-bark-dark" aria-label="Seeds balance">🌱 {{ garden.balance() }}</span>
+      <span class="panel flex h-12 items-center whitespace-nowrap px-3 text-xl font-extrabold text-bark-dark" [attr.aria-label]="t('Seeds balance')">🌱 {{ garden.balance() }}</span>
       <button
         #emoteButton
         type="button"
         class="grid size-12 place-items-center rounded-full bg-night/60 text-[1.75rem] leading-none backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
-        aria-label="Emotes"
+        [attr.aria-label]="t('Emotes')"
         aria-haspopup="dialog"
         [attr.aria-expanded]="popover() === 'emotes'"
         (click)="toggle('emotes')"
@@ -65,14 +66,14 @@ import { stationKey } from '../session/member-session';
       <button
         type="button"
         class="grid size-12 place-items-center rounded-full bg-night/60 text-[2rem] leading-none backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
-        aria-label="Inventory"
+        [attr.aria-label]="t('Inventory')"
         (click)="habitat.openPanel.set('INVENTORY')"
       >🎒</button>
       @if (canFullscreen) {
         <button
           type="button"
           class="grid size-12 place-items-center rounded-full bg-night/60 text-[2.25rem] font-black leading-none text-cream backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
-          [attr.aria-label]="isFullscreen() ? 'Exit full screen' : 'Full screen'"
+          [attr.aria-label]="t(isFullscreen() ? 'Exit full screen' : 'Full screen')"
           (click)="toggleFullscreen()"
         >{{ isFullscreen() ? '⤡' : '⤢' }}</button>
       }
@@ -80,7 +81,7 @@ import { stationKey } from '../session/member-session';
         <button
           type="button"
           class="grid size-12 place-items-center rounded-full bg-night/60 text-[2.25rem] font-black leading-none text-cream backdrop-blur-sm hover:bg-night/80 focus-visible:outline-2 focus-visible:outline-sun"
-          aria-label="Menu"
+          [attr.aria-label]="t('Menu')"
           [attr.aria-expanded]="popover() === 'menu'"
           aria-controls="hud-menu"
           (click)="toggle('menu')"
@@ -90,16 +91,32 @@ import { stationKey } from '../session/member-session';
             <p class="px-2 pt-1 font-pixel text-base">Space Sprout</p>
             <label class="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-parchment">
               <input type="checkbox" class="accent-leaf-dark" [checked]="habitat.showLayout()" (change)="habitat.showLayout.set(!habitat.showLayout())" />
-              Show layout
+              {{ t('Show layout') }}
             </label>
+            <div class="flex items-center justify-between gap-2 px-2 py-1" role="group" [attr.aria-label]="t('Language')">
+              <span>{{ t('Language') }}</span>
+              <span class="flex rounded-full bg-parchment p-0.5 text-xs font-bold">
+                @for (l of langs; track l.id) {
+                  <button
+                    type="button"
+                    class="rounded-full px-2 py-1"
+                    [class]="lang() === l.id ? 'bg-leaf-dark text-cream' : 'text-bark-dark hover:bg-cream'"
+                    [attr.aria-pressed]="lang() === l.id"
+                    [attr.lang]="l.id"
+                    [title]="l.name"
+                    (click)="pickLang(l.id)"
+                  >{{ l.id.toUpperCase() }}</button>
+                }
+              </span>
+            </div>
             @if (stationKey) {
-              <p class="flex items-baseline justify-between gap-2 rounded-md px-2 py-1.5" title="Give this key to family so they can join your station">
-                Station key <span class="select-all font-mono font-extrabold tracking-wider">{{ stationKey }}</span>
+              <p class="flex items-baseline justify-between gap-2 rounded-md px-2 py-1.5" [title]="t('Give this key to family so they can join your station')">
+                {{ t('Station key') }} <span class="select-all font-mono font-extrabold tracking-wider">{{ stationKey }}</span>
               </p>
             }
-            <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="popover.set(null); changePlayer.emit()">Change player</button>
+            <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="popover.set(null); changePlayer.emit()">{{ t('Change player') }}</button>
             @if (garden.canReset) {
-              <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="popover.set(null); reset.emit()">Reset demo</button>
+              <button type="button" class="rounded-md px-2 py-1.5 text-left hover:bg-parchment" (click)="popover.set(null); reset.emit()">{{ t('Reset demo') }}</button>
             }
           </div>
         }
@@ -115,6 +132,9 @@ export class HudComponent {
   /** Rooms west → east, as connected by their doors. */
   protected readonly roomOrder: RoomId[] = ['GARDEN', 'SOCIAL', 'MEDICAL'];
   protected readonly rooms = ROOMS;
+  protected readonly t = t;
+  protected readonly lang = LANG;
+  protected readonly langs = LANGS;
   private readonly player = inject(PlayerStore);
   /** What's open from the HUD: the menu or the emote wheel (one tap sends an emote and closes it). One at a time. */
   protected readonly popover = signal<'menu' | 'emotes' | null>(null);
@@ -138,6 +158,11 @@ export class HudComponent {
       this.habitat.activeRoom();
       this.popover.set(null);
     });
+  }
+
+  /** Switch language; the menu stays open so the change is visible right there. */
+  protected pickLang(lang: Lang): void {
+    setLang(lang);
   }
 
   protected toggle(which: 'menu' | 'emotes'): void {

@@ -5,6 +5,7 @@ import { GardenStore } from '../garden/garden.store';
 import { HabitatStore } from '../habitat/habitat.store';
 import { AssetService } from '../shared/assets.service';
 import { moreSeeds, seeds } from '../shared/format';
+import { t } from '../i18n/i18n';
 
 /**
  * "Purchasing…" lasts at least this long (ms). A local purchase finishes instantly, so without it
@@ -20,8 +21,8 @@ interface Feedback {
 
 /** Where the thing just bought gets used, so the purchase leads somewhere. */
 function boughtText(item: StoreItem): string {
-  if (item.plant) return 'Purchased! Ready to plant in the Garden.';
-  return `${item.name} added to your inventory.`;
+  if (item.plant) return t('Purchased! Ready to plant in the Garden.');
+  return t('{name} added to your inventory.', { name: t(item.name) });
 }
 
 /**
@@ -39,7 +40,7 @@ function boughtText(item: StoreItem): string {
       <p class="flex shrink-0 items-baseline gap-1.5">
         <span class="text-xl leading-none short:text-lg" aria-hidden="true">🌱</span>
         <b class="text-2xl leading-none short:text-xl">{{ garden.balance() }}</b>
-        <span class="font-bold">seeds to spend</span>
+        <span class="font-bold">{{ t('seeds to spend') }}</span>
       </p>
       <span class="divider" aria-hidden="true"></span>
       <!-- One line, three uses: the last purchase's result, the household's recent buys, or how to earn more. -->
@@ -47,17 +48,17 @@ function boughtText(item: StoreItem): string {
         @if (feedback(); as f) {
           {{ f.itemId ? '✓ ' : '' }}{{ f.text }}
         } @else if (garden.recentPurchases()) {
-          <span class="text-bark/70">Recently: {{ garden.recentPurchases() }}</span>
+          <span class="text-bark/70">{{ t('Recently: {list}', { list: garden.recentPurchases() }) }}</span>
         } @else {
-          <span class="text-bark/70">Earn more with check-ins at the Medical Terminal.</span>
+          <span class="text-bark/70">{{ t('Earn more with check-ins at the Medical Terminal.') }}</span>
         }
       </p>
     </div>
 
-    <div role="tablist" aria-label="Store sections" class="grid grid-cols-3 gap-2">
+    <div role="tablist" [attr.aria-label]="t('Store sections')" class="grid grid-cols-3 gap-2">
       @for (s of sections; track s.id) {
         <button type="button" role="tab" class="console-tab btn-press" [attr.aria-selected]="section() === s.id" (click)="section.set(s.id)">
-          <span aria-hidden="true">{{ s.icon }}</span>{{ s.title }}
+          <span aria-hidden="true">{{ s.icon }}</span>{{ t(s.title) }}
         </button>
       }
     </div>
@@ -75,13 +76,13 @@ function boughtText(item: StoreItem): string {
             }
           </span>
           <div class="min-w-0 flex-1">
-            <p class="name font-extrabold leading-tight">{{ item.name }}</p>
+            <p class="name font-extrabold leading-tight">{{ t(item.name) }}</p>
             <!-- On short screens a one-line cut ("A cheerful pi…") says nothing; the name and sprite carry it. -->
-            <p class="desc line-clamp-2 short:hidden">{{ item.description }}</p>
+            <p class="desc line-clamp-2 short:hidden">{{ t(item.description) }}</p>
             @if (missing > 0) {
-              <p class="text-xs font-bold text-alert">Need {{ moreSeeds(missing) }}</p>
+              <p class="text-xs font-bold text-alert">{{ t('Need {more}', { more: moreSeeds(missing) }) }}</p>
             } @else {
-              <p class="owned text-xs font-bold" [class.text-leaf-dark]="have > 0">Owned: {{ have }}</p>
+              <p class="owned text-xs font-bold" [class.text-leaf-dark]="have > 0">{{ t('Owned: {n}', { n: have }) }}</p>
             }
           </div>
           <button
@@ -92,7 +93,7 @@ function boughtText(item: StoreItem): string {
             (click)="buy(item)"
           >
             <span class="price"><span aria-hidden="true">🌱</span>{{ item.price }}</span>
-            <span class="action">{{ purchasing() === item.id ? 'Purchasing…' : missing > 0 ? 'Need ' + missing + ' more' : 'Buy' }}</span>
+            <span class="action">{{ purchasing() === item.id ? t('Purchasing…') : missing > 0 ? t('Need {n} more', { n: missing }) : t('Buy') }}</span>
           </button>
         </li>
       }
@@ -176,7 +177,8 @@ export class StorePanelComponent {
   private feedbackTimer?: ReturnType<typeof setTimeout>;
 
   protected readonly items = computed(() => STORE_ITEMS.filter((i) => i.section === this.section()));
-  protected readonly sectionTitle = computed(() => STORE_SECTIONS.find((s) => s.id === this.section())!.title);
+  protected readonly sectionTitle = computed(() => t(STORE_SECTIONS.find((s) => s.id === this.section())!.title));
+  protected readonly t = t;
 
 
   constructor() {
@@ -187,8 +189,10 @@ export class StorePanelComponent {
   protected moreSeeds = moreSeeds;
 
   protected buyLabel(item: StoreItem, missing: number): string {
-    if (this.purchasing() === item.id) return `Purchasing ${item.name}…`;
-    return `Buy ${item.name} for ${seeds(item.price)}` + (missing > 0 ? `, need ${moreSeeds(missing)}` : '');
+    const name = t(item.name);
+    if (this.purchasing() === item.id) return t('Purchasing {name}…', { name });
+    const buy = t('Buy {name} for {price}', { name, price: seeds(item.price) });
+    return missing > 0 ? t('{buy}, need {more}', { buy, more: moreSeeds(missing) }) : buy;
   }
 
   protected async buy(item: StoreItem): Promise<void> {
@@ -199,12 +203,12 @@ export class StorePanelComponent {
     this.feedback.set(null);
     try {
       const error = await this.garden.buy(item.id);
-      if (error === 'INSUFFICIENT_FUNDS') this.feedback.set({ text: `Need ${moreSeeds(item.price - this.garden.balance())}.` });
+      if (error === 'INSUFFICIENT_FUNDS') this.feedback.set({ text: t('Need {more}.', { more: moreSeeds(item.price - this.garden.balance()) }) });
       else if (error) this.feedback.set({ text: failureText({ UNKNOWN_ITEM: 'Currently unavailable.' }, error) });
       else this.feedback.set({ itemId: item.id, text: boughtText(item) });
     } catch {
       // Nothing was saved, so nothing was charged: just let them try again.
-      this.feedback.set({ text: "Purchase couldn't be completed. Try again." });
+      this.feedback.set({ text: t("Purchase couldn't be completed. Try again.") });
     } finally {
       await settled;
       this.purchasing.set(null);

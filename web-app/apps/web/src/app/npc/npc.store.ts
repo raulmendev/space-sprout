@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import type { Dialogue, DialogueTrigger, HealthMetric, NpcId } from '@garden/shared';
 import { PET_LINES, ReactingPet, dialoguesFor } from './dialogues';
+import { t } from '../i18n/i18n';
 
 /** A line on screen. With `ask`, the bubble offers a quick answer for that reading. */
 export interface Line extends Omit<Dialogue, 'trigger'> {
@@ -35,7 +36,7 @@ export class NpcStore {
   petSays(id: ReactingPet): void {
     const n = this.petLines.get(id) ?? 0;
     this.petLines.set(id, n + 1);
-    this.sayAs(id, PET_LINES[id][n % PET_LINES[id].length]);
+    this.sayAs(id, t(PET_LINES[id][n % PET_LINES[id].length]));
   }
 
   /** System-initiated line: only if nothing is showing and cooldown passed. */
@@ -56,7 +57,7 @@ export class NpcStore {
     if (options.length) this.show(this.next(trigger, options));
   }
 
-  /** Someone says a line. Lines without a question fade on their own. */
+  /** Someone says a line (already in the player's language). Lines without a question fade on their own. */
   sayAs(speaker: NpcId, text: string, ask?: HealthMetric, scan = false): void {
     clearTimeout(this.autoCloseTimer);
     this.current.set({ id: `${speaker}:${ask ?? 'line'}`, speaker, text, ask, scan });
@@ -69,10 +70,10 @@ export class NpcStore {
     this.current.set(null);
   }
 
-  /** One of Rabanito's predefined lines. */
+  /** One of Rabanito's predefined lines (its buttons are translated where they're shown). */
   private show(d: Dialogue): void {
     clearTimeout(this.autoCloseTimer);
-    this.current.set({ ...d, speaker: 'RADISH' });
+    this.current.set({ ...d, text: t(d.text), speaker: 'RADISH' });
   }
 
   private next(trigger: DialogueTrigger, options: Dialogue[]): Dialogue {
