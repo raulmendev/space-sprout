@@ -10,7 +10,7 @@ export const partial = "api";
 export default defineRailway(() => {
   const api = service("api", {
     // Deploys from GitHub: every merge to main that touches the watch patterns below.
-    source: { type: "github", repo: "raulmendev/astro-garden", branch: "main" },
+    source: { type: "github", repo: "raulmendev/space-sprout", branch: "main" },
     build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "api/Dockerfile", watchPatterns: ["api/**", "shared/**", ".railway/**"] },
     healthcheck: "/api/health",
     healthcheckTimeout: 60,
